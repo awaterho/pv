@@ -134,15 +134,21 @@ class SceneBuffers {
 
   private _allocate(): void {
     const gl = this._gl;
+    // a zero-sized attachment makes the framebuffer incomplete, which
+    // happens when the viewer is created inside a hidden or not yet laid
+    // out parent (width/height 'auto' resolve to 0). Allocate at least
+    // 1x1; the real size is picked up on the next resize.
+    const width = Math.max(1, Math.floor(this._width));
+    const height = Math.max(1, Math.floor(this._height));
 
     // depth as a texture (not a renderbuffer) so SSAO can sample it --
     // must stay NEAREST-filtered, since depth textures aren't filterable
     // in core WebGL2.
     this._setupTexture(this._depthTexture, gl.DEPTH_COMPONENT24, gl.DEPTH_COMPONENT,
-                       gl.UNSIGNED_INT, this._width, this._height);
+                       gl.UNSIGNED_INT, width, height);
 
     this._setupTexture(this._opaqueColorTexture, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE,
-                       this._width, this._height);
+                       width, height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._opaqueFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this._opaqueColorTexture, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this._depthTexture, 0);
@@ -152,13 +158,13 @@ class SceneBuffers {
 
     if (this._oitSupported && this._oitFbo !== null) {
       this._setupTexture(this._accumTexture!, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT,
-                         this._width, this._height);
+                         width, height);
       // RGBA (not single-channel) so the blend equation's "source alpha"
       // factor (ONE_MINUS_SRC_ALPHA) has a real alpha component to read --
       // every channel holds the same revealage value, see shaders.ts's
       // OIT_ACCUM_*_FS.
       this._setupTexture(this._revealTexture!, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT,
-                         this._width, this._height);
+                         width, height);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._oitFbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this._accumTexture!, 0);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, this._revealTexture!, 0);
@@ -171,8 +177,8 @@ class SceneBuffers {
       }
     }
 
-    this._ssaoWidth = Math.max(1, Math.ceil(this._width / this._ssaoDownscale));
-    this._ssaoHeight = Math.max(1, Math.ceil(this._height / this._ssaoDownscale));
+    this._ssaoWidth = Math.max(1, Math.ceil(width / this._ssaoDownscale));
+    this._ssaoHeight = Math.max(1, Math.ceil(height / this._ssaoDownscale));
     this._setupTexture(this._ssaoTexture, gl.R8, gl.RED, gl.UNSIGNED_BYTE,
                        this._ssaoWidth, this._ssaoHeight, gl.NEAREST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._ssaoFbo);
