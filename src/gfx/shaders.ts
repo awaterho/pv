@@ -438,7 +438,7 @@ void main(void) {\n\
   float depth = projected.z / projected.w;\n\
   gl_FragDepth = (depth + 1.0) * 0.5;\n\
   vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * pow(max(0.0, dp), 18.0);\n\
+  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
   if (outlineEnabled) { \n\
     rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
   } else { \n\
@@ -782,7 +782,7 @@ void main(void) {\n\
   float depth = projected.z / projected.w;\n\
   gl_FragDepth = (depth + 1.0) * 0.5;\n\
   vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * pow(max(0.0, dp), 18.0);\n\
+  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
   if (outlineEnabled) { \n\
     rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
   } else { \n\

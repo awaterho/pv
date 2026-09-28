@@ -41,6 +41,7 @@ function applyOpacity(val) {
 
 function points() {
   viewer.clear();
+  addLigands();
   viewer.points('structure', structure, {
                          color: color.byResidueProp('num'),
                          showRelated : related() });
@@ -53,6 +54,7 @@ function lines() {
               showRelated : related() });
   go.setSelection(go.select({rnumRange : [15,20]}));
   go.setOpacity(0.5, go.select({rnumRange : [25,30]}));
+  addLigands();
 }
 
 function cartoon() {
@@ -61,28 +63,33 @@ function cartoon() {
       color : color.ssSuccession(), showRelated : related(),
   });
   var rotation = viewpoint.principalAxes(go);
+  addLigands();
   //go.setSelection(go.select({rtype : 'C' }));
   viewer.setRotation(rotation)
 }
 
 function lineTrace() {
   viewer.clear();
+  addLigands();
   viewer.lineTrace('structure', structure, { showRelated : related() });
 }
 
 function spheres() {
   viewer.clear();
+  addLigands();
   viewer.spheres('structure', structure, { showRelated : related() });
 }
 
 function sline() {
   viewer.clear();
+  addLigands();
   viewer.sline('structure', structure,
       { color : color.uniform('red'), showRelated : related() });
 }
 
 function tube() {
   viewer.clear();
+  addLigands();
   viewer.tube('structure', structure, { showRelated : related() });
   viewer.lines('structure.ca', structure.select({aname :'CA'}),
             { color: color.uniform('blue'), lineWidth : 1,
@@ -91,16 +98,19 @@ function tube() {
 
 function trace() {
   viewer.clear();
+  addLigands();
   viewer.trace('structure', structure, { showRelated : related() });
 
 }
 function ballsAndSticks() {
   viewer.clear();
+  addLigands();
   viewer.ballsAndSticks('structure', structure, { showRelated : related() });
 }
 
 function surface() {
   viewer.clear();
+  addLigands();
   viewer.surface('structure', structure.select('protein'), {
     color: color.ssSuccession()
   }).then(function(go) {
@@ -112,11 +122,14 @@ function surface() {
 
 function preset() {
   viewer.clear();
-  var ligand = structure.select({'rnames' : ['SAH', 'RVP']});
-  viewer.ballsAndSticks('structure.ligand', ligand, {
-  });
-  viewer.cartoon('structure.protein', structure, { boundingSpheres: false });
+  viewer.cartoon('structure.protein', structure);
+  addLigands();
   applyOpacity(currentOpacity);
+}
+
+function addLigands() {
+  const ligand = structure.select('ligand');
+  viewer.ballsAndSticks('structure.ligand', ligand);
 }
 
 // loads a structure from its local mmCIF fixture (pdbs/<id>.cif).
@@ -185,47 +198,54 @@ function longHelices() {
 
 function ssSuccession() {
   viewer.forEach(function(go) {
-    go.colorBy(color.ssSuccession());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.ssSuccession());
   });
   viewer.requestRedraw();
 }
 
 function uniform() {
   viewer.forEach(function(go) {
-    go.colorBy(color.uniform([0,1,0]));
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.uniform([0,1,0]));
   });
   viewer.requestRedraw();
 }
 function byElement() {
   viewer.forEach(function(go) {
-    go.colorBy(color.byElement());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.byElement());
   });
   viewer.requestRedraw();
 }
 
 function ss() {
   viewer.forEach(function(go) {
-    go.colorBy(color.bySS());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.bySS());
   });
   viewer.requestRedraw();
 }
 
 function proInRed() {
   viewer.forEach(function(go) {
-    go.colorBy(color.uniform('red'), go.select({rname : 'PRO'}));
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.uniform('red'), go.select({rname : 'PRO'}));
   });
   viewer.requestRedraw();
 }
 function rainbow() {
   viewer.forEach(function(go) {
-    go.colorBy(color.rainbow());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.rainbow());
   });
   viewer.requestRedraw();
 }
 
 function byChain() {
   viewer.forEach(function(go) {
-    go.colorBy(color.byChain());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.byChain());
   });
   viewer.requestRedraw();
 }
