@@ -622,15 +622,14 @@ class Viewer {
                shaders.SELECT_FS, p),
       select : c.initShader(shaders.SELECT_VS, shaders.SELECT_FS, p)
     };
-    const hasFragDepth = !!c.gl().getExtension('EXT_frag_depth');
-    if (hasFragDepth) {
-      this._shaderCatalog.spheres =
-        c.initShader(shaders.SPHERES_VS,
-                     shaders.PRELUDE_FS + shaders.SPHERES_FS, p);
-      this._shaderCatalog.selectSpheres =
-        c.initShader(shaders.SELECT_SPHERES_VS,
-                     shaders.PRELUDE_FS + shaders.SELECT_SPHERES_FS, p);
-    }
+    // billboarded spheres need gl_FragDepth, which is core in WebGL2 -- no
+    // extension check (getExtension('EXT_frag_depth') is always null there).
+    this._shaderCatalog.spheres =
+      c.initShader(shaders.SPHERES_VS, shaders.ES3_HEADER +
+                   shaders.PRELUDE_FS + shaders.SPHERES_FS, p);
+    this._shaderCatalog.selectSpheres =
+      c.initShader(shaders.SELECT_SPHERES_VS, shaders.ES3_HEADER +
+                   shaders.PRELUDE_FS + shaders.SELECT_SPHERES_FS, p);
 
     this._sceneBuffers = new SceneBuffers(c.gl(), {
       width : c.viewportWidth(), height : c.viewportHeight(),
@@ -645,10 +644,8 @@ class Viewer {
     if (this._sceneBuffers.oitSupported()) {
       this._shaderCatalog.hemilightTransparent =
         c.initShader(shaders.OIT_ACCUM_VS, shaders.OIT_ACCUM_HEMILIGHT_FS, p);
-      if (hasFragDepth) {
-        this._shaderCatalog.spheresTransparent =
-          c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
-      }
+      this._shaderCatalog.spheresTransparent =
+        c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
       this._shaderCatalog.linesTransparent =
         c.initShader(shaders.OIT_ACCUM_LINES_VS, shaders.OIT_ACCUM_LINES_FS, p);
       this._compositeShader = c.initShader(
@@ -1219,15 +1216,10 @@ class Viewer {
     options.color = options.color || color.byElement();
     options.sphereDetail = this.options('sphereDetail');
     options.radiusMultiplier = options.radiusMultiplier || 1.0;
-    let obj;
-    // in case we can write to the depth buffer from the fragment shader
-    // (EXT_frag_depth) we can use billboarded spheres instead of creating
-    // the full sphere geometry. That's faster AND looks better.
-    if (this._canvas!.gl().getExtension('EXT_frag_depth')) {
-      obj = render.billboardedSpheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
-    } else {
-      obj = render.spheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
-    }
+    // billboarded spheres: one screen-aligned quad per atom, with the sphere
+    // surface and depth computed per fragment. Much less memory and faster
+    // than tessellated sphere meshes, and they look better.
+    const obj = render.billboardedSpheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
     return this.add(name, obj);
   }
 

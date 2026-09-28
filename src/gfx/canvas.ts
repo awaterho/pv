@@ -211,7 +211,7 @@ class Canvas {
     gl.linkProgram(shaderProgram);
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
       console.error('could not initialise shaders');
-      console.error(gl.getShaderInfoLog(shaderProgram));
+      console.error(gl.getProgramInfoLog(shaderProgram));
       return null;
     }
     // get vertex attribute location for the shader once to
