@@ -20,6 +20,7 @@
 
 import geom from '../geom';
 import BillboardGeomCtor, { type BillboardGeom } from './billboard-geom';
+import CompositeGeomCtor, { type CompositeGeom } from './composite-geom';
 import LineGeomCtor, { type LineGeom } from './line-geom';
 import MeshGeomCtor, { type MeshGeom } from './mesh-geom';
 import gfxGeomBuilders from './geom-builders';
@@ -254,6 +255,21 @@ exports.spheres = function(structure: RenderStructure, gl: WebGL2RenderingContex
   return geom;
 };
 
+// adds one billboarded sphere (a quad, expanded to face the camera in
+// SPHERES_VS) to va. The quad's corners go into the normal's xy, the radius
+// into its z.
+const addSphereQuad = function(va: ReturnType<MeshGeom['vertArrayWithSpaceFor']>,
+                               pos: vec3, radius: number,
+                               color: vec4, objId: number) {
+  const vertStart = va.numVerts();
+  va.addVertex(pos, [-1.0, -1.0, radius], color, objId);
+  va.addVertex(pos, [+1.0, +1.0, radius], color, objId);
+  va.addVertex(pos, [+1.0, -1.0, radius], color, objId);
+  va.addVertex(pos, [-1.0, +1.0, radius], color, objId);
+  va.addTriangle(vertStart + 0, vertStart + 1, vertStart + 2);
+  va.addTriangle(vertStart + 0, vertStart + 3, vertStart + 1);
+};
+
 const billboardedSpheresForChain = (function() {
   const color = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
 
@@ -272,13 +288,7 @@ const billboardedSpheresForChain = (function() {
       opts.color.colorFor(atom as never, color as Float32Array, 0);
       const objId = idRange.nextId({ geom: meshGeom, atom : atom });
       const vertStart = va.numVerts();
-      const p = atom.pos();
-      va.addVertex(p, [-1.0, -1.0, radius], color, objId);
-      va.addVertex(p, [+1.0, +1.0, radius], color, objId);
-      va.addVertex(p, [+1.0, -1.0, radius], color, objId);
-      va.addVertex(p, [-1.0, +1.0, radius], color, objId);
-      va.addTriangle(vertStart + 0, vertStart + 1, vertStart + 2);
-      va.addTriangle(vertStart + 0, vertStart + 3, vertStart + 1);
+      addSphereQuad(va, atom.pos(), radius, color, objId);
       const vertEnd = va.numVerts();
       vertAssoc.addAssoc(atom as never, va as never, vertStart, vertEnd);
     });
@@ -299,42 +309,52 @@ exports.billboardedSpheres = function(structure: RenderStructure, gl: WebGL2Rend
   return geom;
 };
 
-
-
-
+// balls are billboarded spheres (see addSphereQuad), sticks are cylinder
+// meshes. Each atom gets its sphere plus one half-cylinder per bond, running
+// from the atom to the bond's mid point in the atom's color.
 const ballsAndSticksForChain = (function() {
   const midPoint = vec3.create(), dir = vec3.create();
   const color = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
   const left = vec3.create(), up = vec3.create();
   const rotation = mat3.create();
-  return function(meshGeom: MeshGeom, vertAssoc: InstanceType<typeof AtomVertexAssoc>,
+  return function(composite: CompositeGeom, spheres: BillboardGeom, sticks: MeshGeom,
+                  vertAssoc: InstanceType<typeof AtomVertexAssoc>,
                   opts: RenderOptions, chain: RenderChain) {
     // determine required number of vertices and indices for this chain
     const atomCount = chain.atomCount();
     let bondCount = 0;
     chain.eachAtom(function(a) { bondCount += a.bonds().length; });
-    const numVerts = atomCount * opts.protoSphere.numVerts() +
-                   bondCount * opts.protoCyl.numVerts();
-    const numIndices = atomCount * opts.protoSphere.numIndices() +
-                     bondCount * opts.protoCyl.numIndices();
-    meshGeom.addChainVertArray(chain as never, numVerts, numIndices);
+    spheres.addChainVertArray(chain as never, 4 * atomCount, 6 * atomCount);
+    if (bondCount > 0) {
+      sticks.addChainVertArray(chain as never,
+                               bondCount * opts.protoCyl.numVerts(),
+                               bondCount * opts.protoCyl.numIndices());
+    }
     const idRange = opts.idPool.getContinuousRange(atomCount)!;
-    meshGeom.addIdRange(idRange);
+    composite.addIdRange(idRange);
     // generate geometry for each atom
     chain.eachAtom(function(atom) {
       const atomScale = opts.scaleByAtomRadius ?
         (VDW_RADIUS as Record<string, number>)[atom.element()] || 1 :
         1;
       const atomRadius = opts.sphereRadius * atomScale;
-      const atomVerts = opts.protoSphere.numVerts() +
-                      atom.bondCount() * opts.protoCyl.numVerts();
-      const va = meshGeom.vertArrayWithSpaceFor(atomVerts);
-      const vertStart = va.numVerts();
-      const objId = idRange.nextId({ geom: meshGeom, atom : atom });
-
+      // ids point at the composite, so picking returns the object the
+      // viewer knows about.
+      const objId = idRange.nextId({ geom: composite, atom : atom });
       opts.color.colorFor(atom as never, color as Float32Array, 0);
-      opts.protoSphere.addTransformed(va as never, atom.pos(), atomRadius, color,
-                                         objId);
+
+      const sphereVa = spheres.vertArrayWithSpaceFor(4);
+      const sphereStart = sphereVa.numVerts();
+      addSphereQuad(sphereVa, atom.pos(), atomRadius, color, objId);
+      vertAssoc.addAssoc(atom as never, sphereVa as never, sphereStart,
+                         sphereVa.numVerts());
+
+      if (atom.bondCount() === 0) {
+        return;
+      }
+      const stickVa = sticks.vertArrayWithSpaceFor(
+        atom.bondCount() * opts.protoCyl.numVerts());
+      const stickStart = stickVa.numVerts();
       atom.eachBond(function(bond) {
         bond.mid_point(midPoint);
         vec3.sub(dir, atom.pos(), midPoint);
@@ -346,31 +366,31 @@ const ballsAndSticksForChain = (function() {
 
         vec3.add(midPoint, midPoint, atom.pos());
         vec3.scale(midPoint, midPoint, 0.5);
-        opts.protoCyl.addTransformed(va as never, midPoint, length, opts.cylRadius,
+        opts.protoCyl.addTransformed(stickVa as never, midPoint, length, opts.cylRadius,
                                         rotation, color, color, objId, objId);
       });
-      const vertEnd = va.numVerts();
-      vertAssoc.addAssoc(atom as never, va as never, vertStart, vertEnd);
+      vertAssoc.addAssoc(atom as never, stickVa as never, stickStart,
+                         stickVa.numVerts());
     });
   };
 })();
 
 exports.ballsAndSticks = function(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions) {
   const vertAssoc = new AtomVertexAssoc(structure as never, true);
-  const protoSphere = new ProtoSphere(opts.sphereDetail, opts.sphereDetail);
-  const protoCyl = new ProtoCylinder(opts.arcDetail);
-  opts.protoSphere = protoSphere;
-  opts.protoCyl = protoCyl;
-  const meshGeom = new MeshGeomCtor(gl, opts.float32Allocator,
-                              opts.uint16Allocator);
-  meshGeom.addVertAssoc(vertAssoc as never);
-  meshGeom.setShowRelated(opts.showRelated);
+  opts.protoCyl = new ProtoCylinder(opts.arcDetail);
+  const spheres = new BillboardGeomCtor(gl, opts.float32Allocator,
+                                        opts.uint16Allocator);
+  const sticks = new MeshGeomCtor(gl, opts.float32Allocator,
+                                  opts.uint16Allocator);
+  const composite = new CompositeGeomCtor(gl, [spheres, sticks]);
+  composite.addVertAssoc(vertAssoc as never);
+  composite.setShowRelated(opts.showRelated);
   opts.color.begin(structure as never);
   structure.eachChain(function(chain) {
-    ballsAndSticksForChain(meshGeom, vertAssoc, opts, chain);
+    ballsAndSticksForChain(composite, spheres, sticks, vertAssoc, opts, chain);
   });
   opts.color.end();
-  return meshGeom;
+  return composite;
 };
 
 const pointsForChain = (function () {
