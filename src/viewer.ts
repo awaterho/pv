@@ -1419,7 +1419,11 @@ class Viewer {
 
   private _fitToIntervals(axes: [vec3, vec3, vec3], intervals: [Range, Range, Range], ms?: number): void {
     if (intervals[0].empty() || intervals[1].empty() || intervals[2].empty()) {
-      console.error('could not determine interval. No objects shown?');
+      console.error(
+        'fitTo/autoZoom: nothing to fit — either no object was given, ' +
+        'it contains no atoms, or the viewer has no visible objects. ' +
+        'The camera was left unchanged.',
+      );
       return;
     }
     const cx = intervals[0].center();
