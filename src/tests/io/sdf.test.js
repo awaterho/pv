@@ -180,3 +180,17 @@ test('reads simple SDF file', function(assert) {
   assert.vec3Equal(atoms[5].pos(), [-1.0, -1.0, 0.0]);
   assert.strictEqual(atoms[5].bonds().length, 1);
 });
+
+test('reads bond order from SDF bond block', function(assert) {
+  var structure = io.sdf(SIMPLE_SDF.join(''));
+  var atoms = structure.atoms();
+  // '  1  2  2  0  0  0' -> double bond between atom 0 (N) and atom 1 (C)
+  assert.strictEqual(atoms[0].bonds()[0].order(), 2);
+  // '  1  3  1  0  0  0' -> single bond between atom 0 (N) and atom 2 (O)
+  assert.strictEqual(atoms[0].bonds()[1].order(), 1);
+  // '  4  5  3  0  0  0' -> triple bond between atom 3 (S) and atom 4 (C)
+  var bondToC2 = atoms[3].bonds().filter(function(b) {
+    return b.atom_one() === atoms[4] || b.atom_two() === atoms[4];
+  })[0];
+  assert.strictEqual(bondToC2.order(), 3);
+});

@@ -192,8 +192,41 @@ function telethonin() { load('2f8v'); }
 function porin() {
   load('2por');
 }
-function longHelices() {
-  load('4C46');
+
+// MELK kinase bound to a small-molecule inhibitor (ligand 47W) whose
+// bond orders come straight from the mmCIF chem_comp_bond table: an
+// alkyne (triple bond), plus the aromatic isoquinoline and benzyl rings.
+function melkInhibitor() {
+  load('4umt');
+}
+
+// AlphaFold DB model AF-A0A4Y8AT86-F1 (UniProt A0A4Y8AT86, a "4-fold beta
+// flower domain-containing protein" from Gramella jeungdoensis): four
+// beta-hairpins radiating out of a small helical hub, forming a flower-like
+// rosette in cartoon view. AlphaFold's own mmCIF already carries DSSP-derived
+// secondary structure in _struct_conf (including the beta strands, tagged
+// conf_type_id 'STRN'), but pv only reads strands from the separate
+// _struct_sheet_range category the way RCSB depositions lay it out -- so the
+// local fixture (pdbs/a0a4y8at86.cif) adds a _struct_sheet_range loop built
+// from those same STRN rows. Without it every strand falls back to a plain
+// coil tube and the "flower" is invisible.
+function betaFlower() {
+  document.getElementById('traj-widget').style.display = 'none';
+  io.fetchCif('pdbs/a0a4y8at86.cif', function(s) {
+    structure = s;
+    viewer.clear();
+    var go = viewer.cartoon('structure.protein', structure, {
+        color : color.ssSuccession(),
+    });
+    addLigands();
+    applyOpacity(currentOpacity);
+    // orient along the principal axes so the propeller's flattest axis
+    // faces the camera, showing the radiating hairpins face-on instead of
+    // edge-on -- AlphaFold models have no canonical orientation to fall
+    // back on the way a crystal structure's deposited frame might.
+    viewer.setRotation(viewpoint.principalAxes(go));
+    viewer.autoZoom();
+  });
 }
 
 function ssSuccession() {
@@ -255,17 +288,35 @@ function polymerase() {
 };
 
 
-function cross() {
+// exercises every shape the customMesh API can draw -- addSphere and
+// addTube -- none of it derived from a molecular structure. This is the
+// escape hatch for drawing arbitrary annotated geometry (markers,
+// measurement lines, axes, ...) alongside whatever else is in the scene.
+function customMeshDemo() {
   viewer.clear();
   var go = viewer.customMesh('custom');
 
-  go.addSphere([-10, 0, 0], 2, { userData : 'one' } );
-  go.addSphere([10, 0, 0], 2, { userData : 'two' } );
-  go.addSphere([0, -10, 0], 2, { userData : 'three' } );
-  go.addSphere([0, 10, 0], 2, { userData : 'four' } );
-  go.addSphere([0, 0, -10], 2, { userData : 'five' } );
-  go.addSphere([0, 0, 10], 2, { userData : 'six' } );
-  viewer.setCenter([0,0,0], 2, { userData : 'seven' } );
+  var posX = [10, 0, 0], negX = [-10, 0, 0];
+  var posY = [0, 10, 0], negY = [0, -10, 0];
+  var posZ = [0, 0, 10], negZ = [0, 0, -10];
+
+  // addSphere: a ball at each axis endpoint, colored and tagged with
+  // userData so picking one of them identifies which.
+  go.addSphere(posX, 2, { color : 'red', userData : 'x+' });
+  go.addSphere(negX, 2, { color : 'red', userData : 'x-' });
+  go.addSphere(posY, 2, { color : 'green', userData : 'y+' });
+  go.addSphere(negY, 2, { color : 'green', userData : 'y-' });
+  go.addSphere(posZ, 2, { color : 'blue', userData : 'z+' });
+  go.addSphere(negZ, 2, { color : 'blue', userData : 'z-' });
+
+  // addTube: a rod connecting each pair of spheres through the origin. The
+  // X axis tube is left open (cap: false) to show that option too; Y and Z
+  // use the default capped ends.
+  go.addTube(negX, posX, 0.75, { color : 'red', cap : false, userData : 'x-axis' });
+  go.addTube(negY, posY, 0.75, { color : 'green', userData : 'y-axis' });
+  go.addTube(negZ, posZ, 0.75, { color : 'blue', userData : 'z-axis' });
+
+  viewer.setCenter([0, 0, 0]);
   viewer.setZoom(20);
 }
 
@@ -355,11 +406,12 @@ onClick('1r6a', transferase);
 onClick('1crn', crambin);
 onClick('1ake', kinase);
 onClick('4ubb', polymerase);
-onClick('4c46', longHelices);
+onClick('4umt', melkInhibitor);
+onClick('beta-flower', betaFlower);
 onClick('2f8v', telethonin);
 onClick('2por', porin);
 onClick('ensemble', ensemble);
-onClick('custom-mesh', cross);
+onClick('custom-mesh', customMeshDemo);
 onClick('style-cartoon', cartoon);
 onClick('style-tube', tube);
 onClick('style-line-trace', lineTrace);

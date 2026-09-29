@@ -246,3 +246,56 @@ test('returns undefined for a document with no _atom_site loop', function(assert
   var structure = io.cif('_entry.id 1CRN\n');
   strictEqual(structure, undefined);
 });
+
+// a small triangular ligand: the C-C distances alone would already put every
+// pair within distance-based bonding range, so this also verifies that the
+// chem_comp_bond-derived bonds replace (rather than duplicate) the
+// distance-based guess.
+var CHEM_COMP_BOND_CIF = [
+  'loop_',
+  '_atom_site.group_PDB',
+  '_atom_site.id',
+  '_atom_site.type_symbol',
+  '_atom_site.label_atom_id',
+  '_atom_site.label_comp_id',
+  '_atom_site.label_asym_id',
+  '_atom_site.label_seq_id',
+  '_atom_site.Cartn_x',
+  '_atom_site.Cartn_y',
+  '_atom_site.Cartn_z',
+  'HETATM 1 C C1 LIG X . 0.000 0.000 0.000',
+  'HETATM 2 C C2 LIG X . 1.400 0.000 0.000',
+  'HETATM 3 C C3 LIG X . 0.700 1.200 0.000',
+  'loop_',
+  '_chem_comp_bond.comp_id',
+  '_chem_comp_bond.atom_id_1',
+  '_chem_comp_bond.atom_id_2',
+  '_chem_comp_bond.value_order',
+  'LIG C1 C2 doub',
+  'LIG C2 C3 sing',
+  'LIG C3 C1 sing',
+  // H1 is declared in the dictionary but was never resolved in this
+  // structure -- the bond referencing it should just be skipped.
+  'LIG C1 H1 sing',
+].join('\n');
+
+test('derives bond order from chem_comp_bond instead of guessing from distance', function(assert) {
+  var structure = io.cif(CHEM_COMP_BOND_CIF);
+  var lig = structure.chain('X').residues()[0];
+  var c1 = lig.atom('C1'), c2 = lig.atom('C2'), c3 = lig.atom('C3');
+
+  // exactly the 2 bonds from chem_comp_bond, not doubled up by the
+  // distance-based fallback.
+  strictEqual(c1.bonds().length, 2);
+  strictEqual(c2.bonds().length, 2);
+  strictEqual(c3.bonds().length, 2);
+
+  var c1c2 = c1.bonds().filter(function(b) {
+    return b.atom_one() === c2.full() || b.atom_two() === c2.full();
+  })[0];
+  var c2c3 = c2.bonds().filter(function(b) {
+    return b.atom_one() === c3.full() || b.atom_two() === c3.full();
+  })[0];
+  strictEqual(c1c2.order(), 2);
+  strictEqual(c2c3.order(), 1);
+});

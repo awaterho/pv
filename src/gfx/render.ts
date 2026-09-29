@@ -43,6 +43,9 @@ export interface RenderAtom {
 }
 interface RenderBond {
   mid_point(out: vec3): vec3;
+  order(): number;
+  atom_one(): { pos(): vec3 };
+  atom_two(): { pos(): vec3 };
 }
 interface RenderResidue {
   ss(): string;
@@ -309,11 +312,34 @@ exports.billboardedSpheres = function(structure: RenderStructure, gl: WebGL2Rend
   return geom;
 };
 
+// number of parallel cylinders used to depict a bond of the given order.
+// aromatic bonds (order 4 in the V2000 SDF bond block) are mapped to order 2
+// at parse time (see io.ts), and anything beyond a triple bond is capped at
+// 3 cylinders.
+function cylinderCountForOrder(order: number): number {
+  if (order >= 3) {
+    return 3;
+  }
+  if (order === 2) {
+    return 2;
+  }
+  return 1;
+}
+
+function cylinderCountForAtom(atom: RenderAtom): number {
+  let count = 0;
+  atom.eachBond(function(bond) { count += cylinderCountForOrder(bond.order()); });
+  return count;
+}
+
 // balls are billboarded spheres (see addSphereQuad), sticks are cylinder
 // meshes. Each atom gets its sphere plus one half-cylinder per bond, running
-// from the atom to the bond's mid point in the atom's color.
+// from the atom to the bond's mid point in the atom's color. A bond with
+// order > 1 is drawn as several thinner half-cylinders offset sideways from
+// the bond axis instead of a single one.
 const ballsAndSticksForChain = (function() {
-  const midPoint = vec3.create(), dir = vec3.create();
+  const midPoint = vec3.create(), dir = vec3.create(), centerPoint = vec3.create();
+  const axis = vec3.create(), perp = vec3.create(), cylCenter = vec3.create();
   const color = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
   const left = vec3.create(), up = vec3.create();
   const rotation = mat3.create();
@@ -322,13 +348,13 @@ const ballsAndSticksForChain = (function() {
                   opts: RenderOptions, chain: RenderChain) {
     // determine required number of vertices and indices for this chain
     const atomCount = chain.atomCount();
-    let bondCount = 0;
-    chain.eachAtom(function(a) { bondCount += a.bonds().length; });
+    let cylinderCount = 0;
+    chain.eachAtom(function(a) { cylinderCount += cylinderCountForAtom(a); });
     spheres.addChainVertArray(chain as never, 4 * atomCount, 6 * atomCount);
-    if (bondCount > 0) {
+    if (cylinderCount > 0) {
       sticks.addChainVertArray(chain as never,
-                               bondCount * opts.protoCyl.numVerts(),
-                               bondCount * opts.protoCyl.numIndices());
+                               cylinderCount * opts.protoCyl.numVerts(),
+                               cylinderCount * opts.protoCyl.numIndices());
     }
     const idRange = opts.idPool.getContinuousRange(atomCount)!;
     composite.addIdRange(idRange);
@@ -353,7 +379,7 @@ const ballsAndSticksForChain = (function() {
         return;
       }
       const stickVa = sticks.vertArrayWithSpaceFor(
-        atom.bondCount() * opts.protoCyl.numVerts());
+        cylinderCountForAtom(atom) * opts.protoCyl.numVerts());
       const stickStart = stickVa.numVerts();
       atom.eachBond(function(bond) {
         bond.mid_point(midPoint);
@@ -364,10 +390,30 @@ const ballsAndSticksForChain = (function() {
 
         geom.buildRotation(rotation, dir, left, up, false);
 
-        vec3.add(midPoint, midPoint, atom.pos());
-        vec3.scale(midPoint, midPoint, 0.5);
-        opts.protoCyl.addTransformed(stickVa as never, midPoint, length, opts.cylRadius,
-                                        rotation, color, color, objId, objId);
+        vec3.add(centerPoint, midPoint, atom.pos());
+        vec3.scale(centerPoint, centerPoint, 0.5);
+
+        const numCylinders = cylinderCountForOrder(bond.order());
+        if (numCylinders === 1) {
+          opts.protoCyl.addTransformed(stickVa as never, centerPoint, length, opts.cylRadius,
+                                          rotation, color, color, objId, objId);
+          return;
+        }
+        // the offset direction is derived from the bond's two atoms (rather
+        // than from atom/dir, which flips sign depending on which of the
+        // two bonded atoms is currently being rendered), so both halves of
+        // the bond use the same offset and stay parallel to each other.
+        vec3.sub(axis, bond.atom_two().pos(), bond.atom_one().pos());
+        geom.ortho(perp, axis);
+        vec3.normalize(perp, perp);
+        const cylRadius = opts.cylRadius * 0.5;
+        const gap = opts.cylRadius * 1.7;
+        for (let k = 0; k < numCylinders; ++k) {
+          const offset = (k - (numCylinders - 1) / 2) * gap;
+          vec3.scaleAndAdd(cylCenter, centerPoint, perp, offset);
+          opts.protoCyl.addTransformed(stickVa as never, cylCenter, length, cylRadius,
+                                          rotation, color, color, objId, objId);
+        }
       });
       vertAssoc.addAssoc(atom as never, stickVa as never, stickStart,
                          stickVa.numVerts());
