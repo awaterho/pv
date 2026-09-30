@@ -19,10 +19,12 @@
 // DEALINGS IN THE SOFTWARE.
 
 export interface ShaderSources {
+  ES3_HEADER: string;
   PRELUDE_FS: string;
   LINES_FS: string;
   SELECT_LINES_FS: string;
   SELECT_LINES_VS: string;
+  PICK_LINES_VS: string;
   SELECT_VS: string;
   SELECT_FS: string;
   LINES_VS: string;
@@ -50,6 +52,10 @@ export interface ShaderSources {
 }
 
 const shaders: ShaderSources = {
+// must be the very first line of an ES 3.00 shader, so it can't live in
+// PRELUDE_FS itself.
+ES3_HEADER : '#version 300 es\n',
+
 // NOTE: The shader code below use the placeholder ${PRECISION} variable
 // for the shader precision. This values is replaced before compiling 
 // the shader program with highp on iOS and mediump on all other devices. 
@@ -103,9 +109,14 @@ vec3 handleFog(vec3 inColor) {\n\
 LINES_FS : '\n\
 varying vec4 vertColor;\n\
 varying vec3 vertNormal;\n\
+varying vec2 lineMapping;\n\
+varying float lineEdge;\n\
 \n\
 void main(void) {\n\
-  gl_FragColor = handleAlpha(vertColor);\n\
+  float edge = lineEdge;\n\
+  float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
+    1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
+  gl_FragColor = handleAlpha(vec4(vertColor.rgb, vertColor.a * coverage));\n\
   gl_FragColor.rgb = handleFog(gl_FragColor.rgb);\n\
 }',
 
@@ -113,6 +124,8 @@ SELECT_LINES_FS : '\n\
 precision ${PRECISION} float;\n\
 \n\
 varying float vertSelect;\n\
+varying vec2 lineMapping;\n\
+varying float lineEdge;\n\
 varying vec3 vertNormal;\n\
 uniform float fogNear;\n\
 uniform float fogFar;\n\
@@ -121,9 +134,12 @@ uniform bool fog;\n\
 uniform vec4 selectionColor;\n\
 \n\
 void main(void) {\n\
+  float edge = lineEdge;\n\
+  float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
+    1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
   gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 0.0), \n\
                      vec4(selectionColor.rgb, 1.0), vertSelect);\n\
-  gl_FragColor.a = step(0.5, vertSelect);\n\
+  gl_FragColor.a = step(0.5, vertSelect) * coverage;\n\
   if (gl_FragColor.a == 0.0) { discard; }\n\
   float depth = gl_FragCoord.z / gl_FragCoord.w;\n\
   if (fog) {\n\
@@ -135,20 +151,66 @@ void main(void) {\n\
 // hemilight vertex shader
 SELECT_LINES_VS : '\n\
 attribute vec3 attrPos;\n\
+attribute vec3 attrEnd;\n\
+attribute vec2 attrMapping;\n\
 attribute float attrSelect;\n\
 \n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform float pointSize;\n\
+uniform vec2 relativePixelSize;\n\
 varying float vertSelect;\n\
+varying vec2 lineMapping;\n\
+varying float lineEdge;\n\
 void main(void) {\n\
-  gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
-  gl_Position.z += gl_Position.w * 0.000001; \n\
-  float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
-  gl_PointSize = pointSize * 200.0 / abs(distToCamera); \n\
+  vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+  vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
+  float aspect = relativePixelSize.y / relativePixelSize.x;\n\
+  vec2 direction = normalize(vec2((end.x / end.w - start.x / start.w) * aspect,\n\
+                                  end.y / end.w - start.y / start.w));\n\
+  vec2 perpendicular = vec2(-direction.y / aspect, direction.x);\n\
+  gl_Position = mix(start, end, attrMapping.x);\n\
+  gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
+                    0.25 * relativePixelSize;\n\
+  gl_Position.z += gl_Position.w * 0.000001;\n\
   vertSelect = attrSelect;\n\
+  lineMapping = attrMapping;\n\
+  lineEdge = 2.0 / max(pointSize, 1.0);\n\
 }',
  
+PICK_LINES_VS : '\n\
+precision ${PRECISION} float;\n\
+attribute vec3 attrPos;\n\
+attribute vec3 attrEnd;\n\
+attribute vec2 attrMapping;\n\
+attribute float attrObjId;\n\
+attribute vec4 attrColor;\n\
+uniform mat4 projectionMat;\n\
+uniform mat4 modelviewMat;\n\
+uniform float pointSize;\n\
+uniform vec2 relativePixelSize;\n\
+varying float objId;\n\
+varying float objAlpha;\n\
+void main(void) {\n\
+  if (attrMapping.x > 1.5) {\n\
+    gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+    float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
+    gl_PointSize = pointSize * 200.0 / abs(distToCamera);\n\
+  } else {\n\
+    vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+    vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
+    float aspect = relativePixelSize.y / relativePixelSize.x;\n\
+    vec2 direction = normalize(vec2((end.x / end.w - start.x / start.w) * aspect,\n\
+                                    end.y / end.w - start.y / start.w));\n\
+    vec2 perpendicular = vec2(-direction.y / aspect, direction.x);\n\
+    gl_Position = mix(start, end, attrMapping.x);\n\
+    gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
+              0.25 * relativePixelSize;\n\
+  }\n\
+  objId = attrObjId;\n\
+  objAlpha = attrColor.a;\n\
+}',
+
 SELECT_VS : '\n\
 precision ${PRECISION} float;\n\
 uniform mat4 projectionMat;\n\
@@ -196,17 +258,39 @@ void main(void) {\n\
 // hemilight vertex shader
 LINES_VS : '\n\
 attribute vec3 attrPos;\n\
+attribute vec3 attrEnd;\n\
+attribute vec2 attrMapping;\n\
 attribute vec4 attrColor;\n\
 \n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 varying vec4 vertColor;\n\
 uniform float pointSize;\n\
+uniform vec2 relativePixelSize;\n\
+varying vec2 lineMapping;\n\
+varying float lineEdge;\n\
 void main(void) {\n\
-  gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
-  float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
-  gl_PointSize = pointSize * 200.0 / abs(distToCamera); \n\
+  if (attrMapping.x > 1.5) {\n\
+    gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+    float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
+    gl_PointSize = pointSize * 200.0 / abs(distToCamera);\n\
+    lineMapping = attrMapping;\n\
+    lineEdge = 0.0;\n\
+    vertColor = attrColor;\n\
+    return;\n\
+  }\n\
+  vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+  vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
+  float aspect = relativePixelSize.y / relativePixelSize.x;\n\
+  vec2 direction = normalize(vec2((end.x / end.w - start.x / start.w) * aspect,\n\
+                                  end.y / end.w - start.y / start.w));\n\
+  vec2 perpendicular = vec2(-direction.y / aspect, direction.x);\n\
+  gl_Position = mix(start, end, attrMapping.x);\n\
+  gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
+                    0.25 * relativePixelSize;\n\
   vertColor = attrColor;\n\
+  lineMapping = attrMapping;\n\
+  lineEdge = 2.0 / max(pointSize, 1.0);\n\
 }',
 
 // hemilight fragment shader
@@ -325,19 +409,22 @@ void main() { \n\
   if (gl_FragColor.a == 0.0) { discard; }\n\
 }',
 
-// spherical billboard fragment shader
+// spherical billboard shaders. These are GLSL ES 3.00 because they write
+// gl_FragDepth, which is core in ES 3.00 -- under WebGL2 the ES 1.00
+// EXT_frag_depth extension isn't exposed at all. The fragment shaders are
+// compiled as ES3_HEADER + PRELUDE_FS + SPHERES_FS; the prelude only uses
+// constructs valid in both dialects.
 SPHERES_FS : '\n\
-#extension GL_EXT_frag_depth : enable\n\
-\n\
-varying vec2 vertTex;\n\
-varying vec4 vertCenter;\n\
-varying vec4 vertColor;\n\
-varying float vertSelect;\n\
-varying float radius;\n\
+in vec2 vertTex;\n\
+in vec4 vertCenter;\n\
+in vec4 vertColor;\n\
+in float vertSelect;\n\
+in float radius;\n\
 uniform mat4 projectionMat;\n\
 uniform vec3 outlineColor;\n\
-varying float border;\n\
+in float border;\n\
 uniform bool outlineEnabled;\n\
+out vec4 fragColor;\n\
 \n\
 void main(void) {\n\
   float zz = dot(vertTex, vertTex);\n\
@@ -349,9 +436,9 @@ void main(void) {\n\
   float hemi = sqrt(min(1.0, max(0.3, dp) + 0.2));\n\
   vec4 projected = projectionMat * vec4(pos, 1.0);\n\
   float depth = projected.z / projected.w;\n\
-  gl_FragDepthEXT = (depth + 1.0) * 0.5;\n\
+  gl_FragDepth = (depth + 1.0) * 0.5;\n\
   vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * pow(max(0.0, dp), 18.0);\n\
+  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
   if (outlineEnabled) { \n\
     rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
   } else { \n\
@@ -359,27 +446,27 @@ void main(void) {\n\
   } \n\
   rgbColor = handleSelect(rgbColor, vertSelect);\n\
   vec4 fogged = vec4(handleFog(rgbColor), vertColor.a);\n\
-  gl_FragColor = handleAlpha(fogged);\n\
+  fragColor = handleAlpha(fogged);\n\
 }',
 
-SPHERES_VS : '\n\
+SPHERES_VS : '#version 300 es\n\
 precision ${PRECISION} float;\n\
-attribute vec3 attrPos;\n\
-attribute vec4 attrColor;\n\
-attribute vec3 attrNormal;\n\
-attribute float attrSelect;\n\
+in vec3 attrPos;\n\
+in vec4 attrColor;\n\
+in vec3 attrNormal;\n\
+in float attrSelect;\n\
 uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
-varying float radius;\n\
+out float radius;\n\
 \n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
-varying vec4 vertColor;\n\
-varying vec2 vertTex;\n\
-varying float border;\n\
-varying vec4 vertCenter;\n\
-varying float vertSelect;\n\
+out vec4 vertColor;\n\
+out vec2 vertTex;\n\
+out float border;\n\
+out vec4 vertCenter;\n\
+out float vertSelect;\n\
 void main() {\n\
   vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
@@ -395,17 +482,15 @@ void main() {\n\
   radius = attrNormal.z;\n\
 }',
 
-// spherical billboard fragment shader
 SELECT_SPHERES_FS : '\n\
-#extension GL_EXT_frag_depth : enable\n\
-\n\
-varying vec2 vertTex;\n\
-varying vec4 vertCenter;\n\
-varying vec4 vertColor;\n\
+in vec2 vertTex;\n\
+in vec4 vertCenter;\n\
+in vec4 vertColor;\n\
 uniform mat4 projectionMat;\n\
-varying float objId;\n\
-varying float radius;\n\
+in float objId;\n\
+in float radius;\n\
 uniform int symId;\n\
+out vec4 fragColor;\n\
 \n\
 void main(void) {\n\
   float zz = dot(vertTex, vertTex);\n\
@@ -415,7 +500,7 @@ void main(void) {\n\
   vec3 pos = vertCenter.xyz + normal * radius;\n\
   vec4 projected = projectionMat * vec4(pos, 1.0);\n\
   float depth = projected.z / projected.w;\n\
-  gl_FragDepthEXT = (depth + 1.0) * 0.5;\n\
+  gl_FragDepth = (depth + 1.0) * 0.5;\n\
   // ints are only required to be 7bit...\n\
   int integralObjId = int(objId+0.5);\n\
   int red = intMod(integralObjId, 256);\n\
@@ -424,24 +509,24 @@ void main(void) {\n\
   integralObjId/=256;\n\
   int blue = intMod(integralObjId, 256);\n\
   int alpha = symId;\n\
-  gl_FragColor = vec4(float(red), float(green), \n\
+  fragColor = vec4(float(red), float(green), \n\
                       float(blue), float(alpha))/255.0;\n\
 }',
 
-SELECT_SPHERES_VS : '\n\
+SELECT_SPHERES_VS : '#version 300 es\n\
 precision ${PRECISION} float;\n\
-attribute vec3 attrPos;\n\
-attribute vec4 attrColor;\n\
-attribute vec3 attrNormal;\n\
-attribute float attrObjId;\n\
-varying float radius;\n\
+in vec3 attrPos;\n\
+in vec4 attrColor;\n\
+in vec3 attrNormal;\n\
+in float attrObjId;\n\
+out float radius;\n\
 \n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
-varying vec2 vertTex;\n\
-varying vec4 vertCenter;\n\
-varying float objId;\n\
+out vec2 vertTex;\n\
+out vec4 vertCenter;\n\
+out float objId;\n\
 void main() {\n\
   vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
@@ -458,7 +543,8 @@ void main() {\n\
 //
 // These are GLSL ES 3.00 (WebGL2-only): multiple render targets require
 // `out` variables with explicit layout locations, since `gl_FragData[]`
-// isn't available under WebGL2. Every other shader in this file stays
+// isn't available under WebGL2. Apart from these and the billboarded
+// sphere shaders (which need gl_FragDepth), every shader in this file stays
 // GLSL ES 1.00 (attribute/varying/gl_FragColor) -- a WebGL2 context still
 // compiles and runs that dialect unmodified for single-output rendering,
 // so only the shaders that need genuinely WebGL2-only features (MRT here)
@@ -538,16 +624,38 @@ void main(void) {\n\
 
 OIT_ACCUM_LINES_VS : '#version 300 es\n\
 in vec3 attrPos;\n\
+in vec3 attrEnd;\n\
+in vec2 attrMapping;\n\
 in vec4 attrColor;\n\
 \n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 out vec4 vertColor;\n\
+out vec2 lineMapping;\n\
+out float lineEdge;\n\
 uniform float pointSize;\n\
+uniform vec2 relativePixelSize;\n\
 void main(void) {\n\
-  gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
-  float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
-  gl_PointSize = pointSize * 200.0 / abs(distToCamera); \n\
+  if (attrMapping.x > 1.5) {\n\
+    gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+    float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
+    gl_PointSize = pointSize * 200.0 / abs(distToCamera);\n\
+    lineMapping = attrMapping;\n\
+    lineEdge = 0.0;\n\
+    vertColor = attrColor;\n\
+    return;\n\
+  }\n\
+  vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+  vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
+  float aspect = relativePixelSize.y / relativePixelSize.x;\n\
+  vec2 direction = normalize(vec2((end.x / end.w - start.x / start.w) * aspect,\n\
+                                  end.y / end.w - start.y / start.w));\n\
+  vec2 perpendicular = vec2(-direction.y / aspect, direction.x);\n\
+  gl_Position = mix(start, end, attrMapping.x);\n\
+  gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
+                    0.25 * relativePixelSize;\n\
+  lineMapping = attrMapping;\n\
+  lineEdge = 2.0 / max(pointSize, 1.0);\n\
   vertColor = attrColor;\n\
 }',
 
@@ -555,6 +663,8 @@ OIT_ACCUM_LINES_FS : '#version 300 es\n\
 precision ${PRECISION} float;\n\
 \n\
 in vec4 vertColor;\n\
+in vec2 lineMapping;\n\
+in float lineEdge;\n\
 uniform bool fog;\n\
 uniform float fogNear;\n\
 uniform float fogFar;\n\
@@ -576,6 +686,10 @@ float oitWeight(float z, float a) {\n\
 \n\
 void main(void) {\n\
   vec4 color = vertColor;\n\
+  float edge = lineEdge;\n\
+  float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
+    1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
+  color.a *= coverage;\n\
   if (color.a >= 0.999 || color.a <= 0.001) { discard; }\n\
   float depth = gl_FragCoord.z / gl_FragCoord.w;\n\
   color.rgb = handleFog(color.rgb, depth);\n\
@@ -589,6 +703,7 @@ void main(void) {\n\
 // targets instead of gl_FragColor, and uses native gl_FragDepth instead of
 // gl_FragDepthEXT (core in ES 3.00, no extension needed).
 OIT_ACCUM_SPHERES_VS : '#version 300 es\n\
+precision ${PRECISION} float;\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
 in vec3 attrNormal;\n\
@@ -667,7 +782,7 @@ void main(void) {\n\
   float depth = projected.z / projected.w;\n\
   gl_FragDepth = (depth + 1.0) * 0.5;\n\
   vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * pow(max(0.0, dp), 18.0);\n\
+  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
   if (outlineEnabled) { \n\
     rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
   } else { \n\

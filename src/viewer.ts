@@ -32,6 +32,10 @@ import TouchHandler from './touch';
 import MouseHandler from './mouse';
 import renderModuleRaw from './gfx/render';
 import type { RenderStructure, RenderOptions, RenderAtom } from './gfx/render';
+import SurfaceWorker from './surface/worker?worker&inline';
+import {
+  planSurface, type SurfaceChunk, type SurfaceMesh, type SurfaceParams, type SurfaceType,
+} from './surface/compute';
 import TextLabel, { type TextLabel as ITextLabel, type TextLabelOptions } from './gfx/label';
 import CustomMeshCtor, { type CustomMesh } from './gfx/custom-mesh';
 import anim from './gfx/animation';
@@ -53,7 +57,9 @@ interface RenderModule {
   sline(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   trace(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   cartoon(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
-  surface(data: DataView, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
+  surfaceAtoms(structure: RenderStructure): { atoms: RenderAtom[]; data: Float32Array };
+  surface(mesh: SurfaceMesh, atoms: RenderAtom[], structure: RenderStructure,
+          gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
 }
 const render = renderModuleRaw as unknown as RenderModule;
 
@@ -333,6 +339,8 @@ class Viewer {
   private _extensions!: ViewerExtension[];
   private _initialized: boolean;
   private _objects: ViewerObject[];
+  // surfaces still being computed, see surface()
+  private _pendingSurfaces: { name: string; cancel(): void }[] = [];
   private _domElement: HTMLElement;
   private _redrawRequested: boolean;
   private _resize: boolean;
@@ -512,6 +520,14 @@ class Viewer {
       if (optName === 'fog') {
         this._cam.fog(value as boolean);
         this.requestRedraw();
+      } else if (optName === 'outline') {
+        this._cam.setOutlineEnabled(value as boolean);
+        this.requestRedraw();
+      } else if (optName === 'background') {
+        // fog fades towards the background, so it follows along
+        this._options.background = color.forceRGB(value as string | RGBA);
+        this._cam.setFogColor(this._options.background as vec3);
+        this.requestRedraw();
       } else if (optName === 'fov') {
         this._cam.setFieldOfViewY((value as number) * Math.PI / 180.0);
       } else if (optName === 'selectionColor') {
@@ -602,17 +618,18 @@ class Viewer {
       text : c.initShader(shaders.TEXT_VS, shaders.TEXT_FS, p),
       selectLines : c.initShader(shaders.SELECT_LINES_VS,
                                  shaders.SELECT_LINES_FS, p),
+      pickLines : c.initShader(shaders.PICK_LINES_VS,
+               shaders.SELECT_FS, p),
       select : c.initShader(shaders.SELECT_VS, shaders.SELECT_FS, p)
     };
-    const hasFragDepth = !!c.gl().getExtension('EXT_frag_depth');
-    if (hasFragDepth) {
-      this._shaderCatalog.spheres =
-        c.initShader(shaders.SPHERES_VS,
-                     shaders.PRELUDE_FS + shaders.SPHERES_FS, p);
-      this._shaderCatalog.selectSpheres =
-        c.initShader(shaders.SELECT_SPHERES_VS,
-                     shaders.PRELUDE_FS + shaders.SELECT_SPHERES_FS, p);
-    }
+    // billboarded spheres need gl_FragDepth, which is core in WebGL2 -- no
+    // extension check (getExtension('EXT_frag_depth') is always null there).
+    this._shaderCatalog.spheres =
+      c.initShader(shaders.SPHERES_VS, shaders.ES3_HEADER +
+                   shaders.PRELUDE_FS + shaders.SPHERES_FS, p);
+    this._shaderCatalog.selectSpheres =
+      c.initShader(shaders.SELECT_SPHERES_VS, shaders.ES3_HEADER +
+                   shaders.PRELUDE_FS + shaders.SELECT_SPHERES_FS, p);
 
     this._sceneBuffers = new SceneBuffers(c.gl(), {
       width : c.viewportWidth(), height : c.viewportHeight(),
@@ -627,10 +644,8 @@ class Viewer {
     if (this._sceneBuffers.oitSupported()) {
       this._shaderCatalog.hemilightTransparent =
         c.initShader(shaders.OIT_ACCUM_VS, shaders.OIT_ACCUM_HEMILIGHT_FS, p);
-      if (hasFragDepth) {
-        this._shaderCatalog.spheresTransparent =
-          c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
-      }
+      this._shaderCatalog.spheresTransparent =
+        c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
       this._shaderCatalog.linesTransparent =
         c.initShader(shaders.OIT_ACCUM_LINES_VS, shaders.OIT_ACCUM_LINES_FS, p);
       this._compositeShader = c.initShader(
@@ -881,6 +896,8 @@ class Viewer {
     // it, which isn't possible against the canvas's own default framebuffer.
     this._sceneBuffers.bindOpaque();
     gl.depthMask(true);
+    const background = this._options.background;
+    gl.clearColor(background[0]!, background[1]!, background[2]!, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.CULL_FACE);
     // blending stays on for the whole opaque-target pass: when oit is true
@@ -1071,6 +1088,7 @@ class Viewer {
       this._objects[i]!.destroy();
     }
     this._objects = [];
+    this._cancelSurfaces(/.*/);
   }
 
   on(eventName: string, callback: EventCallback | 'center'): void {
@@ -1198,15 +1216,10 @@ class Viewer {
     options.color = options.color || color.byElement();
     options.sphereDetail = this.options('sphereDetail');
     options.radiusMultiplier = options.radiusMultiplier || 1.0;
-    let obj;
-    // in case we can write to the depth buffer from the fragment shader
-    // (EXT_frag_depth) we can use billboarded spheres instead of creating
-    // the full sphere geometry. That's faster AND looks better.
-    if (this._canvas!.gl().getExtension('EXT_frag_depth')) {
-      obj = render.billboardedSpheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
-    } else {
-      obj = render.spheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
-    }
+    // billboarded spheres: one screen-aligned quad per atom, with the sphere
+    // surface and depth computed per fragment. Much less memory and faster
+    // than tessellated sphere meshes, and they look better.
+    const obj = render.billboardedSpheres(structure, this._canvas!.gl(), options as unknown as RenderOptions);
     return this.add(name, obj);
   }
 
@@ -1237,10 +1250,85 @@ class Viewer {
   }
 
 
-  surface(name: string, data: DataView, opts?: Record<string, unknown>): BaseGeom {
-    const options = this._handleStandardOptions(opts);
-    const obj = render.surface(data, this._canvas!.gl(), options as unknown as RenderOptions);
-    return this.add(name, obj);
+  // computes the molecular surface of structure in a web worker and adds it
+  // under name once ready. Surface specific options:
+  //  - type: 'ses' (solvent excluded, default), 'sas' (solvent accessible)
+  //    or 'vdw' (van der Waals)
+  //  - probeRadius: solvent probe radius in Angstrom, default 1.4
+  //  - gridSpacing: sampling grid spacing in Angstrom, default 0.5. Smaller
+  //    values give finer surfaces at a steep cost in time and memory.
+  // Resolves to the added object, or to null when the surface got removed
+  // (with rm or clear) before it was ready.
+  surface(name: string, structure: RenderStructure, opts?: Record<string, unknown>): Promise<BaseGeom | null> {
+    const options = this._handleStandardMolOptions(opts, structure as never);
+    options.color = options.color || color.byElement();
+    const params: SurfaceParams = {
+      type: (options.type as SurfaceType | undefined) || 'ses',
+      probeRadius: options.probeRadius === undefined ? 1.4 : options.probeRadius as number,
+      gridSpacing: (options.gridSpacing as number | undefined) || 0.5,
+    };
+    const { atoms, data } = render.surfaceAtoms(structure);
+    // the grid is cut into slabs that a pool of workers, one per core,
+    // computes in parallel
+    const numWorkers = Math.max(1, navigator.hardwareConcurrency || 4);
+    const plan = planSurface(data, params, numWorkers);
+    return new Promise((resolve, reject) => {
+      const results: SurfaceChunk[][] = [];
+      const workers: Worker[] = [];
+      let nextSlab = 0, slabsDone = 0;
+      const stop = () => {
+        workers.forEach((worker) => worker.terminate());
+        this._pendingSurfaces = this._pendingSurfaces.filter((p) => p !== pending);
+      };
+      const pending = {
+        name,
+        cancel: () => {
+          stop();
+          resolve(null);
+        },
+      };
+      const complete = () => {
+        stop();
+        const mesh = { chunks: results.flat(), gridSpacing: plan.grid.spacing };
+        const obj = render.surface(mesh, atoms, structure, this._canvas!.gl(),
+                                   options as unknown as RenderOptions);
+        resolve(this.add(name, obj));
+      };
+      const dispatch = (worker: Worker) => {
+        const slab = nextSlab++;
+        if (slab >= plan.slabs.length) return;
+        const [z0, z1] = plan.slabs[slab]!;
+        worker.onmessage = (event: MessageEvent<SurfaceChunk[]>) => {
+          results[slab] = event.data;
+          if (++slabsDone === plan.slabs.length) {
+            complete();
+          } else {
+            dispatch(worker);
+          }
+        };
+        worker.postMessage({ atoms: data, params, grid: plan.grid, z0, z1 });
+      };
+      this._pendingSurfaces.push(pending);
+      if (plan.slabs.length === 0) {
+        complete();
+        return;
+      }
+      for (let i = 0; i < Math.min(numWorkers, plan.slabs.length); ++i) {
+        const worker = new SurfaceWorker();
+        worker.onerror = (event) => {
+          stop();
+          reject(new Error('surface computation failed: ' + event.message));
+        };
+        workers.push(worker);
+        dispatch(worker);
+      }
+    });
+  }
+
+  private _cancelSurfaces(regex: RegExp): void {
+    const cancelled = this._pendingSurfaces.filter((p) => regex.test(p.name));
+    this._pendingSurfaces = this._pendingSurfaces.filter((p) => !regex.test(p.name));
+    cancelled.forEach((p) => p.cancel());
   }
 
   // renders the protein using a smoothly interpolated tube, essentially
@@ -1331,7 +1419,11 @@ class Viewer {
 
   private _fitToIntervals(axes: [vec3, vec3, vec3], intervals: [Range, Range, Range], ms?: number): void {
     if (intervals[0].empty() || intervals[1].empty() || intervals[2].empty()) {
-      console.error('could not determine interval. No objects shown?');
+      console.error(
+        'fitTo/autoZoom: nothing to fit — either no object was given, ' +
+        'it contains no atoms, or the viewer has no visible objects. ' +
+        'The camera was left unchanged.',
+      );
       return;
     }
     const cx = intervals[0].center();
@@ -1595,6 +1687,7 @@ class Viewer {
       }
     }
     this._objects = newObjects;
+    this._cancelSurfaces(regex);
   }
   all(): ViewerObject[] {
     return this._objects;

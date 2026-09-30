@@ -211,7 +211,7 @@ class Canvas {
     gl.linkProgram(shaderProgram);
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
       console.error('could not initialise shaders');
-      console.error(gl.getShaderInfoLog(shaderProgram));
+      console.error(gl.getProgramInfoLog(shaderProgram));
       return null;
     }
     // get vertex attribute location for the shader once to
@@ -220,6 +220,8 @@ class Canvas {
     const getUniformLoc = utils.bind(gl, gl.getUniformLocation) as
       (p: WebGLProgram, name: string) => WebGLUniformLocation | null;
     shaderProgram.posAttrib = getAttribLoc(shaderProgram, 'attrPos');
+    shaderProgram.endAttrib = getAttribLoc(shaderProgram, 'attrEnd');
+    shaderProgram.mappingAttrib = getAttribLoc(shaderProgram, 'attrMapping');
     shaderProgram.colorAttrib = getAttribLoc(shaderProgram, 'attrColor');
     shaderProgram.normalAttrib = getAttribLoc(shaderProgram, 'attrNormal');
     shaderProgram.objIdAttrib = getAttribLoc(shaderProgram, 'attrObjId');

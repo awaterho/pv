@@ -433,8 +433,8 @@ class Mol extends MolBase<Chain> {
   }
 
 
-  connect(atom_a: never, atom_b: never): Bond {
-    const bond = BondCtor(atom_a, atom_b);
+  connect(atom_a: never, atom_b: never, order?: number): Bond {
+    const bond = BondCtor(atom_a, atom_b, order);
     (atom_a as unknown as { addBond(b: unknown): void }).addBond(bond);
     (atom_b as unknown as { addBond(b: unknown): void }).addBond(bond);
     return bond as unknown as Bond;
@@ -443,28 +443,36 @@ class Mol extends MolBase<Chain> {
 
 
   // determine connectivity structure. for simplicity only connects atoms of the
-  // same residue, peptide bonds and nucleotides
-  deriveConnectivity(): void {
+  // same residue, peptide bonds and nucleotides.
+  //
+  // skipIntraResidue, when given, is called once per residue; if it returns
+  // true, the distance-based intra-residue bonding below is skipped for that
+  // residue (used when its bonds -- and their order -- are already known
+  // exactly, e.g. from an mmCIF file's chem_comp_bond table). Backbone
+  // (peptide/nucleotide) linking between residues is unaffected.
+  deriveConnectivity(skipIntraResidue?: (residue: unknown) => boolean): void {
     let prevResidue: (ConnectableResidue & { _deduceType(): void; isAminoacid(): boolean; isNucleotide(): boolean }) | null = null;
     this.eachResidue((res) => {
       const residue = res as ConnectableResidue & {
         _deduceType(): void; atoms(): (MolAtomLike & { element(): string })[];
       };
-      let sqrDist;
-      const atoms = residue.atoms();
-      const numAtoms = atoms.length;
-      for (let i = 0; i < numAtoms; i+=1) {
-        const atomI = atoms[i]!;
-        const posI = atomI.pos();
-        const covalentI = covalentRadius(atomI.element());
-        for (let j = 0; j < i; j+=1) {
-          const atomJ = atoms[j]!;
-          const covalentJ = covalentRadius(atomJ.element());
-          sqrDist = vec3.sqrDist(posI, atomJ.pos());
-          const lower = covalentI+covalentJ-0.30;
-          const upper = covalentI+covalentJ+0.30;
-          if (sqrDist < upper*upper && sqrDist > lower*lower) {
-            this.connect(atomI as never, atomJ as never);
+      if (!skipIntraResidue || !skipIntraResidue(res)) {
+        let sqrDist;
+        const atoms = residue.atoms();
+        const numAtoms = atoms.length;
+        for (let i = 0; i < numAtoms; i+=1) {
+          const atomI = atoms[i]!;
+          const posI = atomI.pos();
+          const covalentI = covalentRadius(atomI.element());
+          for (let j = 0; j < i; j+=1) {
+            const atomJ = atoms[j]!;
+            const covalentJ = covalentRadius(atomJ.element());
+            sqrDist = vec3.sqrDist(posI, atomJ.pos());
+            const lower = covalentI+covalentJ-0.30;
+            const upper = covalentI+covalentJ+0.30;
+            if (sqrDist < upper*upper && sqrDist > lower*lower) {
+              this.connect(atomI as never, atomJ as never);
+            }
           }
         }
       }

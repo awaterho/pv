@@ -118,6 +118,33 @@ test('ignores conect records when conectRecords flag is not set', function(asser
   assert.strictEqual(atoms[8].bonds().length, 0);
 });
 
+// double bond between atom 1 and atom 2 is encoded by repeating the partner
+// serial number within a CONECT record's partner list (a convention used by
+// e.g. Open Babel), single bonds otherwise.
+var CONECT_RECORDS_WITH_ORDER = '\
+HETATM    1  C                   0.000   0.000   0.000\n\
+HETATM    2  C                   0.000   0.000   0.000\n\
+HETATM    3  O                   0.000   0.000   0.000\n\
+CONECT    1    2    2    3\n\
+CONECT    2    1    1\n\
+CONECT    3    1\n\
+';
+
+test('derives bond order from repeated conect partners', function(assert) {
+  var structure = io.pdb(CONECT_RECORDS_WITH_ORDER, { conectRecords : true });
+  var atoms = [];
+  structure.eachAtom(function(a) { atoms.push(a) });
+  assert.strictEqual(atoms[0].bonds().length, 2);
+  var bondToC2 = atoms[0].bonds().filter(function(b) {
+    return b.atom_one() === atoms[1] || b.atom_two() === atoms[1];
+  })[0];
+  var bondToO = atoms[0].bonds().filter(function(b) {
+    return b.atom_one() === atoms[2] || b.atom_two() === atoms[2];
+  })[0];
+  assert.strictEqual(bondToC2.order(), 2);
+  assert.strictEqual(bondToO.order(), 1);
+});
+
 
 var HETATM='\
 ATOM   3316  C   GLY B 214      24.173   7.911  -3.276  1.00 94.23           C\n\

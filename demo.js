@@ -15,7 +15,14 @@ var color = pv.color;
 
 var structure;
 
-// opacity slider (#opacity-widget): applies to every currently-visible
+// draws biological assembly 1 (symmetry-related copies included) when the
+// structure defines one, e.g. entries fetched from RCSB, and just the
+// asymmetric unit otherwise. The local fixtures carry no assembly records.
+function related() {
+  return structure.assembly('1') ? '1' : 'asym';
+}
+
+// opacity slider (in #display-widget): applies to every currently-visible
 // render object that supports it, and is re-applied by preset() whenever a
 // new structure is loaded, so dragging the slider then loading a different
 // structure keeps the same transparency -- a quick way to see the
@@ -34,76 +41,100 @@ function applyOpacity(val) {
 
 function points() {
   viewer.clear();
+  addLigands();
   viewer.points('structure', structure, {
                          color: color.byResidueProp('num'),
-                         showRelated : '1' });
+                         showRelated : related() });
 }
 
 function lines() {
   viewer.clear();
   var go = viewer.lines('structure', structure, {
               color: color.byResidueProp('num'),
-              showRelated : '1' });
+              showRelated : related() });
   go.setSelection(go.select({rnumRange : [15,20]}));
   go.setOpacity(0.5, go.select({rnumRange : [25,30]}));
+  addLigands();
 }
 
 function cartoon() {
   viewer.clear();
   var go = viewer.cartoon('structure', structure, {
-      color : color.ssSuccession(), showRelated : '1',
+      color : color.ssSuccession(), showRelated : related(),
   });
   var rotation = viewpoint.principalAxes(go);
+  addLigands();
   //go.setSelection(go.select({rtype : 'C' }));
   viewer.setRotation(rotation)
 }
 
 function lineTrace() {
   viewer.clear();
-  viewer.lineTrace('structure', structure, { showRelated : '1' });
+  addLigands();
+  viewer.lineTrace('structure', structure, { showRelated : related() });
 }
 
 function spheres() {
   viewer.clear();
-  viewer.spheres('structure', structure, { showRelated : '1' });
+  addLigands();
+  viewer.spheres('structure', structure, { showRelated : related() });
 }
 
 function sline() {
   viewer.clear();
+  addLigands();
   viewer.sline('structure', structure,
-          { color : color.uniform('red'), showRelated : '1'});
+      { color : color.uniform('red'), showRelated : related() });
 }
 
 function tube() {
   viewer.clear();
-  viewer.tube('structure', structure);
+  addLigands();
+  viewer.tube('structure', structure, { showRelated : related() });
   viewer.lines('structure.ca', structure.select({aname :'CA'}),
             { color: color.uniform('blue'), lineWidth : 1,
-              showRelated : '1' });
+              showRelated : related() });
 }
 
 function trace() {
   viewer.clear();
-  viewer.trace('structure', structure, { showRelated : '1' });
+  addLigands();
+  viewer.trace('structure', structure, { showRelated : related() });
 
 }
 function ballsAndSticks() {
   viewer.clear();
-  viewer.ballsAndSticks('structure', structure, { showRelated : '1' });
+  addLigands();
+  viewer.ballsAndSticks('structure', structure, { showRelated : related() });
+}
+
+function surface() {
+  viewer.clear();
+  addLigands();
+  viewer.surface('structure', structure.select('protein'), {
+    color: color.ssSuccession()
+  }).then(function(go) {
+    if (go) {
+      go.setOpacity(currentOpacity);
+    }
+  });
 }
 
 function preset() {
   viewer.clear();
-  var ligand = structure.select({'rnames' : ['SAH', 'RVP']});
-  viewer.ballsAndSticks('structure.ligand', ligand, {
-  });
-  viewer.cartoon('structure.protein', structure, { boundingSpheres: false });
+  viewer.cartoon('structure.protein', structure);
+  addLigands();
   applyOpacity(currentOpacity);
+}
+
+function addLigands() {
+  const ligand = structure.select('ligand');
+  viewer.ballsAndSticks('structure.ligand', ligand);
 }
 
 // loads a structure from its local mmCIF fixture (pdbs/<id>.cif).
 function load(cif_id) {
-  $('#traj-widget').hide();
+  document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('pdbs/'+cif_id+'.cif', function(s) {
     structure = s;
     preset();
@@ -113,19 +144,20 @@ function load(cif_id) {
 
 function trajectory() {
   viewer.clear();
-  $('#traj-widget').show();
+  document.getElementById('traj-widget').style.display = 'block';
   var theTimeOut;
   var intervalFunc;
-  $('#traj-button').click(function() {
-    var t = $('#traj-button').text();
-    if (t === 'Start') {
-      $('#traj-button').text('Stop');
+  var button = document.getElementById('traj-button');
+  button.onclick = function(event) {
+    event.preventDefault();
+    if (button.textContent === 'Start') {
+      button.textContent = 'Stop';
       theTimeOut = setInterval(intervalFunc, 1000.0/15.0);
     } else {
       clearInterval(theTimeOut);
-      $('#traj-button').text('Start');
+      button.textContent = 'Start';
     }
-  });
+  };
   pv.io.fetchCrd('pdbs/trj.crd', function(s) {
     structure = s;
     viewer.ballsAndSticks('trajectory', structure);
@@ -160,53 +192,93 @@ function telethonin() { load('2f8v'); }
 function porin() {
   load('2por');
 }
-function longHelices() {
-  load('4C46');
+
+// MELK kinase bound to a small-molecule inhibitor (ligand 47W) whose
+// bond orders come straight from the mmCIF chem_comp_bond table: an
+// alkyne (triple bond), plus the aromatic isoquinoline and benzyl rings.
+function melkInhibitor() {
+  load('4umt');
+}
+
+// AlphaFold DB model AF-A0A4Y8AT86-F1 (UniProt A0A4Y8AT86, a "4-fold beta
+// flower domain-containing protein" from Gramella jeungdoensis): four
+// beta-hairpins radiating out of a small helical hub, forming a flower-like
+// rosette in cartoon view. AlphaFold's own mmCIF already carries DSSP-derived
+// secondary structure in _struct_conf (including the beta strands, tagged
+// conf_type_id 'STRN'), but pv only reads strands from the separate
+// _struct_sheet_range category the way RCSB depositions lay it out -- so the
+// local fixture (pdbs/a0a4y8at86.cif) adds a _struct_sheet_range loop built
+// from those same STRN rows. Without it every strand falls back to a plain
+// coil tube and the "flower" is invisible.
+function betaFlower() {
+  document.getElementById('traj-widget').style.display = 'none';
+  io.fetchCif('pdbs/a0a4y8at86.cif', function(s) {
+    structure = s;
+    viewer.clear();
+    var go = viewer.cartoon('structure.protein', structure, {
+        color : color.ssSuccession(),
+    });
+    addLigands();
+    applyOpacity(currentOpacity);
+    // orient along the principal axes so the propeller's flattest axis
+    // faces the camera, showing the radiating hairpins face-on instead of
+    // edge-on -- AlphaFold models have no canonical orientation to fall
+    // back on the way a crystal structure's deposited frame might.
+    viewer.setRotation(viewpoint.principalAxes(go));
+    viewer.autoZoom();
+  });
 }
 
 function ssSuccession() {
   viewer.forEach(function(go) {
-    go.colorBy(color.ssSuccession());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.ssSuccession());
   });
   viewer.requestRedraw();
 }
 
 function uniform() {
   viewer.forEach(function(go) {
-    go.colorBy(color.uniform([0,1,0]));
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.uniform([0,1,0]));
   });
   viewer.requestRedraw();
 }
 function byElement() {
   viewer.forEach(function(go) {
-    go.colorBy(color.byElement());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.byElement());
   });
   viewer.requestRedraw();
 }
 
 function ss() {
   viewer.forEach(function(go) {
-    go.colorBy(color.bySS());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.bySS());
   });
   viewer.requestRedraw();
 }
 
 function proInRed() {
   viewer.forEach(function(go) {
-    go.colorBy(color.uniform('red'), go.select({rname : 'PRO'}));
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.uniform('red'), go.select({rname : 'PRO'}));
   });
   viewer.requestRedraw();
 }
 function rainbow() {
   viewer.forEach(function(go) {
-    go.colorBy(color.rainbow());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.rainbow());
   });
   viewer.requestRedraw();
 }
 
 function byChain() {
   viewer.forEach(function(go) {
-    go.colorBy(color.byChain());
+    if(go.name()!=='structure.ligand')
+      go.colorBy(color.byChain());
   });
   viewer.requestRedraw();
 }
@@ -216,22 +288,40 @@ function polymerase() {
 };
 
 
-function cross() {
+// exercises every shape the customMesh API can draw -- addSphere and
+// addTube -- none of it derived from a molecular structure. This is the
+// escape hatch for drawing arbitrary annotated geometry (markers,
+// measurement lines, axes, ...) alongside whatever else is in the scene.
+function customMeshDemo() {
   viewer.clear();
   var go = viewer.customMesh('custom');
 
-  go.addSphere([-10, 0, 0], 2, { userData : 'one' } );
-  go.addSphere([10, 0, 0], 2, { userData : 'two' } );
-  go.addSphere([0, -10, 0], 2, { userData : 'three' } );
-  go.addSphere([0, 10, 0], 2, { userData : 'four' } );
-  go.addSphere([0, 0, -10], 2, { userData : 'five' } );
-  go.addSphere([0, 0, 10], 2, { userData : 'six' } );
-  viewer.setCenter([0,0,0], 2, { userData : 'seven' } );
+  var posX = [10, 0, 0], negX = [-10, 0, 0];
+  var posY = [0, 10, 0], negY = [0, -10, 0];
+  var posZ = [0, 0, 10], negZ = [0, 0, -10];
+
+  // addSphere: a ball at each axis endpoint, colored and tagged with
+  // userData so picking one of them identifies which.
+  go.addSphere(posX, 2, { color : 'red', userData : 'x+' });
+  go.addSphere(negX, 2, { color : 'red', userData : 'x-' });
+  go.addSphere(posY, 2, { color : 'green', userData : 'y+' });
+  go.addSphere(negY, 2, { color : 'green', userData : 'y-' });
+  go.addSphere(posZ, 2, { color : 'blue', userData : 'z+' });
+  go.addSphere(negZ, 2, { color : 'blue', userData : 'z-' });
+
+  // addTube: a rod connecting each pair of spheres through the origin. The
+  // X axis tube is left open (cap: false) to show that option too; Y and Z
+  // use the default capped ends.
+  go.addTube(negX, posX, 0.75, { color : 'red', cap : false, userData : 'x-axis' });
+  go.addTube(negY, posY, 0.75, { color : 'green', userData : 'y-axis' });
+  go.addTube(negZ, posZ, 0.75, { color : 'blue', userData : 'z-axis' });
+
+  viewer.setCenter([0, 0, 0]);
   viewer.setZoom(20);
 }
 
 function ensemble() {
-  $('#traj-widget').hide();
+  document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('pdbs/1nmr.cif', function(structures) {
     viewer.clear()
     structure = structures[0];
@@ -241,33 +331,105 @@ function ensemble() {
     viewer.autoZoom();
   }, { loadAllModels : true } );
 }
-$(document).foundation();
-$('#1r6a').click(transferase);
-$('#1crn').click(crambin);
-$('#1ake').click(kinase);
-$('#4ubb').click(polymerase);
-$('#4c46').click(longHelices);
-$('#2f8v').click(telethonin);
-$('#2por').click(porin);
-$('#ensemble').click(ensemble);
-$('#custom-mesh').click(cross);
-$('#style-cartoon').click(cartoon);
-$('#style-tube').click(tube);
-$('#style-line-trace').click(lineTrace);
-$('#style-sline').click(sline);
-$('#style-trace').click(trace);
-$('#style-lines').click(lines);
-$('#style-balls-and-sticks').click(ballsAndSticks);
-$('#style-points').click(points);
-$('#style-spheres').click(spheres);
-$('#color-uniform').click(uniform);
-$('#color-element').click(byElement);
-$('#color-chain').click(byChain);
-$('#color-ss-succ').click(ssSuccession);
-$('#color-ss').click(ss);
-$('#trajectory').click(trajectory);
-$('#color-rainbow').click(rainbow);
-$('#color-pro-red').click(proInRed);
+// menu behaviour, as Foundation's top-bar plugin used to provide it on top
+// of the Foundation styles in index.html. On wide screens the dropdowns open
+// on hover, which those styles key off the not-click class. On narrow
+// screens the menu icon expands the bar, and a menu title slides in its
+// entries with a Back link.
+function initTopBar() {
+  var bar = document.querySelector('.top-bar');
+  var section = bar.querySelector('.top-bar-section');
+  var narrow = window.matchMedia('(max-width: 40em)');
+  var closeSubmenu = function() {
+    bar.querySelectorAll('.has-dropdown.moved').forEach(function(item) {
+      item.classList.remove('moved');
+    });
+    section.style.left = '';
+    bar.style.height = '';
+  };
+  var collapse = function() {
+    closeSubmenu();
+    bar.classList.remove('expanded');
+  };
+  bar.querySelector('.toggle-topbar').addEventListener('click', function(event) {
+    event.preventDefault();
+    if (bar.classList.contains('expanded')) {
+      collapse();
+    } else {
+      bar.classList.add('expanded');
+    }
+  });
+  bar.querySelectorAll('.has-dropdown').forEach(function(item) {
+    item.classList.add('not-click');
+    var title = item.firstElementChild;
+    var dropdown = item.querySelector('.dropdown');
+    // same markup Foundation generates; the styles only show the
+    // js-generated entries on narrow screens
+    dropdown.insertAdjacentHTML('afterbegin',
+      '<li class="title back js-generated"><h5><a href="#">Back</a></h5></li>' +
+      '<li class="parent-link show-for-small"><a class="parent-link js-generated" href="#">' +
+      title.textContent + '</a></li>');
+    dropdown.querySelector('.back a').addEventListener('click', function(event) {
+      event.preventDefault();
+      closeSubmenu();
+    });
+    dropdown.querySelector('a.parent-link').addEventListener('click', function(event) {
+      event.preventDefault();
+    });
+    title.addEventListener('click', function(event) {
+      event.preventDefault();
+      if (!narrow.matches) {
+        return;
+      }
+      item.classList.add('moved');
+      section.style.left = '-100%';
+      bar.style.height = (bar.querySelector('.title-area').offsetHeight +
+                          dropdown.offsetHeight) + 'px';
+    });
+  });
+  // picking an entry closes the menu on narrow screens
+  bar.querySelectorAll('.dropdown li:not(.title):not(.parent-link) > a').forEach(function(link) {
+    link.addEventListener('click', collapse);
+  });
+  narrow.addEventListener('change', collapse);
+}
+
+function onClick(id, handler) {
+  document.getElementById(id).addEventListener('click', function(event) {
+    event.preventDefault();
+    handler();
+  });
+}
+
+initTopBar();
+onClick('1r6a', transferase);
+onClick('1crn', crambin);
+onClick('1ake', kinase);
+onClick('4ubb', polymerase);
+onClick('4umt', melkInhibitor);
+onClick('beta-flower', betaFlower);
+onClick('2f8v', telethonin);
+onClick('2por', porin);
+onClick('ensemble', ensemble);
+onClick('custom-mesh', customMeshDemo);
+onClick('style-cartoon', cartoon);
+onClick('style-tube', tube);
+onClick('style-line-trace', lineTrace);
+onClick('style-sline', sline);
+onClick('style-trace', trace);
+onClick('style-lines', lines);
+onClick('style-balls-and-sticks', ballsAndSticks);
+onClick('style-surface', surface);
+onClick('style-points', points);
+onClick('style-spheres', spheres);
+onClick('color-uniform', uniform);
+onClick('color-element', byElement);
+onClick('color-chain', byChain);
+onClick('color-ss-succ', ssSuccession);
+onClick('color-ss', ss);
+onClick('trajectory', trajectory);
+onClick('color-rainbow', rainbow);
+onClick('color-pro-red', proInRed);
 // fetches and renders a structure by PDB id from RCSB in mmCIF format, used
 // by both pressing Enter/blurring the input (the 'change' event) and
 // clicking the "Get" button next to it.
@@ -283,24 +445,24 @@ function getFromRcsb(pdbId) {
   });
 }
 
-$('#load-from-pdb').change(function() {
+document.getElementById('load-from-pdb').addEventListener('change', function() {
   var pdbId = this.value;
-  this.value = '';
   this.blur();
   getFromRcsb(pdbId);
 });
 
-$('#get-pdb-button').click(function() {
-  var input = $('#load-from-pdb');
-  var pdbId = input.val();
-  input.val('');
+document.getElementById('get-pdb-button').addEventListener('click', function(event) {
+  event.preventDefault();
+  var input = document.getElementById('load-from-pdb');
+  var pdbId = input.value;
+  input.value = '';
   input.blur();
   getFromRcsb(pdbId);
 });
 
-$('#opacity-slider').on('input', function() {
+document.getElementById('opacity-slider').addEventListener('input', function() {
   var val = parseFloat(this.value);
-  $('#opacity-value').text(val.toFixed(2));
+  document.getElementById('opacity-value').textContent = val.toFixed(2);
   applyOpacity(val);
 });
 
@@ -311,6 +473,28 @@ viewer = pv.Viewer(document.getElementById('viewer'), {
     background : '#ccc', animateTime: 500, doubleClick : null
 });
 window.viewer = viewer;
+
+// fog and outline toggles, and a background slider running from white to
+// black. All start from the viewer's current options.
+function initDisplayControls() {
+  var fog = document.getElementById('fog-toggle');
+  var outline = document.getElementById('outline-toggle');
+  var background = document.getElementById('background-slider');
+  fog.checked = viewer.options('fog');
+  outline.checked = viewer.options('outline');
+  background.value = 1 - viewer.options('background')[0];
+  fog.addEventListener('change', function() {
+    viewer.options('fog', fog.checked);
+  });
+  outline.addEventListener('change', function() {
+    viewer.options('outline', outline.checked);
+  });
+  background.addEventListener('input', function() {
+    var grey = 1 - parseFloat(background.value);
+    viewer.options('background', [grey, grey, grey, 1]);
+  });
+}
+initDisplayControls();
 
 viewer.addListener('viewerReady', transferase);
 

@@ -412,10 +412,20 @@ class PDBReader {
     for (let i = 0; i < this._conect.length; ++i) {
       const record = this._conect[i]!;
       const fromAtom = this._serialToAtomMap[record.from]!;
+      // some tools (e.g. Open Babel) encode bond order by repeating the same
+      // partner serial number within a CONECT record's partner list, e.g.
+      // "CONECT 2 1 1" for atom 2 double-bonded to atom 1. Collapse those
+      // repeats into a single bond with the corresponding order instead of
+      // creating several overlapping single bonds.
+      const orderForPartner = new Map<number, number>();
       for (let j = 0; j < record.to.length; ++j) {
-        const toAtom = this._serialToAtomMap[record.to[j]!]!;
-        structure.connect(fromAtom as never, toAtom as never);
+        const partner = record.to[j]!;
+        orderForPartner.set(partner, (orderForPartner.get(partner) || 0) + 1);
       }
+      orderForPartner.forEach((order, partner) => {
+        const toAtom = this._serialToAtomMap[partner]!;
+        structure.connect(fromAtom as never, toAtom as never, order);
+      });
     }
   }
 }
@@ -540,8 +550,16 @@ class SDFReader {
         console.error('invalid bond definition');
         return false;
       }
+      // V2000 bond type: 1 = single, 2 = double, 3 = triple, 4 = aromatic.
+      // Aromatic bonds don't map onto a single/double/triple cylinder count,
+      // so render them the same as a double bond.
+      let bondType = parseInt(line.substr(6, 3).trim(), 10);
+      if (isNaN(bondType)) {
+        bondType = 1;
+      }
+      const order = bondType === 4 ? 2 : bondType;
       const atoms = this._currentResidue!.atoms();
-      this._structure.connect(atoms[firstAtomIndex] as never, atoms[secondAtomIndex] as never);
+      this._structure.connect(atoms[firstAtomIndex] as never, atoms[secondAtomIndex] as never, order);
       this._bondCount++;
       if (this._bondCount === this._expectedBondCount) {
         this._state++;
@@ -774,13 +792,92 @@ function composeOperExpression(expression: string, operators: Map<string, mat4>)
   return combos ?? [];
 }
 
+interface ChemCompBond {
+  a: string;
+  b: string;
+  order: number;
+}
+
 class CIFReader {
   private _doc: ReturnType<typeof parseCIF>;
   private _loadAllModels: boolean;
+  private _chemCompBondsCache?: Map<string, ChemCompBond[]>;
 
   constructor(doc: ReturnType<typeof parseCIF>, options: CifOptions) {
     this._doc = doc;
     this._loadAllModels = !!options.loadAllModels;
+  }
+
+  // bonds declared by the PDB Chemical Component Dictionary for each
+  // distinct residue/ligand type present in the file (the chem_comp_bond
+  // category), grouped by comp_id. Unlike atom_site, this doesn't vary
+  // between models, so it's parsed once and reused for every model of a
+  // multi-model file.
+  private _chemCompBonds(): Map<string, ChemCompBond[]> {
+    if (this._chemCompBondsCache === undefined) {
+      const map = new Map<string, ChemCompBond[]>();
+      const rows = this._doc.loopRows('chem_comp_bond');
+      for (let i = 0; i < rows.length; ++i) {
+        const row = rows[i]!;
+        const compId = row.get('comp_id');
+        const a = row.get('atom_id_1');
+        const b = row.get('atom_id_2');
+        if (compId === undefined || a === undefined || b === undefined) {
+          continue;
+        }
+        // value_order is 'sing'/'doub'/'trip' (occasionally 'quad', which
+        // the ball-and-stick renderer draws the same as a double bond).
+        const valueOrder = (row.get('value_order') || '').toLowerCase();
+        let order = 1;
+        if (valueOrder === 'doub') {
+          order = 2;
+        } else if (valueOrder === 'trip') {
+          order = 3;
+        } else if (valueOrder === 'quad') {
+          order = 4;
+        }
+        let list = map.get(compId);
+        if (list === undefined) {
+          list = [];
+          map.set(compId, list);
+        }
+        list.push({ a, b, order });
+      }
+      this._chemCompBondsCache = map;
+    }
+    return this._chemCompBondsCache;
+  }
+
+  // connects the atoms of every residue whose type has chem_comp_bond
+  // entries using those exact bonds (name lookup within the residue) instead
+  // of leaving them to distance-based guessing. Atoms missing from the
+  // resolved structure (e.g. hydrogens) are simply skipped. Returns the set
+  // of residues that were handled this way, so the caller can skip the
+  // distance-based pass for them.
+  private _connectFromChemCompBonds(structure: Mol): Set<Residue> {
+    const explicit = new Set<Residue>();
+    const bondsByCompId = this._chemCompBonds();
+    if (bondsByCompId.size === 0) {
+      return explicit;
+    }
+    structure.eachResidue((res) => {
+      const residue = res as Residue;
+      const bonds = bondsByCompId.get(residue.name());
+      if (bonds === undefined || bonds.length === 0) {
+        return;
+      }
+      explicit.add(residue);
+      for (let i = 0; i < bonds.length; ++i) {
+        const bond = bonds[i]!;
+        const atomA = residue.atom(bond.a);
+        const atomB = residue.atom(bond.b);
+        if (atomA === null || atomB === null) {
+          continue;
+        }
+        structure.connect(atomA as never, atomB as never, bond.order);
+      }
+    });
+    return explicit;
   }
 
   read(): Mol | (Mol | null)[] | undefined {
@@ -875,7 +972,8 @@ class CIFReader {
     }
     this._assignSecondaryStructure(structure);
     this._assignAssemblies(structure);
-    structure.deriveConnectivity();
+    const explicitlyBonded = this._connectFromChemCompBonds(structure);
+    structure.deriveConnectivity((residue) => explicitlyBonded.has(residue as Residue));
     return structure;
   }
 

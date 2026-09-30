@@ -29,16 +29,22 @@ export interface Bond<T extends BondAtom = BondAtom> {
   atom_one(): T;
   atom_two(): T;
   mid_point(out?: vec3): vec3;
+  // bond order, e.g. 1 for single, 2 for double, 3 for triple. Formats that
+  // don't carry explicit bond order (e.g. connectivity derived from
+  // interatomic distance) default to 1.
+  order(): number;
 }
 
-function Bond<T extends BondAtom>(atom_a: T, atom_b: T): Bond<T> {
+function Bond<T extends BondAtom>(atom_a: T, atom_b: T, order?: number): Bond<T> {
   const self = {
     atom_one : atom_a,
-    atom_two : atom_b
+    atom_two : atom_b,
+    order : order || 1
   };
   return {
     atom_one : function() { return self.atom_one; },
     atom_two : function() { return self.atom_two; },
+    order : function() { return self.order; },
 
     // calculates the mid-point between the two atom positions
     mid_point : function(out?: vec3): vec3 {

@@ -141,7 +141,14 @@ class Residue extends ResidueBase<Atom> {
   }
 
   _deduceType(): void {
-    this._isNucleotide = this.atom('P') !== null && this.atom('C3\'') !== null;
+    // Requiring P would misclassify the 5' terminal residue of a nucleic
+    // acid chain, whose phosphate is frequently unresolved in crystal
+    // structures. The primed sugar-ring atoms are present regardless of
+    // whether the residue carries a resolved phosphate, and (unlike the
+    // unprimed numbering used e.g. by sugar HETATM groups) are specific to
+    // nucleotides.
+    this._isNucleotide = this.atom('C1\'') !== null && this.atom('C3\'') !== null &&
+                         this.atom('C4\'') !== null && this.atom('O3\'') !== null;
     this._isAminoacid = this.atom('N') !== null && this.atom('CA') !== null &&
                         this.atom('C') !== null && this.atom('O') !== null;
   }
