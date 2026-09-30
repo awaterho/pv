@@ -112,6 +112,7 @@ export interface BaseGeom extends ISceneNode {
   _vertAssocs: VertAssoc[];
   _showRelated: string | null;
   _selection: unknown;
+  _hover: unknown;
   _ready: boolean;
 
   vertArrays(): VertArray[];
@@ -145,6 +146,9 @@ export interface BaseGeom extends ISceneNode {
   setOpacity(val: number, view?: unknown): void;
   setSelection(view: unknown): void;
   selection(): unknown;
+  setHover(view: unknown): void;
+  hover(): unknown;
+  _applySelection(): void;
 }
 
 interface BaseGeomConstructor {
@@ -159,6 +163,7 @@ const BaseGeom = function(this: BaseGeom, gl: WebGL2RenderingContext) {
   this._vertAssocs = [];
   this._showRelated = null;
   this._selection = null;
+  this._hover = null;
 } as unknown as BaseGeomConstructor;
 
 utils.derive(BaseGeom, SceneNode, {
@@ -380,9 +385,23 @@ utils.derive(BaseGeom, SceneNode, {
   },
   setSelection: function(this: BaseGeom, view: unknown) {
     this._selection = view;
+    this._applySelection();
+  },
+  // the hover view is tinted with the viewer's hoverColor, on top of the
+  // selection. Pass null to clear it.
+  setHover: function(this: BaseGeom, view: unknown) {
+    this._hover = view;
+    this._applySelection();
+  },
+  hover: function(this: BaseGeom) {
+    return this._hover;
+  },
+  _applySelection: function(this: BaseGeom) {
     this._ready = false;
+    const selection = this.selection();
     for (let i = 0; i < this._vertAssocs.length; ++i) {
-      (this._vertAssocs[i] as AtomVertexAssoc).setSelection(view as never);
+      (this._vertAssocs[i] as AtomVertexAssoc).setSelection(
+          selection as never, this._hover as never);
     }
   },
   selection: function(this: BaseGeom) {

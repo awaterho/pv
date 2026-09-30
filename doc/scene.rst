@@ -49,6 +49,13 @@ The displaying of molecules is handled by :class:`pv.BaseGeom`, and subclasses. 
 
    :param selection: the subset of the structure to be selected/highlighted.
 
+.. function:: pv.BaseGeom.setHover(hover)
+              pv.BaseGeom.hover()
+
+   Get/set the hovered part of the render geometry, e.g. the residue under the mouse pointer. It is tinted with the viewer's *hoverColor*, independently of the selection, and takes precedence where the two overlap. Neither changes the atoms' colors.
+
+   :param hover: the subset of the structure to draw as hovered, or null to clear it.
+
 .. function:: pv.BaseGeom.eachCentralAtom(callback) 
   
   Helper function for looping over all visible central atoms, including symmetry related ones

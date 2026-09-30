@@ -18,6 +18,7 @@ export default tseslint.config(
         setInterval: 'readonly',
         clearInterval: 'readonly',
         Image: 'readonly',
+        CustomEvent: 'readonly',
         WebGL2RenderingContext: 'readonly',
       },
     },

@@ -39,6 +39,8 @@ Initialization and Configuration
   * *outline* whether outline rendering should be enabled. When enabled, outline rendering draws a uniformly colored outline around the mesh geometries to improve contrast. By default outline rendering is enabled.
   * *outlineColor* the color of the outline. Default is black. When outline rendering is disabled, setting this value has no effect.
   * *outlineWidth* the width of the outline in pixels. Default is 1.5. When outline rendering is disabled, setting this value has no effect.
+  * *selectionColor* the color used to tint selected atoms (see :func:`~pv.BaseGeom.setSelection`). Default is '#3f3'. See :ref:`pv.color.notation`
+  * *hoverColor* the color used to tint hovered atoms (see :func:`~pv.BaseGeom.setHover`). Default is '#f93'. See :ref:`pv.color.notation`
 
 
 The following code defines a new viewer. This can be done during page load time, before the DOMContentLoaded event has been emitted. Render objects can only be added once the DOMContentLoaded event has fired. Typically it's best to put any object loading and display code into a DOMContentLoaded event handler.

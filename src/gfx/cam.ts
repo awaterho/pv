@@ -40,6 +40,7 @@ export interface ShaderProgram extends WebGLProgram {
   zoom: WebGLUniformLocation;
   outlineColor: WebGLUniformLocation;
   selectionColor: WebGLUniformLocation;
+  hoverColor: WebGLUniformLocation;
   relativePixelSize: WebGLUniformLocation;
   outlineWidth: WebGLUniformLocation;
   outlineEnabled: WebGLUniformLocation;
@@ -106,6 +107,7 @@ class Cam {
   private _invProjection: mat4;
   private _invProjectionDirty: boolean;
   private _selectionColor: vec4;
+  private _hoverColor: vec4;
   private _center: vec3;
   private _zoom: number;
   private _updateProjectionMat: boolean;
@@ -139,6 +141,7 @@ class Cam {
     this._invProjection = mat4.create();
     this._invProjectionDirty = true;
     this._selectionColor = vec4.fromValues(0.1, 1.0, 0.1, 0.7);
+    this._hoverColor = vec4.fromValues(1.0, 0.6, 0.2, 0.7);
     this._center = vec3.create();
     this._zoom = 50;
     this._updateProjectionMat = true;
@@ -449,6 +452,15 @@ class Cam {
     this._incrementStateId();
   }
 
+  setHoverColor(color: vec3 | vec4): void {
+    if (color.length === 3) {
+      this._hoverColor = vec4.fromValues(color[0], color[1], color[2], 0.7);
+    } else {
+      this._hoverColor = vec4.clone(color as vec4);
+    }
+    this._incrementStateId();
+  }
+
   // sets all OpenGL parameters to make this camera active.
   //
   // among other things, it sets the follow uniforms on the shader:
@@ -495,6 +507,7 @@ class Cam {
     gl.uniform3fv(shader.fogColor, this._fogColor);
     gl.uniform3fv(shader.outlineColor, this._outlineColor);
     gl.uniform4fv(shader.selectionColor, this._selectionColor);
+    gl.uniform4fv(shader.hoverColor, this._hoverColor);
     gl.uniform2fv(shader.relativePixelSize, this._relativePixelSize);
     gl.uniform1f(shader.outlineWidth, this._outlineWidth);
     gl.uniform1i(shader.outlineEnabled, this._outlineEnabled ? 1 : 0);

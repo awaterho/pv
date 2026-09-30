@@ -323,6 +323,7 @@ interface ResolvedViewerOptions {
   ssaoRadius: number;
   ssaoIntensity: number;
   selectionColor: RGBA;
+  hoverColor: RGBA;
   fov: number;
   doubleClick: ClickHandler;
   click: ClickHandler;
@@ -462,6 +463,7 @@ class Viewer {
       ssaoIntensity : optValue(opts, 'ssaoIntensity', 1.0),
       selectionColor : color.forceRGB(optValue<string | RGBA>(opts, 'selectionColor', '#3f3'),
                                       0.7),
+      hoverColor : color.forceRGB(optValue<string | RGBA>(opts, 'hoverColor', '#f93'), 0.7),
       fov : optValue(opts, 'fov', 45.0),
       doubleClick : getDoubleClickHandler(opts),
       click : getClickHandler(opts),
@@ -532,6 +534,8 @@ class Viewer {
         this._cam.setFieldOfViewY((value as number) * Math.PI / 180.0);
       } else if (optName === 'selectionColor') {
         this._cam.setSelectionColor(color.forceRGB(value as string | RGBA, 0.7));
+      } else if (optName === 'hoverColor') {
+        this._cam.setHoverColor(color.forceRGB(value as string | RGBA, 0.7));
       } else if (optName === 'outlineColor') {
         // NOTE: setOutlineColorColor is not a typo we introduced -- this
         // pre-existing call site never matched Cam's actual setOutlineColor
@@ -603,6 +607,7 @@ class Viewer {
     this._cam.setFogColor(this._options.background as vec3);
     this._cam.setOutlineColor(this._options.outlineColor as vec3);
     this._cam.setSelectionColor(this._options.selectionColor);
+    this._cam.setHoverColor(this._options.hoverColor);
     this._cam.setFieldOfViewY(this._options.fov * Math.PI / 180.0);
     this._mouseHandler.setCam(this._cam);
 

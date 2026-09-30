@@ -547,6 +547,24 @@ const _lineTraceNumVerts = function(traces: RenderTrace[]) {
   return numVerts;
 };
 
+// A line is a quad of six vertices (see VertexArray.addLine): corners 0, 3
+// and 5 sit at its start, 1, 2 and 4 at its end. Associates each corner of
+// the line just added with the trace slice at its end, so recoloring,
+// opacity and selection reach every vertex.
+function addLineAssocs(
+  vertAssoc: InstanceType<typeof TraceVertexAssoc>,
+  va: ReturnType<LineGeom['addChainVertArray']>, traceIndex: number,
+  startSlice: number, endSlice: number,
+) {
+  const base = va.numVerts() - 6;
+  for (const corner of [0, 3, 5]) {
+    vertAssoc.addAssoc(traceIndex, va as never, startSlice, base + corner, base + corner + 1);
+  }
+  for (const corner of [1, 2, 4]) {
+    vertAssoc.addAssoc(traceIndex, va as never, endSlice, base + corner, base + corner + 1);
+  }
+}
+
 const makeLineTrace = (function() {
   const colorOne = vec4.fromValues(0.0, 0.0, 0.0, 1.0),
       colorTwo = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
@@ -557,9 +575,6 @@ const makeLineTrace = (function() {
     va: ReturnType<LineGeom['addChainVertArray']>, traceIndex: number,
     trace: RenderTrace, opts: RenderOptions,
   ) {
-    vertAssoc.addAssoc(traceIndex, va as never, 0, va.numVerts(),
-                        va.numVerts() + 1);
-
     const colors = opts.float32Allocator.request(trace.length() * 4);
     const idRange = opts.idPool.getContinuousRange(trace.length())!;
     lineGeom.addIdRange(idRange);
@@ -582,9 +597,7 @@ const makeLineTrace = (function() {
       va.addLine(posOne, colorOne, posTwo, colorTwo, idOne, idTwo);
       idOne = idTwo;
       idTwo = null as unknown as number;
-      const vertEnd = va.numVerts();
-      vertAssoc.addAssoc(traceIndex, va as never, i, vertEnd - 1,
-                          vertEnd + ((i === trace.length() - 1) ? 0 : 1));
+      addLineAssocs(vertAssoc, va, traceIndex, i - 1, i);
     }
     colors[trace.length() * 4 - 4] = colorTwo[0];
     colors[trace.length() * 4 - 3] = colorTwo[1];
@@ -677,8 +690,6 @@ const slineMakeTrace = (function() {
                                      opts.splineDetail, opts.strength,
                                      false, opts.float32Allocator);
     const interpColors = interpolateColor(colors, opts.splineDetail);
-    const vertStart = va.numVerts();
-    vertAssoc.addAssoc(traceIndex, va as never, firstSlice, vertStart, vertStart + 1);
     const halfSplineDetail = Math.floor(opts.splineDetail / 2);
     const steps = geom.catmullRomSplineNumPoints(trace.length(),
                                                opts.splineDetail, false);
@@ -703,9 +714,7 @@ const slineMakeTrace = (function() {
       idEnd = objIds[Math.min(objIds.length - 1, index)]!;
       va.addLine(posOne, colorOne, posTwo, colorTwo, idStart, idEnd);
       idStart = idEnd;
-      const vertEnd = va.numVerts();
-      vertAssoc.addAssoc(traceIndex, va as never, firstSlice + i, vertEnd - 1,
-                         vertEnd + ((i === (trace.length as unknown as number) - 1) ? 0 : 1));
+      addLineAssocs(vertAssoc, va, traceIndex, firstSlice + i - 1, firstSlice + i);
     }
     vertAssoc.setPerResidueColors(traceIndex, colors);
     opts.float32Allocator.release(positions);
@@ -1339,7 +1348,7 @@ var _renderSingleTrace = (function() {
     let remainingVerts = numVerts;
     let va = meshGeom.vertArrayWithSpaceFor(numVerts);
     const maxVerts = va.maxVerts();
-    let vertStart = va.numVerts();
+    const firstSphere = va.numVerts();
     trace.posAt(caPrevPos, 0);
     let idStart = idRange.nextId({ geom : meshGeom,
                                    atom : trace.centralAtomAt(0),
@@ -1347,8 +1356,7 @@ var _renderSingleTrace = (function() {
         idEnd = 0;
     opts.protoSphere.addTransformed(va, caPrevPos, opts.radius,
                                    colorOne, idStart);
-    let vertEnd: number | null = null;
-    vertAssoc.addAssoc(traceIndex, va as never, 0, vertStart, vertEnd as unknown as number);
+    vertAssoc.addAssoc(traceIndex, va as never, 0, firstSphere, va.numVerts());
     const colors = opts.float32Allocator.request(trace.length() * 4);
     colors[0] = colorOne[0];
     colors[1] = colorOne[1];
@@ -1383,23 +1391,22 @@ var _renderSingleTrace = (function() {
         va = meshGeom.vertArrayWithSpaceFor(remainingVerts);
       }
       remainingVerts -= vertsPerIteration;
-      const endSphere = va.numVerts();
+      // the cylinder's first half belongs to residue i-1; its second half
+      // and the sphere at CA i belong to residue i.
+      const cylStart = va.numVerts();
       opts.protoCyl.addTransformed(va, midPoint, length,
                                    opts.radius, rotation, colorOne,
                                    colorTwo, idStart, idEnd);
-      vertEnd = va.numVerts();
-      vertEnd = vertEnd - (vertEnd - endSphere) / 2;
+      const cylMid = cylStart + (va.numVerts() - cylStart) / 2;
 
-      opts.protoSphere.addTransformed(va, caThisPos, opts.radius, 
+      opts.protoSphere.addTransformed(va, caThisPos, opts.radius,
                                       colorTwo, idEnd);
       idStart = idEnd;
-      vertAssoc.addAssoc(traceIndex, va as never, i, vertStart, vertEnd);
-      vertStart = vertEnd;
+      vertAssoc.addAssoc(traceIndex, va as never, i - 1, cylStart, cylMid);
+      vertAssoc.addAssoc(traceIndex, va as never, i, cylMid, va.numVerts());
       vec3.copy(colorOne, colorTwo);
     }
     vertAssoc.setPerResidueColors(traceIndex, colors);
-    vertAssoc.addAssoc(traceIndex, va as never, trace.length() - 1, vertStart,
-                        va.numVerts());
   };
 })();
 

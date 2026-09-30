@@ -467,10 +467,16 @@ document.getElementById('opacity-slider').addEventListener('input', function() {
 });
 
 viewer = pv.Viewer(document.getElementById('viewer'), {
-    width : 'auto', height: 'auto', antialias : true, fog : true,
-    outline : true, quality : 'high',
+    width : 'auto', height: 'auto', 
+    antialias : true, 
+    fog : true,
+    outline : true, 
+    quality : 'high',
     selectionColor : 'white',
-    background : '#ccc', animateTime: 500, doubleClick : null
+    hoverColor: 'yellow',
+    background : '#ccc', 
+    animateTime: 500,
+    doubleClick : null
 });
 window.viewer = viewer;
 
@@ -480,14 +486,24 @@ function initDisplayControls() {
   var fog = document.getElementById('fog-toggle');
   var outline = document.getElementById('outline-toggle');
   var background = document.getElementById('background-slider');
+  var spin = document.getElementById('spin-toggle');
+  var rock = document.getElementById('rock-toggle');
   fog.checked = viewer.options('fog');
   outline.checked = viewer.options('outline');
+  spin.checked = viewer.spin();
+  rock.checked = viewer.rockAndRoll();
   background.value = 1 - viewer.options('background')[0];
   fog.addEventListener('change', function() {
     viewer.options('fog', fog.checked);
   });
   outline.addEventListener('change', function() {
     viewer.options('outline', outline.checked);
+  });
+  spin.addEventListener('change', function() {
+    viewer.spin(spin.checked);
+  });
+  rock.addEventListener('change', function() {
+    viewer.rockAndRoll(rock.checked);
   });
   background.addEventListener('input', function() {
     var grey = 1 - parseFloat(background.value);
@@ -498,14 +514,204 @@ initDisplayControls();
 
 viewer.addListener('viewerReady', transferase);
 
+// A single click only selects; double-click moves the camera, onto the
+// residue and its surroundings, or out to the whole structure.
 viewer.on('doubleClick', function(picked) {
   if (picked === null) {
     viewer.fitTo(structure);
     return;
   }
-  viewer.setCenter(picked.pos(), 500);
+  const target = picked.target();
+  if (target === null || typeof target.residue !== 'function') {
+    viewer.setCenter(picked.pos(), 500);   // not an atom, e.g. a custom mesh
+    return;
+  }
+  const full = picked.node().structure().full();
+  viewer.fitTo(full.selectWithin(target.residue(), { radius: 8 }));
 });
 
 window.addEventListener('resize', function() {
       viewer.fitParent();
 });
+
+
+///////////////////////////////////////////
+
+
+
+
+
+// Residue annotations come from the host app; the demo has none.
+function resAnnoLabel() { return ''; }
+
+// Hover and selection are pv tints (the viewer's hoverColor and
+// selectionColor) that leave the atoms' colours alone, so they work in every
+// representation and colour scheme.
+const selected = new Map();   // geom -> Set of selected residues
+let hovered = null;           // { node, residue } under the mouse
+let anchor = null;            // { node, residue } shift-click ranges start from
+let lastClickTime = -Infinity;
+
+function residueView(node, residues) {
+  const view = node.structure().createEmptyView();
+  view.addResidues([...residues], true);
+  return view;
+}
+
+function updateSelection(node) {
+  node.setSelection(residueView(node, selected.get(node) || []));
+}
+
+function setHovered(node, residue) {
+  if (hovered !== null) hovered.node.setHover(null);
+  hovered = node !== null ? { node, residue } : null;
+  if (node !== null) node.setHover(residueView(node, [residue]));
+}
+
+// With add (ctrl/cmd) the residues are added to the selection, and a single
+// residue that is already selected is removed again; otherwise they replace
+// the selection.
+function selectResidues(node, residues, add) {
+  const nodes = new Set(add ? [node] : [...selected.keys(), node]);
+  if (!add) selected.clear();
+  const current = selected.get(node) || new Set();
+  if (add && residues.length === 1 && current.has(residues[0])) {
+    current.delete(residues[0]);
+  } else {
+    residues.forEach((r) => current.add(r));
+  }
+  selected.set(node, current);
+  nodes.forEach(updateSelection);
+}
+
+// The amino acids from one residue to another in chain order, so insertion
+// codes and gaps in the numbering don't matter.
+function residueRange(from, to) {
+  const residues = from.chain().residues();
+  const a = residues.indexOf(from), b = residues.indexOf(to);
+  return residues.slice(Math.min(a, b), Math.max(a, b) + 1)
+                 .filter((r) => r.isAminoacid());
+}
+
+// True while a mouse button is held, i.e. pv is rotating or panning.
+function isDragging() {
+  const mh = viewer._mouseHandler;
+  return mh._lastMouseDownTime && !(mh._lastMouseUpTime >= mh._lastMouseDownTime);
+}
+
+// A short press that isn't the second half of a double-click.
+function isFastClick(event) {
+  const mh = viewer._mouseHandler;
+  const fast = mh._lastMouseUpTime - mh._lastMouseDownTime < 300 &&
+               event.timeStamp - lastClickTime > 300;
+  lastClickTime = event.timeStamp;
+  return fast;
+}
+
+function setStatus(html) {
+  document.getElementById('pv_status').innerHTML = html;
+}
+
+function residueInfo(picked, atom) {
+  const res = atom.residue();
+  const insCode = res.insCode() !== '\0' ? res.insCode() : '';
+  return {
+    strucId: picked.object().geom.name(),
+    chain: res.chain().name(),
+    resno: res.num(),
+    insCode,
+  };
+}
+
+function highlightAtom(picked, atom, event) {
+  setHovered(picked.node(), atom.residue());
+
+  const { strucId, chain, resno, insCode } = residueInfo(picked, atom);
+  setStatus(`${atom.residue().name()} ${resno}${insCode} ${chain}` +
+            resAnnoLabel(strucId, chain, resno));
+
+  event.target.dispatchEvent(new CustomEvent('highlightResidue', {
+    bubbles: true,
+    detail: {
+      src: 'structure', struc_id: strucId, chain, resno,
+      ...(insCode && { insCode }),
+    },
+  }));
+}
+
+// Click selects the residue, or deselects it if it's already selected;
+// ctrl/cmd-click toggles it. Shift-click selects everything from the last
+// non-shift click to here in the same chain (shift+ctrl adds that range).
+function selectResidue(picked, atom, event) {
+  const node = picked.node(), residue = atom.residue();
+  if (!residue.isAminoacid()) return;
+  const isSelected = selected.has(node) && selected.get(node).has(residue);
+  // clicking a selected residue toggles it off, like ctrl-click
+  const ctrl = event.ctrlKey || event.metaKey || (!event.shiftKey && isSelected);
+  let residues = [residue];
+  if (event.shiftKey && anchor !== null && anchor.node === node &&
+      anchor.residue.chain() === residue.chain()) {
+    residues = residueRange(anchor.residue, residue);
+  } else {
+    anchor = { node, residue };
+  }
+  selectResidues(node, residues, ctrl);
+
+  // action says what happened to the selection, so listeners needn't track
+  // it themselves: 'replace' (it is now exactly these residues), 'add' or
+  // 'remove'. ctrl is kept for existing listeners.
+  const action = !ctrl ? 'replace' :
+                 residues.length === 1 && isSelected ? 'remove' : 'add';
+  document.body.dispatchEvent(new CustomEvent('selectResidues', {
+    detail: {
+      src: 'structure',
+      struc_id: node.name(),
+      action,
+      residues: residues.map((r) => {
+        const insCode = r.insCode() !== '\0' ? r.insCode() : '';
+        return { chain: r.chain().name(), resno: r.num(), ...(insCode && { insCode }) };
+      }),
+      ctrl,
+    },
+  }));
+}
+
+function doPVMouse(event) {
+  if (isDragging()) return;
+
+  const fastClick = event.type === 'click' && isFastClick(event);
+  const rect = viewer.boundingClientRect();
+  const picked = viewer.pick({ x: event.clientX - rect.left,
+                                  y: event.clientY - rect.top });
+  const atom = picked !== null ? picked.target() : null;
+
+  // Still over the highlighted residue: nothing changes unless it's clicked.
+  if (atom !== null && hovered !== null && hovered.node === picked.node() &&
+      atom.residue() === hovered.residue) {
+    if (fastClick) selectResidue(picked, atom, event);
+    viewer.requestRedraw();
+    return;
+  }
+
+  setHovered(null);
+
+  if (atom === null) {
+    setStatus('');
+  } else {
+    const res = atom.residue();
+    const isPolymer = res.chain().name()[0] !== '_' &&
+                      (res.isAminoacid() || res.isNucleotide());
+    if (isPolymer) {
+      highlightAtom(picked, atom, event);
+    } else {
+      setHovered(picked.node(), res);
+      setStatus(`${res.name()} ${res.num()}`);
+    }
+  }
+  viewer.requestRedraw();
+}
+
+document.body.addEventListener('mousemove',
+  (e) => e.target.matches('#viewer canvas') ? doPVMouse(e) : null, true);
+document.body.addEventListener('click',
+  (e) => e.target.matches('#viewer canvas') ? doPVMouse(e) : null, true);

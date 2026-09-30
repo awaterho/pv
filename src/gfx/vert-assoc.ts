@@ -18,7 +18,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 import colorModule, { type ColorAtom, type ColorObj } from '../color';
-import geom from '../geom';
 
 type ColorOp = InstanceType<typeof colorModule.ColorOp>;
 
@@ -64,6 +63,17 @@ interface AssocTrace {
 // The vertex association data for the atom-based render styles is managed
 // by AtomVertexAssoc, whereas the trace-based render styles are managed
 // by the TraceVertexAssoc class.
+// Spreads per-residue selection flags over the interpolated trace, giving
+// each point the flag of its nearest residue. Unlike a linear blend, this
+// keeps a hovered residue (-1) full width next to a selected one (1).
+function nearestResidueFlags(values: Float32Array, num: number): Float32Array {
+  const out = new Float32Array(num * (values.length - 1) + 1);
+  for (let i = 0; i < out.length; ++i) {
+    out[i] = values[Math.round(i / num)]!;
+  }
+  return out;
+}
+
 interface AtomAssocEntry {
   atom: AssocAtom;
   vertexArray: AssocVertexArray;
@@ -134,15 +144,22 @@ export class AtomVertexAssoc {
     return null;
   }
 
-  setSelection(view: AssocView): void {
-    const atomMap: Record<number, boolean> = {};
+  // per-vertex flag: 1 = selected, -1 = hovered (wins over selected), 0 =
+  // neither. Hover is negative so that interpolating between hovered and
+  // unselected never passes through the selected range.
+  setSelection(view: AssocView, hover?: AssocView | null): void {
+    const flags: Record<number, number> = {};
     view.eachAtom(function(atom) {
-      atomMap[atom.index()] = true;
+      flags[atom.index()] = 1.0;
     });
+    if (hover) {
+      hover.eachAtom(function(atom) {
+        flags[atom.index()] = -1.0;
+      });
+    }
     for (let i = 0; i < this._assocs.length; ++i) {
       const assoc = this._assocs[i]!;
-      const ai = atomMap[assoc.atom.index()];
-      const selected = ai !== true ? 0.0 : 1.0;
+      const selected = flags[assoc.atom.index()] || 0.0;
       const va = assoc.vertexArray;
       for (let j = assoc.vertStart ; j < assoc.vertEnd; ++j) {
         va.setSelected(j, selected);
@@ -280,7 +297,8 @@ export class TraceVertexAssoc {
     return null;
   }
 
-  setSelection(view: AssocView): void {
+  // see AtomVertexAssoc.setSelection for the flag values.
+  setSelection(view: AssocView, hover?: AssocView | null): void {
     const selData: Float32Array[] = [];
     let i, j;
     const traces = this._structure.backboneTraces();
@@ -290,12 +308,13 @@ export class TraceVertexAssoc {
       let index = 0;
       const trace = traces[i]!;
       for (j = 0; j < trace.length(); ++j) {
-        const selected = view.containsResidue(trace.residueAt(j)) ? 1.0 : 0.0;
-        data[index] = selected;
+        const residue = trace.residueAt(j);
+        data[index] = hover && hover.containsResidue(residue) ? -1.0 :
+                      view.containsResidue(residue) ? 1.0 : 0.0;
         index+=1;
       }
       if (this._interpolation > 1) {
-        selData.push(geom.interpolateScalars(data, this._interpolation));
+        selData.push(nearestResidueFlags(data, this._interpolation));
       } else {
         selData.push(data);
       }

@@ -240,6 +240,7 @@ class Canvas {
                                                     'relativePixelSize')!;
     shaderProgram.selectionColor = getUniformLoc(shaderProgram,
                                                  'selectionColor')!;
+    shaderProgram.hoverColor = getUniformLoc(shaderProgram, 'hoverColor')!;
     shaderProgram.pointSize = getUniformLoc(shaderProgram, 'pointSize')!;
     shaderProgram.zoom = getUniformLoc(shaderProgram, 'zoom')!;
     shaderProgram.outlineEnabled = getUniformLoc(shaderProgram,
