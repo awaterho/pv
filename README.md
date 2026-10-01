@@ -6,6 +6,8 @@ line, trace, sphere and point representations directly from PDB or mmCIF files, 
 color schemes, selections, and proper order-independent transparency, all at interactive
 framerates even for large macromolecules.
 
+You can try the [online demo](https://awaterho.github.io/pvng/demo/).
+
 Origins
 -----------------------------------------
 

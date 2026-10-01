@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pvng &mdash; WebGL2 protein viewer</title>
+    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" type="image/png" href="./pv-icon.png" sizes="64x64">
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #5a5a5a;
+        --accent: #008cba;
+        --accent-hover: #007095;
+        --card-bg: #f6f7f8;
+        --border: #e1e4e8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15171a;
+          --fg: #eaecef;
+          --muted: #a3a9b0;
+          --accent: #3fb1e0;
+          --accent-hover: #6ec8ec;
+          --card-bg: #1d2024;
+          --border: #2c3036;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+      }
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 4rem 1.25rem 3rem;
+      }
+      h1 {
+        font-size: 2.25rem;
+        font-weight: 600;
+        margin: 0 0 0.25rem;
+      }
+      .tagline {
+        color: var(--muted);
+        font-size: 1.1rem;
+        margin: 0 0 2rem;
+      }
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 2.5rem;
+      }
+      .button {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.95rem;
+        font-weight: 500;
+        transition: background-color 150ms ease-out, color 150ms ease-out;
+      }
+      .button.primary {
+        background: var(--accent);
+        color: white;
+      }
+      .button.primary:hover {
+        background: var(--accent-hover);
+      }
+      .button.secondary {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--border);
+      }
+      .button.secondary:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      section {
+        margin-bottom: 2.5rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      ul {
+        margin: 0;
+        padding-left: 1.25rem;
+      }
+      li {
+        margin-bottom: 0.4rem;
+      }
+      code {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        font-size: 0.9em;
+      }
+      pre {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        overflow-x: auto;
+        font-size: 0.85rem;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+      }
+      a {
+        color: var(--accent);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>pvng</h1>
+      <p class="tagline">A WebGL2-based protein viewer for the browser.</p>
+
+      <div class="cta">
+        <a class="button primary" href="./demo/">Live demo &rarr;</a>
+        <a class="button secondary" href="https://github.com/awaterho/pvng">View on GitHub</a>
+      </div>
+
+      <section>
+        <h2>What it does</h2>
+        <p>
+          pvng renders cartoons, ball-and-stick, line, trace, sphere and point representations
+          directly from PDB or mmCIF files, with custom color schemes, selections, and proper
+          order-independent transparency, all at interactive framerates even for large
+          macromolecules.
+        </p>
+      </section>
+
+      <section>
+        <h2>Use it on your own page</h2>
+        <pre><code>&lt;div id="viewer" style="width: 100%; height: 100%;"&gt;&lt;/div&gt;
+&lt;script src="pv.iife.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  var viewer = pv.Viewer(document.getElementById('viewer'), {
+    width: 'auto',
+    height: 'auto',
+    antialias: true,
+    quality: 'high',
+  });
+
+  pv.io.fetchCif('https://files.rcsb.org/download/1HBB.cif', function (structure) {
+    viewer.cartoon('protein', structure, { color: pv.color.ssSuccession() });
+    viewer.autoZoom();
+  });
+&lt;/script&gt;</code></pre>
+        <p>
+          See the <a href="https://github.com/awaterho/pvng#readme">README</a> for build
+          instructions and the full API.
+        </p>
+      </section>
+
+      <footer>
+        pvng is a fork and continuation of
+        <a href="https://github.com/biasmv/pv">pv</a>, originally created by
+        <a href="https://github.com/biasmv">Marco Biasini</a>. WebGL2 is required.
+      </footer>
+    </main>
+  </body>
+</html>

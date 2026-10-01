@@ -16,6 +16,7 @@ build
 *.egg-info
 dist
 dist-debug
+pages-dist
 .ipynb_checkpoints
 .idea/
 test-results
