@@ -280,6 +280,15 @@ function iggFcGlycans() {
   load('4byh');
 }
 
+// Shiga-like toxin I B subunit bound to an analogue of its receptor, the
+// glycolipid Gb3: four B5 pentamers in the asymmetric unit, 20 copies of one
+// entity, each binding Gb3 trisaccharides (Gal-alpha1,4-Gal-beta1,4-Glc) as
+// branched oligosaccharide chains. Shows the SNFG glycan symbols on many
+// copies at once, and byEntity coloring of a homo-oligomer.
+function shigaToxinGb3() {
+  load('1bos');
+}
+
 // AlphaFold DB model AF-A0A4Y8AT86-F1 (UniProt A0A4Y8AT86, a "4-fold beta
 // flower domain-containing protein" from Gramella jeungdoensis): four
 // beta-hairpins radiating out of a small helical hub, forming a flower-like
@@ -755,6 +764,7 @@ onClick('1ake', kinase);
 onClick('4ubb', polymerase);
 onClick('4umt', melkInhibitor);
 onClick('4byh', iggFcGlycans);
+onClick('1bos', shigaToxinGb3);
 onClick('beta-flower', betaFlower);
 onClick('1ehz', trna);
 onClick('1f8v', pariacoto);
