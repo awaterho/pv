@@ -209,10 +209,12 @@ function addLigandOverlays() {
 // loads a structure from its local mmCIF fixture (structures/<id>.cif).
 function load(cif_id) {
   document.getElementById('traj-widget').style.display = 'none';
-  io.fetchCif('structures/'+cif_id+'.cif', function(s) {
+  io.fetchCif('structures/'+cif_id+'.cif').then(function(s) {
     structure = s;
     showStructure();
     viewer.autoZoom();
+  }, function(error) {
+    showWarning('Could not load structure "' + cif_id + '": ' + error.message);
   });
 }
 
@@ -287,6 +289,14 @@ function iggFcGlycans() {
 // copies at once, and byEntity coloring of a homo-oligomer.
 function shigaToxinGb3() {
   load('1bos');
+}
+
+// two nucleosomes with the linker histone H1x, at 2.7 A: each core is an
+// H3/H4/H2A/H2B octamer wrapped by a 169 bp DNA duplex, with H1x bound
+// where the DNA enters and leaves the core. Protein and DNA in one view,
+// and a good case for byEntity coloring (7 polymer entities, 22 chains).
+function nucleosomeH1x() {
+  load('8yti');
 }
 
 // AlphaFold DB model AF-A0A4Y8AT86-F1 (UniProt A0A4Y8AT86, a "4-fold beta
@@ -765,6 +775,7 @@ onClick('4ubb', polymerase);
 onClick('4umt', melkInhibitor);
 onClick('4byh', iggFcGlycans);
 onClick('1bos', shigaToxinGb3);
+onClick('8yti', nucleosomeH1x);
 onClick('beta-flower', betaFlower);
 onClick('1ehz', trna);
 onClick('1f8v', pariacoto);
