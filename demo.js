@@ -681,19 +681,17 @@ function residueInfo(picked, atom) {
   };
 }
 
-// mmCIF chains and residues are named by their label_* ids; the parser
-// keeps the author (PDB-style) ids only where they differ, and those are
-// shown in brackets: "[auth 13]" for just the number, "[auth chain A]" for
-// just the chain, "[auth 1335 A]" for both -- the same number-then-chain
-// order as the label itself.
-function authLabel(res) {
+// "GLU 6 A" from the label_* ids mmCIF chains and residues are named by.
+// The parser keeps the author (PDB-style) ids only where they differ, and
+// each follows the value it qualifies, the way RCSB writes them:
+// "GLU 6 [auth 7] A", "SO4 901 B [auth A]", "47W 1 [auth 1335] C [auth A]".
+function residueLabel(res, resno, insCode, chain) {
   // prop() returns 0 for a property that was never set.
   const authNum = res.prop('authSeqId');
   const authChain = res.prop('authAsymId');
-  if (authNum && authChain) return ` [auth ${authNum} ${authChain}]`;
-  if (authNum) return ` [auth ${authNum}]`;
-  if (authChain) return ` [auth chain ${authChain}]`;
-  return '';
+  return `${res.name()} ${resno}${insCode}` +
+         (authNum ? ` [auth ${authNum}]` : '') + ` ${chain}` +
+         (authChain ? ` [auth ${authChain}]` : '');
 }
 
 // the full name shown first: a ligand's chemical name (chem_comp.name),
@@ -713,8 +711,7 @@ function highlightAtom(picked, atom, event) {
 
   const { strucId, chain, resno, insCode } = residueInfo(picked, atom);
   setStatus(nameLabel(atom.residue()) +
-            `${atom.residue().name()} ${resno}${insCode} ${chain}` +
-            authLabel(atom.residue()) +
+            residueLabel(atom.residue(), resno, insCode, chain) +
             resAnnoLabel(strucId, chain, resno));
 
   event.target.dispatchEvent(new CustomEvent('highlightResidue', {
@@ -780,9 +777,7 @@ function showResidueInfo(picked, atom, event) {
   } else {
     setHovered(picked.node(), res);
     const { chain, resno, insCode } = residueInfo(picked, atom);
-    setStatus(nameLabel(res) +
-              `${res.name()} ${resno}${insCode} ${chain}` +
-              authLabel(res));
+    setStatus(nameLabel(res) + residueLabel(res, resno, insCode, chain));
   }
 }
 
