@@ -108,8 +108,15 @@ function ballsAndSticks() {
   viewer.ballsAndSticks('structure', structure, { showRelated : related() });
 }
 
+// a surface over the protein only; DNA/RNA chains are drawn as a cartoon
+// instead (backbone tube, plus the bases from addLigands), which keeps
+// strands, grooves and bases readable where a surface would merge them
+// into the protein's.
 function surface() {
   viewer.clear();
+  viewer.cartoon('structure.nucleic',
+                 structure.residueSelect(function(r) { return r.isNucleotide(); }),
+                 { showRelated : related(), baseSticks : false });
   addLigands(true);
   viewer.surface('structure', structure.select('protein'), {
     color: color.ssSuccession(), showRelated : related(),
