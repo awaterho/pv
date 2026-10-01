@@ -822,9 +822,14 @@
   <input type="range" id="opacity-slider" min="0" max="1" step="0.01" value="1">
   <label for="background-slider">Background</label>
   <input type="range" id="background-slider" min="0" max="1" step="0.01" value="0">
+  <label for="ssao-radius-slider" title="Screen-Space Ambient Occlusion">SSAO Radius: <span id="ssao-radius-value">2.0</span></label>
+  <input type="range" id="ssao-radius-slider" min="0.1" max="10" step="0.1" value="2">
+  <label for="ssao-intensity-slider" title="Screen-Space Ambient Occlusion">SSAO Intensity: <span id="ssao-intensity-value">1.0</span></label>
+  <input type="range" id="ssao-intensity-slider" min="0" max="3" step="0.1" value="1">
   <div class="toggles">
     <label><input type="checkbox" id="fog-toggle">Fog</label>
     <label><input type="checkbox" id="outline-toggle">Outline</label>
+    <label title="Screen-Space Ambient Occlusion"><input type="checkbox" id="ssao-toggle">SSAO</label>
     <label><input type="checkbox" id="spin-toggle">Spin</label>
     <label><input type="checkbox" id="rock-toggle">Rock and roll</label>
   </div>

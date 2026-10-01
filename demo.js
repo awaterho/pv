@@ -488,11 +488,23 @@ function initDisplayControls() {
   var background = document.getElementById('background-slider');
   var spin = document.getElementById('spin-toggle');
   var rock = document.getElementById('rock-toggle');
+  var ssao = document.getElementById('ssao-toggle');
+  var ssaoRadius = document.getElementById('ssao-radius-slider');
+  var ssaoRadiusValue = document.getElementById('ssao-radius-value');
+  var ssaoIntensity = document.getElementById('ssao-intensity-slider');
+  var ssaoIntensityValue = document.getElementById('ssao-intensity-value');
   fog.checked = viewer.options('fog');
   outline.checked = viewer.options('outline');
   spin.checked = viewer.spin();
   rock.checked = viewer.rockAndRoll();
   background.value = 1 - viewer.options('background')[0];
+  ssao.checked = viewer.options('ssao');
+  ssaoRadius.value = viewer.options('ssaoRadius');
+  ssaoRadiusValue.textContent = parseFloat(ssaoRadius.value).toFixed(1);
+  ssaoIntensity.value = viewer.options('ssaoIntensity');
+  ssaoIntensityValue.textContent = parseFloat(ssaoIntensity.value).toFixed(1);
+  ssaoRadius.disabled = !ssao.checked;
+  ssaoIntensity.disabled = !ssao.checked;
   fog.addEventListener('change', function() {
     viewer.options('fog', fog.checked);
   });
@@ -508,6 +520,21 @@ function initDisplayControls() {
   background.addEventListener('input', function() {
     var grey = 1 - parseFloat(background.value);
     viewer.options('background', [grey, grey, grey, 1]);
+  });
+  ssao.addEventListener('change', function() {
+    viewer.options('ssao', ssao.checked);
+    ssaoRadius.disabled = !ssao.checked;
+    ssaoIntensity.disabled = !ssao.checked;
+  });
+  ssaoRadius.addEventListener('input', function() {
+    var val = parseFloat(ssaoRadius.value);
+    ssaoRadiusValue.textContent = val.toFixed(1);
+    viewer.options('ssaoRadius', val);
+  });
+  ssaoIntensity.addEventListener('input', function() {
+    var val = parseFloat(ssaoIntensity.value);
+    ssaoIntensityValue.textContent = val.toFixed(1);
+    viewer.options('ssaoIntensity', val);
   });
 }
 initDisplayControls();
