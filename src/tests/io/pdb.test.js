@@ -244,3 +244,30 @@ test('only load first model when loadAllModels option is not set', function(asse
     done();
   });
 });
+
+test('fetchPdb resolves its promise with the structure', async function() {
+  var structure = await io.fetchPdb('/tests/data/1crn.pdb');
+  strictEqual(structure.atoms().length > 0, true);
+});
+
+test('fetchPdb rejects on HTTP error and does not call the callback', async function() {
+  var called = false;
+  var error = null;
+  try {
+    await io.fetchPdb('/tests/data/missing.pdb', function() { called = true; });
+  } catch (e) {
+    error = e;
+  }
+  strictEqual(called, false);
+  strictEqual(/HTTP 404/.test(error.message), true);
+});
+
+test('fetchPdb rejects when the response holds no structure', async function() {
+  var error = null;
+  try {
+    await io.fetchPdb('/package.json');
+  } catch (e) {
+    error = e;
+  }
+  strictEqual(/no structure/.test(error.message), true);
+});

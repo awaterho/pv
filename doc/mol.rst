@@ -80,11 +80,22 @@ The following record types are handled:
 
   The same information is extracted as for :func:`pv.io.pdb`: coordinate data, secondary structure, and biological assembly information (including composed/multiplied symmetry operators).
 
-.. function:: pv.io.fetchPdb(url, callback[, options])
-              pv.io.fetchSdf(url, callback)
-              pv.io.fetchCif(url, callback[, options])
+.. function:: pv.io.fetchPdb(url[, callback[, options]])
+              pv.io.fetchSdf(url[, callback])
+              pv.io.fetchCif(url[, callback[, options]])
 
-  Performs an adjax request the provided URL and loads the data as a structure using :func:`pv.io.pdb`, :func:`pv.io.sdf`, or :func:`pv.io.cif` respectively. Upon success, the callback is invoked with the loaded structure as the only argument. *options* is passed as-is to :func:`pv.io.pdb`/:func:`pv.io.cif`.
+  Performs an ajax request to the provided URL and loads the data as a structure using :func:`pv.io.pdb`, :func:`pv.io.sdf`, or :func:`pv.io.cif` respectively. *options* is passed as-is to :func:`pv.io.pdb`/:func:`pv.io.cif`.
+
+  Returns a promise that resolves with the loaded structure. It rejects with an ``Error`` when the request fails (network error or HTTP error status such as 404) or when the response contains no atoms. Upon success, the optional callback is also invoked with the structure as the only argument; it is never invoked on failure.
+
+  .. code-block:: javascript
+
+    pv.io.fetchCif(url).then(function(structure) {
+      viewer.clear();
+      viewer.cartoon('protein', structure);
+    }, function(error) {
+      console.warn('could not load ' + url + ': ' + error.message);
+    });
 
 
 Mol (and MolView)

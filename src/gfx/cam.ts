@@ -45,6 +45,7 @@ export interface ShaderProgram extends WebGLProgram {
   outlineWidth: WebGLUniformLocation;
   outlineEnabled: WebGLUniformLocation;
   opaqueOnly: WebGLUniformLocation;
+  hoverSymId?: WebGLUniformLocation | null;
   stateId: number;
 }
 
@@ -108,6 +109,7 @@ class Cam {
   private _invProjectionDirty: boolean;
   private _selectionColor: vec4;
   private _hoverColor: vec4;
+  private _hoverSymId = -1;
   private _center: vec3;
   private _zoom: number;
   private _updateProjectionMat: boolean;
@@ -472,6 +474,12 @@ class Cam {
   // - fogNear,fogFar  - near and far offset of fog
   // - fogColor        - the color of fog
   // - outlineColor    - color to be used for the outline shader
+  // the symmetry copy whose hovered residues are tinted (-1: every copy),
+  // set by the viewer for each object before drawing it
+  setHoverSymId(symId: number): void {
+    this._hoverSymId = symId;
+  }
+
   bind(shader: ShaderProgram, additionalTransform?: mat4): void {
     const gl = this._gl;
     if (this._currentShader !== shader) {
@@ -479,6 +487,9 @@ class Cam {
       gl.useProgram(shader);
     }
     this._updateIfRequired();
+    if (shader.hoverSymId) {
+      gl.uniform1i(shader.hoverSymId, this._hoverSymId);
+    }
 
     // in case additionalTransform is given, multiply camera model view
     // with the matrix and use the product as the model view matrix.

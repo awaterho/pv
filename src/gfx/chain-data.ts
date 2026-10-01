@@ -46,7 +46,7 @@ export interface Shader extends ShaderProgram {
 interface LineChainData extends InstanceType<typeof VertexArray> {
   _chain: unknown;
   chain(): unknown;
-  drawSymmetryRelated(cam: Cam, shader: Shader, transforms: mat4[]): void;
+  drawSymmetryRelated(cam: Cam, shader: Shader, transforms: mat4[], firstSymId?: number): void;
 }
 
 interface LineChainDataConstructor {
@@ -71,11 +71,13 @@ const LineChainData = function(
 utils.derive(LineChainData, VertexArray, {
   chain: function(this: LineChainData) { return this._chain; },
 
-  drawSymmetryRelated: function(this: LineChainData, cam: Cam, shader: Shader, transforms: mat4[]): void {
+  drawSymmetryRelated: function(
+    this: LineChainData, cam: Cam, shader: Shader, transforms: mat4[], firstSymId?: number,
+  ): void {
     this.bind(shader);
     for (let i = 0; i < transforms.length; ++i) {
       cam.bind(shader, transforms[i]);
-      this._gl.uniform1i(shader.symId, i);
+      this._gl.uniform1i(shader.symId, (firstSymId ?? 0) + i);
       this.draw();
     }
     this.releaseAttribs(shader);
@@ -85,7 +87,7 @@ utils.derive(LineChainData, VertexArray, {
 interface MeshChainData extends InstanceType<typeof IndexedVertexArray> {
   _chain: unknown;
   chain(): unknown;
-  drawSymmetryRelated(cam: Cam, shader: Shader, transforms: mat4[]): void;
+  drawSymmetryRelated(cam: Cam, shader: Shader, transforms: mat4[], firstSymId?: number): void;
 }
 
 interface MeshChainDataConstructor {

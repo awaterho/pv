@@ -33,12 +33,21 @@ The following color operations are available:
   :param palette: an optional object of colors to draw from. Include H, C, N, O, S, P. Defaults to CPK.
 
 
-.. function:: pv.color.byChain([gradient])
+.. function:: pv.color.byChain([colors])
 
-  Applies a unique uniform color for each chain in the structure. The chain colors are drawn from a gradient, which guarantees that chain colors are unique. 
+  Applies a uniform color to each polymer chain in the structure. By default the colors are drawn in order from :data:`pv.color.CHAIN_PALETTE`, twelve categorical colors chosen to be easy to tell apart, cycling when there are more chains. Ligand and water chains take the color of the polymer chain with the same author chain id.
 
+  :param colors: An optional list of colors to use instead of the default palette, or a gradient, which is then spread over the chains from first to last, as earlier versions of pv did by default.
 
-  :param gradient: An optional gradient to draw colors from. Defaults to a rainbow gradient.
+.. function:: pv.color.byEntity([colors])
+
+  Colors chains by entity (mmCIF ``label_entity_id``): every entity takes the next color of the palette and copies of the same entity, e.g. the chains of a homo-oligomer, get darker to lighter shades of that color. Ligands follow their polymer chain as in :func:`pv.color.byChain`. Without entity information (PDB files) every chain counts as its own entity, giving the same result as :func:`pv.color.byChain`.
+
+  :param colors: An optional list of colors to use instead of :data:`pv.color.CHAIN_PALETTE`.
+
+.. data:: pv.color.CHAIN_PALETTE
+
+  The default list of chain colors, as hex strings.
 
 
 .. function:: pv.color.ssSuccession([gradient[,coilColor]])

@@ -117,7 +117,8 @@ export interface BaseGeom extends ISceneNode {
 
   vertArrays(): VertArray[];
   shaderForStyleAndPass(shaderCatalog: unknown, style: unknown, pass: unknown): ShaderProgram | null;
-  _drawVertArrays(cam: Cam, shader: ShaderProgram, vertArrays: VertArray[], matrices: mat4[] | null): void;
+  _drawVertArrays(cam: Cam, shader: ShaderProgram, vertArrays: VertArray[], matrices: mat4[] | null,
+                  firstSymId?: number): void;
 
   setShowRelated(rel: string | null): string | null | undefined;
   symWithIndex(index: number): mat4 | null;
@@ -146,8 +147,13 @@ export interface BaseGeom extends ISceneNode {
   setOpacity(val: number, view?: unknown): void;
   setSelection(view: unknown): void;
   selection(): unknown;
-  setHover(view: unknown): void;
+  setHover(view: unknown, symIndex?: number | null): void;
   hover(): unknown;
+  hoverSymId(): number;
+  _hoverSymId: number;
+  // set for geometry with the symmetry copies built into its vertices (a
+  // surface over an assembly), drawn once rather than once per copy
+  _copiesBuiltIn?: boolean;
   _applySelection(): void;
 }
 
@@ -164,6 +170,7 @@ const BaseGeom = function(this: BaseGeom, gl: WebGL2RenderingContext) {
   this._showRelated = null;
   this._selection = null;
   this._hover = null;
+  this._hoverSymId = -1;
 } as unknown as BaseGeomConstructor;
 
 utils.derive(BaseGeom, SceneNode, {
@@ -264,10 +271,12 @@ utils.derive(BaseGeom, SceneNode, {
   // draws vertex arrays by using the symmetry generators contained in assembly
   _drawSymmetryRelated: function(this: BaseGeom, cam: Cam, shader: ShaderProgram, assembly: AssemblyLike) {
     const gens = assembly.generators();
+    let firstSymId = 0;
     for (let i = 0; i < gens.length; ++i) {
       const gen = gens[i]!;
       const affectedVAs = this._vertArraysInvolving(gen.chains());
-      this._drawVertArrays(cam, shader, affectedVAs, gen.matrices());
+      this._drawVertArrays(cam, shader, affectedVAs, gen.matrices(), firstSymId);
+      firstSymId += gen.matrices().length;
     }
   },
 
@@ -388,10 +397,15 @@ utils.derive(BaseGeom, SceneNode, {
     this._applySelection();
   },
   // the hover view is tinted with the viewer's hoverColor, on top of the
-  // selection. Pass null to clear it.
-  setHover: function(this: BaseGeom, view: unknown) {
+  // selection. Pass null to clear it. With symIndex (a picked object's
+  // symIndex()), only that symmetry copy is tinted, else all of them.
+  setHover: function(this: BaseGeom, view: unknown, symIndex?: number | null) {
     this._hover = view;
+    this._hoverSymId = symIndex === undefined || symIndex === null ? -1 : symIndex;
     this._applySelection();
+  },
+  hoverSymId: function(this: BaseGeom) {
+    return this._copiesBuiltIn ? -1 : this._hoverSymId;
   },
   hover: function(this: BaseGeom) {
     return this._hover;
@@ -399,9 +413,10 @@ utils.derive(BaseGeom, SceneNode, {
   _applySelection: function(this: BaseGeom) {
     this._ready = false;
     const selection = this.selection();
+    const hoverCopy = this._copiesBuiltIn && this._hoverSymId >= 0 ? this._hoverSymId : null;
     for (let i = 0; i < this._vertAssocs.length; ++i) {
       (this._vertAssocs[i] as AtomVertexAssoc).setSelection(
-          selection as never, this._hover as never);
+          selection as never, this._hover as never, hoverCopy);
     }
   },
   selection: function(this: BaseGeom) {

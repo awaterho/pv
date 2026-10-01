@@ -811,12 +811,46 @@ class CIFReader {
   private _chemCompBondsCache?: Map<string, ChemCompBond[]>;
   private _entityDescriptions: Map<string, string>;
   private _compNames: Map<string, string>;
+  private _saccharides: Map<string, string | null>;
+  private _parentComps: Map<string, string>;
 
   constructor(doc: ReturnType<typeof parseCIF>, options: CifOptions) {
     this._doc = doc;
     this._loadAllModels = !!options.loadAllModels;
     this._entityDescriptions = this._namesById('entity', 'id', 'pdbx_description');
     this._compNames = this._namesById('chem_comp', 'id', 'name');
+    this._saccharides = this._findSaccharides();
+    // modified residues -> the standard one they're derived from, e.g.
+    // PSU (pseudouridine) -> U, MSE (selenomethionine) -> MET
+    this._parentComps = this._namesById('pdbx_struct_mod_residue', 'label_comp_id',
+                                        'parent_comp_id');
+  }
+
+  // the components chem_comp.type marks as sugars ('D-saccharide, beta
+  // linking', 'L-saccharide', ...), each mapped to its SNFG symbol name
+  // ('GlcNAc', 'Man', 'Neu5Ac', ...) from _pdbx_chem_comp_identifier, or to
+  // null when the file gives none.
+  private _findSaccharides(): Map<string, string | null> {
+    const map = new Map<string, string | null>();
+    const compRows = this._doc.loopRows('chem_comp');
+    for (let i = 0; i < compRows.length; ++i) {
+      const id = compRows[i]!.get('id');
+      const type = (compRows[i]!.get('type') || '').toLowerCase();
+      if (id !== undefined && type.indexOf('saccharide') !== -1) {
+        map.set(id, null);
+      }
+    }
+    const identifierRows = this._doc.loopRows('pdbx_chem_comp_identifier');
+    for (let i = 0; i < identifierRows.length; ++i) {
+      const row = identifierRows[i]!;
+      const id = row.get('comp_id');
+      const symbol = cifValue(row, 'identifier');
+      if (id !== undefined && symbol !== undefined && map.has(id) &&
+          (row.get('type') || '').toUpperCase() === 'SNFG CARBOHYDRATE SYMBOL') {
+        map.set(id, symbol);
+      }
+    }
+    return map;
   }
 
   // id -> name for one category, e.g. entity id -> pdbx_description
@@ -963,6 +997,9 @@ class CIFReader {
         if (chain === null) {
           chain = structure.addChain(chainName);
           const entityId = row.get('label_entity_id');
+          if (entityId !== undefined) {
+            chain.setProp('entityId', entityId);
+          }
           const description = entityId !== undefined ?
                               this._entityDescriptions.get(entityId) : undefined;
           if (description !== undefined) {
@@ -1028,6 +1065,19 @@ class CIFReader {
         if (compName !== undefined) {
           currRes.setProp('compName', compName);
         }
+        const parentComp = this._parentComps.get(compId);
+        if (parentComp !== undefined) {
+          currRes.setProp('parentCompId', parentComp);
+        }
+        // sugars, for select('carbohydrate') and glycan displays such as
+        // SNFG symbols
+        const snfg = this._saccharides.get(compId);
+        if (snfg !== undefined) {
+          currRes.setProp('isCarbohydrate', true);
+          if (snfg !== null) {
+            currRes.setProp('snfg', snfg);
+          }
+        }
       }
 
       const pos = vec3.create();
@@ -1051,7 +1101,74 @@ class CIFReader {
     this._assignAssemblies(structure);
     const explicitlyBonded = this._connectFromChemCompBonds(structure);
     structure.deriveConnectivity((residue) => explicitlyBonded.has(residue as Residue));
+    this._connectFromStructConn(structure);
     return structure;
+  }
+
+  // covalent bonds between residues that deriveConnectivity() can't know
+  // about, as listed in _struct_conn: glycosidic links between the sugars
+  // of a glycan, the glycan's link to its Asn/Ser/Thr, disulfides, and
+  // covalently attached ligands. Only links within the asymmetric unit
+  // (symmetry 1_555) are made; metal coordination and hydrogen bonds
+  // (metalc/hydrog) are not covalent bonds and are left out.
+  private _connectFromStructConn(structure: Mol): void {
+    const rows = this._doc.loopRows('struct_conn');
+    for (let i = 0; i < rows.length; ++i) {
+      const row = rows[i]!;
+      const connType = (row.get('conn_type_id') || '').toLowerCase();
+      if (connType !== 'disulf' && connType.indexOf('covale') !== 0) {
+        continue;
+      }
+      const sym1 = cifValue(row, 'ptnr1_symmetry');
+      const sym2 = cifValue(row, 'ptnr2_symmetry');
+      if ((sym1 !== undefined && sym1 !== '1_555') ||
+          (sym2 !== undefined && sym2 !== '1_555')) {
+        continue;
+      }
+      const atomA = this._structConnAtom(structure, row, '1');
+      const atomB = this._structConnAtom(structure, row, '2');
+      if (atomA === null || atomB === null || atomA === atomB ||
+          atomA.isConnectedTo(atomB)) {
+        continue;
+      }
+      const valueOrder = (row.get('pdbx_value_order') || '').toLowerCase();
+      const order = valueOrder === 'doub' ? 2 : valueOrder === 'trip' ? 3 : 1;
+      structure.connect(atomA as never, atomB as never, order);
+    }
+  }
+
+  // the atom one partner (ptnr1/ptnr2) of a _struct_conn row refers to.
+  // Polymer residues are found by label_seq_id; non-polymer ones (sugars,
+  // ligands) have none and are numbered by auth_seq_id, see _buildModel.
+  private _structConnAtom(structure: Mol, row: CIFRow, ptnr: string): AtomT | null {
+    const chainName = row.get('ptnr' + ptnr + '_label_asym_id');
+    const chain = chainName !== undefined ? structure.chain(chainName) : null;
+    if (chain === null) {
+      return null;
+    }
+    const compId = row.get('ptnr' + ptnr + '_label_comp_id');
+    const atomName = row.get('ptnr' + ptnr + '_label_atom_id');
+    const labelSeqId = cifValue(row, 'ptnr' + ptnr + '_label_seq_id');
+    let num: number;
+    let insCode = '\0';
+    if (labelSeqId !== undefined) {
+      num = parseInt(labelSeqId, 10);
+    } else {
+      num = parseInt(cifValue(row, 'ptnr' + ptnr + '_auth_seq_id') || '', 10);
+      insCode = cifValue(row, 'pdbx_ptnr' + ptnr + '_pdb_ins_code') || '\0';
+    }
+    if (isNaN(num) || atomName === undefined) {
+      return null;
+    }
+    const residues = chain.residues();
+    for (let i = 0; i < residues.length; ++i) {
+      const residue = residues[i]!;
+      if (residue.num() === num && residue.insCode() === insCode &&
+          (compId === undefined || residue.name() === compId)) {
+        return residue.atom(atomName);
+      }
+    }
+    return null;
   }
 
   private _assignSecondaryStructure(structure: Mol): void {
@@ -1135,47 +1252,73 @@ function cif(text: string, options?: CifOptions): Mol | (Mol | null)[] | undefin
 }
 
 
-function fetch(url: string, callback: (data: string) => void): void {
-  const oReq = new XMLHttpRequest();
-  oReq.open("GET", url, true);
-  oReq.onload = function() {
-    if (oReq.response) {
-      callback(oReq.response);
+// GETs url as text. Rejects on a network error or an HTTP error status (e.g.
+// 404 for an unknown PDB id), so a failed request never reaches a parser.
+function fetch(url: string): Promise<string> {
+  return new Promise(function(resolve, reject) {
+    const oReq = new XMLHttpRequest();
+    oReq.open("GET", url, true);
+    oReq.onload = function() {
+      if (oReq.status >= 400) {
+        reject(new Error(`HTTP ${oReq.status} fetching ${url}`));
+      } else if (!oReq.response) {
+        reject(new Error(`empty response fetching ${url}`));
+      } else {
+        resolve(oReq.response);
+      }
+    };
+    oReq.onerror = function() {
+      reject(new Error(`network error fetching ${url}`));
+    };
+    oReq.send(null);
+  });
+}
+
+type Parsed = Mol | (Mol | null)[] | null | undefined;
+
+function isEmpty(structure: Parsed): boolean {
+  const first = Array.isArray(structure) ? structure[0] : structure;
+  return !first || first.atomCount() === 0;
+}
+
+// Fetches and parses url. The returned promise rejects when the request fails
+// or nothing parseable comes back, and the optional callback only ever sees a
+// non-empty structure. callback runs on a separate branch of the promise, so
+// an error thrown inside it is not mistaken for a failed load.
+function fetchParsed<T extends Parsed>(
+  url: string, parse: (data: string) => T, callback?: (structure: T) => void
+): Promise<T> {
+  const result = fetch(url).then(function(data) {
+    const structure = parse(data);
+    if (isEmpty(structure)) {
+      throw new Error(`no structure found in ${url}`);
     }
-  };
-  oReq.send(null);
+    return structure;
+  });
+  if (callback) {
+    result.then(callback, function() {});
+  }
+  return result;
 }
 
 function fetchPdb(
-  url: string, callback: (structure: Mol | (Mol | null)[] | undefined) => void, options?: PdbOptions
-): void {
-  fetch(url, function(data) {
-    const structure = pdb(data, options);
-    callback(structure);
-  });
+  url: string, callback?: (structure: Mol | (Mol | null)[] | undefined) => void, options?: PdbOptions
+): Promise<Mol | (Mol | null)[] | undefined> {
+  return fetchParsed(url, data => pdb(data, options), callback);
 }
 
-function fetchSdf(url: string, callback: (structure: Mol | null) => void): void {
-  fetch(url, function(data) {
-    const structure = sdf(data);
-    callback(structure);
-  });
+function fetchSdf(url: string, callback?: (structure: Mol | null) => void): Promise<Mol | null> {
+  return fetchParsed(url, sdf, callback);
 }
 
-function fetchCrd(url: string, callback: (structure: Mol) => void): void {
-  fetch(url, function(data) {
-    const structure = crd(data);
-    callback(structure);
-  });
+function fetchCrd(url: string, callback?: (structure: Mol) => void): Promise<Mol> {
+  return fetchParsed(url, crd, callback);
 }
 
 function fetchCif(
-  url: string, callback: (structure: Mol | (Mol | null)[] | undefined) => void, options?: CifOptions
-): void {
-  fetch(url, function(data) {
-    const structure = cif(data, options);
-    callback(structure);
-  });
+  url: string, callback?: (structure: Mol | (Mol | null)[] | undefined) => void, options?: CifOptions
+): Promise<Mol | (Mol | null)[] | undefined> {
+  return fetchParsed(url, data => cif(data, options), callback);
 }
 
 export default {

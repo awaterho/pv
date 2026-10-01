@@ -401,32 +401,134 @@ function ssSuccession(grad?: Gradient, coilColor?: string | RGBA): ColorOp {
   return colorFunc;
 }
 
-function byChain(grad?: Gradient): ColorOp {
-  if (!grad) {
-    grad = gradient('rainbow') as Gradient;
-  }
-  const colorFunc = new ColorOp(function(a, out, index) {
-    const chainIndex = (this.chainIndices as Record<string, number>)[a.residue().chain().name()]!;
-    const t =  chainIndex*(this.scale as number);
-    const x: RGBA = [0,0,0,0];
-    grad!.colorAt(x, t);
-    out[index+0] = x[0]!;
-    out[index+1] = x[1]!;
-    out[index+2] = x[2]!;
-    out[index+3] = x[3]!;
-  }, function(obj) {
-    const chains = obj.chains();
-    const chainIndices: Record<string, number> = {};
-    this.chainIndices = chainIndices;
-    for (let i = 0; i < chains.length; ++i) {
-      chainIndices[chains[i]!.name()] = i;
+// Default categorical palette for byChain and byEntity: twelve colors that
+// stay distinct from their neighbours, including for common forms of color
+// blindness (based on Tableau 10/20), most distinct first.
+const CHAIN_PALETTE: string[] = [
+  '#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#b07aa1', '#edc948',
+  '#76b7b2', '#ff9da7', '#9c755f', '#8cd17d', '#a0cbe8', '#d37295',
+];
+
+function isGradient(arg: unknown): arg is Gradient {
+  return typeof arg === 'object' && arg !== null &&
+         typeof (arg as Gradient).colorAt === 'function';
+}
+
+// The chains colored as one: polymer chains (those with a backbone trace) in
+// order, each a group of its own, followed by the remaining chains that no
+// polymer claims. mmCIF files give every ligand and water block its own
+// chain; those take the group of the polymer chain with the same author chain
+// name (the mmCIF reader's 'authAsymId' residue prop), so a ligand bound to
+// chain A is colored like A. Returns the groups' lead chains and, for every
+// chain name, the index of its group.
+function chainGroups(obj: ColorObj): { leads: ColorChain[]; groupOf: Record<string, number> } {
+  const chains = obj.chains();
+  const groupOf: Record<string, number> = {};
+  const authName = (chain: ColorChain): string => {
+    const first = chain.residues()[0] as unknown as HasProp | undefined;
+    const auth = first !== undefined ? first.prop('authAsymId') : 0;
+    return typeof auth === 'string' ? auth : chain.name();
+  };
+  const polymers = chains.filter((c) => c.backboneTraces().length > 0);
+  const leads = polymers.length > 0 ? polymers.slice() : chains.slice();
+  const byAuthName: Record<string, number> = {};
+  leads.forEach((chain, i) => {
+    groupOf[chain.name()] = i;
+    const auth = authName(chain);
+    if (byAuthName[auth] === undefined) {
+      byAuthName[auth] = i;
     }
-    this.scale = chains.length > 1 ? 1.0/(chains.length-1) : 1.0;
-  },
-  function() {
-    this.chainIndices = null;
   });
-  return colorFunc;
+  for (const chain of chains) {
+    if (groupOf[chain.name()] !== undefined) {
+      continue;
+    }
+    const sameAuth = byAuthName[authName(chain)];
+    if (sameAuth !== undefined) {
+      groupOf[chain.name()] = sameAuth;
+    } else {
+      groupOf[chain.name()] = leads.length;
+      leads.push(chain);
+    }
+  }
+  return { leads, groupOf };
+}
+
+// A ColorOp coloring every atom by a per-chain color, computed in begin() by
+// groupColors from the chain groups' lead chains.
+function perChainGroup(groupColors: (leads: ColorChain[]) => RGBA[]): ColorOp {
+  return new ColorOp(function(a, out, index) {
+    const colors = this.chainColors as Record<string, RGBA>;
+    const c = colors[a.residue().chain().name()]!;
+    out[index+0] = c[0]!;
+    out[index+1] = c[1]!;
+    out[index+2] = c[2]!;
+    out[index+3] = c[3]!;
+  }, function(obj) {
+    const { leads, groupOf } = chainGroups(obj);
+    const colors = groupColors(leads);
+    const chainColors: Record<string, RGBA> = {};
+    for (const name in groupOf) {
+      chainColors[name] = colors[groupOf[name]!]!;
+    }
+    this.chainColors = chainColors;
+  }, function() {
+    this.chainColors = null;
+  });
+}
+
+// colors each chain from a categorical palette (CHAIN_PALETTE unless a list of
+// colors is given), cycling when there are more chains than colors. Passing a
+// gradient instead spreads it over the chains, first chain to last.
+function byChain(colors?: Gradient | (string | RGBA)[]): ColorOp {
+  if (isGradient(colors)) {
+    const grad = colors;
+    return perChainGroup(function(leads) {
+      const scale = leads.length > 1 ? 1.0/(leads.length-1) : 1.0;
+      return leads.map((_, i) => grad.colorAt([0, 0, 0, 0], i*scale));
+    });
+  }
+  const palette = (colors && colors.length > 0 ? colors : CHAIN_PALETTE).map(c => forceRGB(c));
+  return perChainGroup(function(leads) {
+    return leads.map((_, i) => palette[i % palette.length]!);
+  });
+}
+
+// colors chains by entity, the mmCIF reader's 'entityId' chain prop: each
+// entity takes the next color of the palette (CHAIN_PALETTE unless a list of
+// colors is given), and copies of the same entity, e.g. the four chains of a
+// homotetramer, get darker to lighter shades of it. Chains without an entity
+// (PDB input) count as entities of their own, as in byChain.
+function byEntity(colors?: (string | RGBA)[]): ColorOp {
+  const palette = (colors && colors.length > 0 ? colors : CHAIN_PALETTE).map(c => forceRGB(c));
+  return perChainGroup(function(leads) {
+    const entityOf = leads.map((chain) => {
+      const id = (chain as unknown as HasProp).prop('entityId') as unknown;
+      return typeof id === 'string' ? id : 'chain:' + chain.name();
+    });
+    const entityIndex: Record<string, number> = {};
+    const copies: Record<string, number> = {};
+    let entityCount = 0;
+    for (const id of entityOf) {
+      if (entityIndex[id] === undefined) {
+        entityIndex[id] = entityCount++;
+        copies[id] = 0;
+      }
+      copies[id]! += 1;
+    }
+    const seen: Record<string, number> = {};
+    return entityOf.map((id) => {
+      const base = palette[entityIndex[id]! % palette.length]!;
+      const n = copies[id]!;
+      const k = seen[id] = (seen[id] || 0) + 1;
+      // shade offset from -0.3 (towards black) to 0.3 (towards white)
+      const t = n > 1 ? -0.3 + 0.6*(k-1)/(n-1) : 0;
+      const target = t < 0 ? 0 : 1;
+      const w = Math.abs(t);
+      return [base[0]!*(1-w)+target*w, base[1]!*(1-w)+target*w,
+              base[2]!*(1-w)+target*w, base[3]!];
+    });
+  });
 }
 
 function getMinMaxRange(
@@ -605,6 +707,8 @@ export default {
   rainbow,
   ssSuccession,
   byChain,
+  byEntity,
+  CHAIN_PALETTE,
   byAtomProp,
   byResidueProp,
   interpolateColor,

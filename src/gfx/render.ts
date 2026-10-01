@@ -26,7 +26,7 @@ import MeshGeomCtor, { type MeshGeom } from './mesh-geom';
 import gfxGeomBuilders from './geom-builders';
 import { AtomVertexAssoc, TraceVertexAssoc } from './vert-assoc';
 import color from '../color';
-import { vec3, vec4, mat3 } from 'gl-matrix';
+import { vec3, vec4, mat3, mat4 } from 'gl-matrix';
 import type UniqueObjectIdPool from '../unique-object-id-pool';
 import type { ContinuousIdRange } from '../unique-object-id-pool';
 import type { SurfaceMesh } from '../surface/compute';
@@ -109,6 +109,9 @@ export interface RenderOptions {
   pointSize: number;
   forceTube?: boolean;
   smoothStrands?: boolean;
+  // cartoon/tube: draw a stick from the backbone to each DNA/RNA base
+  // (default true); off when the bases are shown some other way
+  baseSticks?: boolean;
   arrowSkip: number;
   protoSphere: ProtoSphereT;
   protoCyl: ProtoCylinderT;
@@ -912,7 +915,7 @@ const cartoonForChain = function(
     2 * opts.protoSphere.numIndices();
   for (let i = 0; i < traces.length; ++i) {
     const trace = traces[i]!;
-    if (trace.residueAt(0).isNucleotide()) {
+    if (opts.baseSticks !== false && trace.residueAt(0).isNucleotide()) {
       nucleicAcidTraces.push(trace);
       // each DNA/RNA base gets a double-capped cylinder
       numVerts += trace.length() * vertForBaseSticks;
@@ -965,41 +968,84 @@ exports.cartoon = function(structure: RenderStructure, gl: WebGL2RenderingContex
 
 // Collects the atoms a molecular surface is computed for (all but
 // hydrogens), packed as x, y, z, van der Waals radius for the surface worker.
-exports.surfaceAtoms = function(structure: RenderStructure) {
-  const atoms: RenderAtom[] = [];
+// With copies (the operators of a symmetry assembly, each for the chains it
+// applies to), the atoms of every copy, moved there, so the surface is
+// computed over the whole assembly and its interfaces are buried; copyOf
+// says which copy each entry of atoms is.
+exports.surfaceAtoms = function(
+  structure: RenderStructure, copies?: { matrix: mat4; chains: string[] }[],
+) {
+  const all: RenderAtom[] = [];
   structure.eachAtom(function(atom) {
-    if (atom.element().toUpperCase() !== 'H') atoms.push(atom);
+    if (atom.element().toUpperCase() !== 'H') all.push(atom);
   });
+  const atoms: RenderAtom[] = [];
+  const copyOf: number[] = [];
+  const transforms: (mat4 | null)[] = [];
+  if (copies === undefined) {
+    atoms.push(...all);
+    for (let i = 0; i < all.length; ++i) copyOf.push(-1);
+    transforms.push(null);
+  } else {
+    copies.forEach(function(copy, index) {
+      const chains = new Set(copy.chains);
+      for (const atom of all) {
+        const chain = (atom as unknown as { residue(): { chain(): { name(): string } } })
+          .residue().chain().name();
+        if (chains.has(chain)) {
+          atoms.push(atom);
+          copyOf.push(index);
+        }
+      }
+      transforms.push(copy.matrix);
+    });
+  }
   const data = new Float32Array(atoms.length * 4);
+  const pos = vec3.create();
   for (let i = 0; i < atoms.length; ++i) {
-    const atom = atoms[i]!, pos = atom.pos();
+    const atom = atoms[i]!;
+    const transform = copyOf[i]! >= 0 ? transforms[copyOf[i]!]! : null;
+    if (transform !== null) {
+      vec3.transformMat4(pos, atom.pos(), transform);
+    } else {
+      vec3.copy(pos, atom.pos());
+    }
     data[i * 4] = pos[0]!;
     data[i * 4 + 1] = pos[1]!;
     data[i * 4 + 2] = pos[2]!;
     data[i * 4 + 3] =
       (VDW_RADIUS as Record<string, number>)[atom.element().toUpperCase()] || 1.7;
   }
-  return { atoms, data };
+  return { atoms, data, copyOf, transforms };
 };
 
 // Builds the geometry for a surface mesh computed by the surface worker.
 // atoms are the atoms returned by surfaceAtoms, which the mesh's per-vertex
 // atom indices refer to.
+// copyOf/transforms (from surfaceAtoms()): for a surface computed over the
+// copies of an assembly, which copy each atom entry is, and the copies'
+// operators -- picking then reports the copy, and hover tints just it.
 exports.surface = function(mesh: SurfaceMesh, atoms: RenderAtom[], structure: RenderStructure,
-                           gl: WebGL2RenderingContext, opts: RenderOptions) {
+                           gl: WebGL2RenderingContext, opts: RenderOptions,
+                           copyOf?: number[], transforms?: (mat4 | null)[]) {
   const meshGeom = new MeshGeomCtor(gl, opts.float32Allocator, opts.uint16Allocator);
   const vertAssoc = new AtomVertexAssoc(structure as never, true);
   meshGeom.addVertAssoc(vertAssoc as never);
   // the surface spans chains, so it can't be drawn per chain for symmetry
-  // related copies.
+  // related copies: for an assembly the copies are built in instead.
   meshGeom.setShowRelated('asym');
+  const builtIn = copyOf !== undefined && copyOf.some((c) => c >= 0);
+  (meshGeom as unknown as { _copiesBuiltIn: boolean })._copiesBuiltIn = builtIn;
   const idRange = opts.idPool.getContinuousRange(atoms.length)!;
   meshGeom.addIdRange(idRange);
   const objIds = new Float32Array(atoms.length);
   const colors = new Float32Array(atoms.length * 4);
   opts.color.begin(structure as never);
   for (let i = 0; i < atoms.length; ++i) {
-    objIds[i] = idRange.nextId({ geom: meshGeom, atom: atoms[i]! });
+    const copy = builtIn ? copyOf![i]! : -1;
+    objIds[i] = idRange.nextId(copy >= 0
+      ? { geom: meshGeom, atom: atoms[i]!, copy, transform: transforms![copy]! } as never
+      : { geom: meshGeom, atom: atoms[i]! });
     opts.color.colorFor(atoms[i]! as never, colors, i * 4);
   }
   opts.color.end();
@@ -1019,7 +1065,9 @@ exports.surface = function(mesh: SurfaceMesh, atoms: RenderAtom[], structure: Re
     for (let start = 0; start < numVerts;) {
       let end = start + 1;
       while (end < numVerts && chunk.atoms[end] === chunk.atoms[start]) ++end;
-      vertAssoc.addAssoc(atoms[chunk.atoms[start]!]! as never, va as never, start, end);
+      const copy = builtIn ? copyOf![chunk.atoms[start]!]! : -1;
+      vertAssoc.addAssoc(atoms[chunk.atoms[start]!]! as never, va as never, start, end,
+                         copy >= 0 ? copy : undefined);
       start = end;
     }
   }

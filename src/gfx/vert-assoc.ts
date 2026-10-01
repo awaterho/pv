@@ -79,6 +79,9 @@ interface AtomAssocEntry {
   vertexArray: AssocVertexArray;
   vertStart: number;
   vertEnd: number;
+  // for geometry with the symmetry copies built in (a surface over an
+  // assembly): which copy these vertices belong to
+  copy: number | null;
 }
 
 export class AtomVertexAssoc {
@@ -92,9 +95,11 @@ export class AtomVertexAssoc {
     this._callBeginEnd = callColoringBeginEnd;
   }
 
-  addAssoc(atom: AssocAtom, va: AssocVertexArray, vertStart: number, vertEnd: number): void {
+  addAssoc(atom: AssocAtom, va: AssocVertexArray, vertStart: number, vertEnd: number,
+           copy?: number): void {
     this._assocs.push({
-      atom: atom, vertexArray : va, vertStart : vertStart, vertEnd : vertEnd
+      atom: atom, vertexArray : va, vertStart : vertStart, vertEnd : vertEnd,
+      copy : copy === undefined ? null : copy,
     });
   }
 
@@ -144,22 +149,29 @@ export class AtomVertexAssoc {
     return null;
   }
 
-  // per-vertex flag: 1 = selected, -1 = hovered (wins over selected), 0 =
-  // neither. Hover is negative so that interpolating between hovered and
-  // unselected never passes through the selected range.
-  setSelection(view: AssocView, hover?: AssocView | null): void {
+  // per-vertex flag: 1 = selected, -1 = hovered (wins over selected), -2 =
+  // hovered and selected (the shaders tint the other symmetry copies as
+  // selected), 0 = neither. Hover is negative so that interpolating between
+  // hovered and unselected never passes through the selected range.
+  // hoverCopy: for geometry with built-in symmetry copies, only that
+  // copy's vertices are hovered (the others show the selection only)
+  setSelection(view: AssocView, hover?: AssocView | null, hoverCopy?: number | null): void {
     const flags: Record<number, number> = {};
     view.eachAtom(function(atom) {
       flags[atom.index()] = 1.0;
     });
     if (hover) {
       hover.eachAtom(function(atom) {
-        flags[atom.index()] = -1.0;
+        flags[atom.index()] = flags[atom.index()] === 1.0 ? -2.0 : -1.0;
       });
     }
+    const perCopy = hoverCopy !== undefined && hoverCopy !== null;
     for (let i = 0; i < this._assocs.length; ++i) {
       const assoc = this._assocs[i]!;
-      const selected = flags[assoc.atom.index()] || 0.0;
+      let selected = flags[assoc.atom.index()] || 0.0;
+      if (selected < 0.0 && perCopy && assoc.copy !== null && assoc.copy !== hoverCopy) {
+        selected = selected < -1.5 ? 1.0 : 0.0;
+      }
       const va = assoc.vertexArray;
       for (let j = assoc.vertStart ; j < assoc.vertEnd; ++j) {
         va.setSelected(j, selected);

@@ -227,6 +227,7 @@ class Canvas {
     shaderProgram.objIdAttrib = getAttribLoc(shaderProgram, 'attrObjId');
     shaderProgram.selectAttrib = getAttribLoc(shaderProgram, 'attrSelect');
     shaderProgram.symId = getUniformLoc(shaderProgram, 'symId')!;
+    shaderProgram.hoverSymId = getUniformLoc(shaderProgram, 'hoverSymId');
     shaderProgram.projection = getUniformLoc(shaderProgram, 'projectionMat')!;
     shaderProgram.modelview = getUniformLoc(shaderProgram, 'modelviewMat')!;
     shaderProgram.rotation = getUniformLoc(shaderProgram, 'rotationMat')!;

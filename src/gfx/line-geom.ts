@@ -121,7 +121,7 @@ utils.derive(LineGeom, BaseGeom, {
 
   _drawVertArrays: function(
     this: LineGeom, cam: Cam, shader: Shader, vertArrays: LineChainData[],
-    additionalTransforms: mat4[] | null,
+    additionalTransforms: mat4[] | null, firstSymId?: number,
   ) {
     let pointSizeMul = cam.upsamplingFactor();
     if (shader.selectAttrib !== -1) {
@@ -137,7 +137,7 @@ utils.derive(LineGeom, BaseGeom, {
                           pointSizeMul * this._pointSize);
       }
       for (i = 0; i < vertArrays.length; ++i) {
-        vertArrays[i]!.drawSymmetryRelated(cam, shader, additionalTransforms);
+        vertArrays[i]!.drawSymmetryRelated(cam, shader, additionalTransforms, firstSymId);
       }
     } else {
       cam.bind(shader);
