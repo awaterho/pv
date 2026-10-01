@@ -23,7 +23,7 @@ function related() {
 }
 
 // opacity slider (in #display-widget): applies to every currently-visible
-// render object that supports it, and is re-applied by preset() whenever a
+// render object that supports it, and is re-applied by showStructure() whenever a
 // new structure is loaded, so dragging the slider then loading a different
 // structure keeps the same transparency -- a quick way to see the
 // weighted-blended OIT pipeline (viewer.ts's _draw()) composite overlapping
@@ -115,6 +115,11 @@ function surface() {
     color: color.ssSuccession()
   }).then(function(go) {
     if (go) {
+      // the surface arrives after showStructure() has already recolored,
+      // so re-apply the remembered color scheme now that it exists.
+      if (currentColor) {
+        currentColor();
+      }
       go.setOpacity(currentOpacity);
     }
   });
@@ -124,7 +129,35 @@ function preset() {
   viewer.clear();
   viewer.cartoon('structure.protein', structure);
   addLigands();
+}
+
+// the last style and color scheme picked from the menus. Loading a new
+// structure goes through showStructure(), which redraws it with both, so
+// switching structures keeps the look. currentColor stays null until a
+// color is picked, leaving each style's own default coloring in place.
+var currentStyle = preset;
+var currentColor = null;
+
+function showStructure() {
+  currentStyle();
+  if (currentColor) {
+    currentColor();
+  }
   applyOpacity(currentOpacity);
+}
+
+function useStyle(style) {
+  return function() {
+    currentStyle = style;
+    showStructure();
+  };
+}
+
+function useColor(scheme) {
+  return function() {
+    currentColor = scheme;
+    scheme();
+  };
 }
 
 function addLigands() {
@@ -137,7 +170,7 @@ function load(cif_id) {
   document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('pdbs/'+cif_id+'.cif', function(s) {
     structure = s;
-    preset();
+    showStructure();
     viewer.autoZoom();
   });
 }
@@ -214,17 +247,15 @@ function betaFlower() {
   document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('pdbs/a0a4y8at86.cif', function(s) {
     structure = s;
-    viewer.clear();
-    var go = viewer.cartoon('structure.protein', structure, {
-        color : color.ssSuccession(),
-    });
-    addLigands();
-    applyOpacity(currentOpacity);
+    showStructure();
+    var go = viewer.get('structure') || viewer.get('structure.protein');
     // orient along the principal axes so the propeller's flattest axis
     // faces the camera, showing the radiating hairpins face-on instead of
     // edge-on -- AlphaFold models have no canonical orientation to fall
     // back on the way a crystal structure's deposited frame might.
-    viewer.setRotation(viewpoint.principalAxes(go));
+    if (go) {
+      viewer.setRotation(viewpoint.principalAxes(go));
+    }
     viewer.autoZoom();
   });
 }
@@ -412,24 +443,24 @@ onClick('2f8v', telethonin);
 onClick('2por', porin);
 onClick('ensemble', ensemble);
 onClick('custom-mesh', customMeshDemo);
-onClick('style-cartoon', cartoon);
-onClick('style-tube', tube);
-onClick('style-line-trace', lineTrace);
-onClick('style-sline', sline);
-onClick('style-trace', trace);
-onClick('style-lines', lines);
-onClick('style-balls-and-sticks', ballsAndSticks);
-onClick('style-surface', surface);
-onClick('style-points', points);
-onClick('style-spheres', spheres);
-onClick('color-uniform', uniform);
-onClick('color-element', byElement);
-onClick('color-chain', byChain);
-onClick('color-ss-succ', ssSuccession);
-onClick('color-ss', ss);
+onClick('style-cartoon', useStyle(cartoon));
+onClick('style-tube', useStyle(tube));
+onClick('style-line-trace', useStyle(lineTrace));
+onClick('style-sline', useStyle(sline));
+onClick('style-trace', useStyle(trace));
+onClick('style-lines', useStyle(lines));
+onClick('style-balls-and-sticks', useStyle(ballsAndSticks));
+onClick('style-surface', useStyle(surface));
+onClick('style-points', useStyle(points));
+onClick('style-spheres', useStyle(spheres));
+onClick('color-uniform', useColor(uniform));
+onClick('color-element', useColor(byElement));
+onClick('color-chain', useColor(byChain));
+onClick('color-ss-succ', useColor(ssSuccession));
+onClick('color-ss', useColor(ss));
 onClick('trajectory', trajectory);
-onClick('color-rainbow', rainbow);
-onClick('color-pro-red', proInRed);
+onClick('color-rainbow', useColor(rainbow));
+onClick('color-pro-red', useColor(proInRed));
 // fetches and renders a structure by PDB id from RCSB in mmCIF format, used
 // by both pressing Enter/blurring the input (the 'change' event) and
 // clicking the "Get" button next to it.
@@ -440,7 +471,7 @@ function getFromRcsb(pdbId) {
   var url = 'https://files.rcsb.org/download/' + pdbId + '.cif';
   io.fetchCif(url, function(s) {
     structure = s;
-    cartoon();
+    showStructure();
     viewer.autoZoom();
   });
 }

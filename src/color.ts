@@ -234,7 +234,7 @@ function byElement(palette?: Record<string, [number, number, number]>): ColorOp 
     palette = CPK_TABLE;
   }
   return new ColorOp(function(atom, out, index) {
-    const ele = atom.element();
+    const ele = atom.element().toUpperCase();
     const color = palette![ele];
     if (color !== undefined) {
       out[index] = color[0];
