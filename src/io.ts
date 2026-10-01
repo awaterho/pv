@@ -798,14 +798,41 @@ interface ChemCompBond {
   order: number;
 }
 
+// a row's value for item, or undefined when the column is missing or holds
+// one of mmCIF's null markers ('?' unknown, '.' inapplicable).
+function cifValue(row: CIFRow, item: string): string | undefined {
+  const value = row.get(item);
+  return value === '?' || value === '.' ? undefined : value;
+}
+
 class CIFReader {
   private _doc: ReturnType<typeof parseCIF>;
   private _loadAllModels: boolean;
   private _chemCompBondsCache?: Map<string, ChemCompBond[]>;
+  private _entityDescriptions: Map<string, string>;
+  private _compNames: Map<string, string>;
 
   constructor(doc: ReturnType<typeof parseCIF>, options: CifOptions) {
     this._doc = doc;
     this._loadAllModels = !!options.loadAllModels;
+    this._entityDescriptions = this._namesById('entity', 'id', 'pdbx_description');
+    this._compNames = this._namesById('chem_comp', 'id', 'name');
+  }
+
+  // id -> name for one category, e.g. entity id -> pdbx_description
+  // ("Glycine N-methyltransferase") or chem_comp id -> name ("SULFATE ION").
+  // Rows without a name are left out.
+  private _namesById(category: string, idItem: string, nameItem: string): Map<string, string> {
+    const map = new Map<string, string>();
+    const rows = this._doc.loopRows(category);
+    for (let i = 0; i < rows.length; ++i) {
+      const id = rows[i]!.get(idItem);
+      const name = cifValue(rows[i]!, nameItem);
+      if (id !== undefined && name !== undefined) {
+        map.set(id, name);
+      }
+    }
+    return map;
   }
 
   // bonds declared by the PDB Chemical Component Dictionary for each
@@ -932,25 +959,75 @@ class CIFReader {
 
       const updateChain = currChainName !== chainName;
       if (updateChain) {
-        currChain = structure.chain(chainName) || structure.addChain(chainName);
+        let chain = structure.chain(chainName);
+        if (chain === null) {
+          chain = structure.addChain(chainName);
+          const entityId = row.get('label_entity_id');
+          const description = entityId !== undefined ?
+                              this._entityDescriptions.get(entityId) : undefined;
+          if (description !== undefined) {
+            chain.setProp('entityDescription', description);
+          }
+        }
+        currChain = chain;
         currChainName = chainName;
         currResKey = null;
         hetCounter = 0;
       }
-      const resKey = isHetSeq ? ('het:' + compId) : ('seq:' + seqIdRaw);
+      const authSeqId = cifValue(row, 'auth_seq_id');
+      const authInsCode = cifValue(row, 'pdbx_pdb_ins_code') ?? '';
+      const authHetNum = isHetSeq && authSeqId !== undefined ?
+                         parseInt(authSeqId, 10) : NaN;
+      // non-polymer residues (ligands, ions, waters) have no label_seq_id,
+      // so they're keyed and numbered by auth_seq_id instead -- each water
+      // of a chain's water block becomes its own residue. Only without an
+      // auth_seq_id do they fall back to counting 1, 2, ... per chain.
+      let resKey: string;
+      if (!isHetSeq) {
+        resKey = 'seq:' + seqIdRaw;
+      } else if (!isNaN(authHetNum)) {
+        resKey = 'het:' + compId + ':' + authSeqId + authInsCode;
+      } else {
+        resKey = 'het:' + compId;
+      }
       if (updateChain || currResKey !== resKey) {
         let resNum: number;
-        if (isHetSeq) {
-          hetCounter += 1;
-          resNum = hetCounter;
-        } else {
+        let insCode = '';
+        if (!isHetSeq) {
           resNum = parseInt(seqIdRaw!, 10);
           if (isNaN(resNum)) {
             resNum = 1;
           }
+        } else if (!isNaN(authHetNum)) {
+          resNum = authHetNum;
+          insCode = authInsCode;
+        } else {
+          hetCounter += 1;
+          resNum = hetCounter;
         }
-        currRes = currChain!.addResidue(compId, resNum);
+        currRes = insCode !== '' ?
+                  currChain!.addResidue(compId, resNum, insCode) :
+                  currChain!.addResidue(compId, resNum);
         currResKey = resKey;
+        // chains and residues are named after the label_* identifiers; where
+        // the author ones differ, keep them too (as residue props) so they can
+        // still be shown, e.g. the PDB-style chain letter of a ligand or a
+        // polymer's author residue numbering. Residues that match store
+        // nothing extra.
+        const authAsymId = cifValue(row, 'auth_asym_id');
+        if (authAsymId !== undefined && authAsymId !== chainName) {
+          currRes.setProp('authAsymId', authAsymId);
+        }
+        if (authSeqId !== undefined &&
+            authSeqId + authInsCode !== String(resNum) + insCode) {
+          currRes.setProp('authSeqId', authSeqId + authInsCode);
+        }
+        // the full chemical name of a ligand/ion/water ("SULFATE ION");
+        // polymer residues are named by their chain's entityDescription.
+        const compName = isHetSeq ? this._compNames.get(compId) : undefined;
+        if (compName !== undefined) {
+          currRes.setProp('compName', compName);
+        }
       }
 
       const pos = vec3.create();

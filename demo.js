@@ -16,8 +16,8 @@ var color = pv.color;
 var structure;
 
 // draws biological assembly 1 (symmetry-related copies included) when the
-// structure defines one, e.g. entries fetched from RCSB, and just the
-// asymmetric unit otherwise. The local fixtures carry no assembly records.
+// structure defines one, as every RCSB entry (local or fetched) does, and
+// just the asymmetric unit otherwise, e.g. the AlphaFold model.
 function related() {
   return structure.assembly('1') ? '1' : 'asym';
 }
@@ -165,10 +165,10 @@ function addLigands() {
   viewer.ballsAndSticks('structure.ligand', ligand);
 }
 
-// loads a structure from its local mmCIF fixture (pdbs/<id>.cif).
+// loads a structure from its local mmCIF fixture (structures/<id>.cif).
 function load(cif_id) {
   document.getElementById('traj-widget').style.display = 'none';
-  io.fetchCif('pdbs/'+cif_id+'.cif', function(s) {
+  io.fetchCif('structures/'+cif_id+'.cif', function(s) {
     structure = s;
     showStructure();
     viewer.autoZoom();
@@ -191,11 +191,11 @@ function trajectory() {
       button.textContent = 'Start';
     }
   };
-  pv.io.fetchCrd('pdbs/trj.crd', function(s) {
+  pv.io.fetchCrd('structures/trj.crd', function(s) {
     structure = s;
     viewer.ballsAndSticks('trajectory', structure);
     viewer.autoZoom();
-    pv.traj.fetchDcd('pdbs/trj.dcd', s, function(cg) {
+    pv.traj.fetchDcd('structures/trj.dcd', s, function(cg) {
       var frameId = 0;
       intervalFunc = function() {
         cg.useFrame(frameId);
@@ -240,12 +240,12 @@ function melkInhibitor() {
 // secondary structure in _struct_conf (including the beta strands, tagged
 // conf_type_id 'STRN'), but pv only reads strands from the separate
 // _struct_sheet_range category the way RCSB depositions lay it out -- so the
-// local fixture (pdbs/a0a4y8at86.cif) adds a _struct_sheet_range loop built
+// local fixture (structures/a0a4y8at86.cif) adds a _struct_sheet_range loop built
 // from those same STRN rows. Without it every strand falls back to a plain
 // coil tube and the "flower" is invisible.
 function betaFlower() {
   document.getElementById('traj-widget').style.display = 'none';
-  io.fetchCif('pdbs/a0a4y8at86.cif', function(s) {
+  io.fetchCif('structures/a0a4y8at86.cif', function(s) {
     structure = s;
     showStructure();
     var go = viewer.get('structure') || viewer.get('structure.protein');
@@ -353,7 +353,7 @@ function customMeshDemo() {
 
 function ensemble() {
   document.getElementById('traj-widget').style.display = 'none';
-  io.fetchCif('pdbs/1nmr.cif', function(structures) {
+  io.fetchCif('structures/1nmr.cif', function(structures) {
     viewer.clear()
     structure = structures[0];
     for (var i = 0; i < structures.length; ++i) {
@@ -681,11 +681,40 @@ function residueInfo(picked, atom) {
   };
 }
 
+// mmCIF chains and residues are named by their label_* ids; the parser
+// keeps the author (PDB-style) ids only where they differ, and those are
+// shown in brackets: "[auth 13]" for just the number, "[auth chain A]" for
+// just the chain, "[auth 1335 A]" for both -- the same number-then-chain
+// order as the label itself.
+function authLabel(res) {
+  // prop() returns 0 for a property that was never set.
+  const authNum = res.prop('authSeqId');
+  const authChain = res.prop('authAsymId');
+  if (authNum && authChain) return ` [auth ${authNum} ${authChain}]`;
+  if (authNum) return ` [auth ${authNum}]`;
+  if (authChain) return ` [auth chain ${authChain}]`;
+  return '';
+}
+
+// the full name shown first: a ligand's chemical name (chem_comp.name),
+// else its chain's entity description (_entity.pdbx_description), e.g. the
+// protein's name. Both come from mmCIF; nothing is shown for PDB input.
+// Escaped, since the status bar is set through innerHTML.
+function nameLabel(res) {
+  const name = res.prop('compName') || res.chain().prop('entityDescription');
+  if (!name) return '';
+  const div = document.createElement('div');
+  div.textContent = name;
+  return `${div.innerHTML} <br/> `;
+}
+
 function highlightAtom(picked, atom, event) {
   setHovered(picked.node(), atom.residue());
 
   const { strucId, chain, resno, insCode } = residueInfo(picked, atom);
-  setStatus(`${atom.residue().name()} ${resno}${insCode} ${chain}` +
+  setStatus(nameLabel(atom.residue()) +
+            `${atom.residue().name()} ${resno}${insCode} ${chain}` +
+            authLabel(atom.residue()) +
             resAnnoLabel(strucId, chain, resno));
 
   event.target.dispatchEvent(new CustomEvent('highlightResidue', {
@@ -750,7 +779,10 @@ function showResidueInfo(picked, atom, event) {
     highlightAtom(picked, atom, event);
   } else {
     setHovered(picked.node(), res);
-    setStatus(`${res.name()} ${res.num()}`);
+    const { chain, resno, insCode } = residueInfo(picked, atom);
+    setStatus(nameLabel(res) +
+              `${res.name()} ${resno}${insCode} ${chain}` +
+              authLabel(res));
   }
 }
 

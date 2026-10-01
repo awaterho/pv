@@ -4,7 +4,7 @@ import io from '../../io';
 
 var mat4 = glMatrix.mat4;
 
-// polymer coordinates below are taken from pdbs/1crn.pdb (THR 1, THR 2,
+// polymer coordinates below are taken from tests/data/1crn.pdb (THR 1, THR 2,
 // CYS 3, CYS 4 of chain A), rewritten as an mmCIF _atom_site loop using
 // label_* identifiers.
 var BASIC_CIF = [
@@ -65,13 +65,119 @@ test('gives each atom the exact element from type_symbol, no guessing', function
   strictEqual(n.element(), 'N');
 });
 
-test('groups a multi-atom heteroatom group (label_seq_id ".") into one residue per asym id', function(assert) {
+test('without auth_seq_id, groups a heteroatom group (label_seq_id ".") into one residue per asym id', function(assert) {
   var structure = io.cif(BASIC_CIF);
   var chainD = structure.chain('D');
   assert.ok(!!chainD);
   strictEqual(chainD.residues().length, 1);
   strictEqual(chainD.residues()[0].name(), 'GOL');
   strictEqual(chainD.residues()[0].atoms().length, 2);
+});
+
+test('keeps auth_asym_id/auth_seq_id (plus insertion code) as residue props only where they differ', function(assert) {
+  var structure = io.cif([
+    'loop_',
+    '_atom_site.group_PDB',
+    '_atom_site.type_symbol',
+    '_atom_site.label_atom_id',
+    '_atom_site.label_comp_id',
+    '_atom_site.label_asym_id',
+    '_atom_site.label_seq_id',
+    '_atom_site.pdbx_PDB_ins_code',
+    '_atom_site.Cartn_x',
+    '_atom_site.Cartn_y',
+    '_atom_site.Cartn_z',
+    '_atom_site.auth_seq_id',
+    '_atom_site.auth_asym_id',
+    'ATOM   C CA THR A 1 ? 0.0 0.0 0.0 6 A',
+    'ATOM   C CA CYS A 2 B 1.0 0.0 0.0 6 A',
+    'ATOM   C CA GLY A 3 ? 2.0 0.0 0.0 3 A',
+    'HETATM C C1 GOL C . ? 9.0 9.0 9.0 1335 A',
+  ].join('\n'));
+  var chainA = structure.chain('A');
+  strictEqual(chainA.residueByRnum(1).prop('authSeqId'), '6');
+  strictEqual(chainA.residueByRnum(2).prop('authSeqId'), '6B');
+  // same as the label ids: nothing stored, so prop() gives its default 0
+  strictEqual(chainA.residueByRnum(1).prop('authAsymId'), 0);
+  strictEqual(chainA.residueByRnum(3).prop('authSeqId'), 0);
+  // a ligand takes its number from auth_seq_id, so only the chain differs
+  var gol = structure.chain('C').residues()[0];
+  strictEqual(gol.num(), 1335);
+  strictEqual(gol.prop('authSeqId'), 0);
+  strictEqual(gol.prop('authAsymId'), 'A');
+});
+
+test('names chains by _entity.pdbx_description and ligands by chem_comp.name', function(assert) {
+  var structure = io.cif([
+    'loop_',
+    '_entity.id',
+    '_entity.type',
+    '_entity.pdbx_description',
+    "1 polymer 'Glycine N-methyltransferase'",
+    "2 non-polymer 'SULFATE ION'",
+    '3 water ?',
+    'loop_',
+    '_chem_comp.id',
+    '_chem_comp.name',
+    'GLU "GLUTAMIC ACID"',
+    "SO4 'SULFATE ION'",
+    'HOH WATER',
+    'loop_',
+    '_atom_site.group_PDB',
+    '_atom_site.type_symbol',
+    '_atom_site.label_atom_id',
+    '_atom_site.label_comp_id',
+    '_atom_site.label_asym_id',
+    '_atom_site.label_entity_id',
+    '_atom_site.label_seq_id',
+    '_atom_site.Cartn_x',
+    '_atom_site.Cartn_y',
+    '_atom_site.Cartn_z',
+    '_atom_site.auth_seq_id',
+    'ATOM   C CA GLU A 1 1 0.0 0.0 0.0 7',
+    'HETATM S S  SO4 B 2 . 5.0 0.0 0.0 901',
+    'HETATM O O  HOH C 3 . 9.0 0.0 0.0 2001',
+  ].join('\n'));
+  var chainA = structure.chain('A');
+  strictEqual(chainA.prop('entityDescription'), 'Glycine N-methyltransferase');
+  // polymer residues aren't given their component name
+  strictEqual(chainA.residues()[0].prop('compName'), 0);
+  strictEqual(structure.chain('B').residues()[0].prop('compName'), 'SULFATE ION');
+  // the water entity's description is '?', so nothing is stored
+  strictEqual(structure.chain('C').prop('entityDescription'), 0);
+  strictEqual(structure.chain('C').residues()[0].prop('compName'), 'WATER');
+});
+
+test('numbers non-polymer residues by auth_seq_id, one residue per water', function(assert) {
+  var structure = io.cif([
+    'loop_',
+    '_atom_site.group_PDB',
+    '_atom_site.type_symbol',
+    '_atom_site.label_atom_id',
+    '_atom_site.label_comp_id',
+    '_atom_site.label_asym_id',
+    '_atom_site.label_seq_id',
+    '_atom_site.pdbx_PDB_ins_code',
+    '_atom_site.Cartn_x',
+    '_atom_site.Cartn_y',
+    '_atom_site.Cartn_z',
+    '_atom_site.auth_seq_id',
+    '_atom_site.auth_asym_id',
+    'HETATM S S  SO4 B . ? 0.0 0.0 0.0 901 A',
+    'HETATM O O1 SO4 B . ? 1.0 0.0 0.0 901 A',
+    'HETATM O O  HOH D . ? 5.0 0.0 0.0 2001 A',
+    'HETATM O O  HOH D . ? 6.0 0.0 0.0 2002 A',
+    'HETATM O O  HOH D . A 7.0 0.0 0.0 2002 A',
+  ].join('\n'));
+  var so4 = structure.chain('B').residues();
+  strictEqual(so4.length, 1);
+  strictEqual(so4[0].num(), 901);
+  strictEqual(so4[0].atoms().length, 2);
+  var waters = structure.chain('D').residues();
+  strictEqual(waters.length, 3);
+  deepEqual(waters.map(function(r) { return r.num(); }), [2001, 2002, 2002]);
+  strictEqual(waters[2].insCode(), 'A');
+  strictEqual(waters[2].prop('authSeqId'), 0);
 });
 
 var SS_CIF = [

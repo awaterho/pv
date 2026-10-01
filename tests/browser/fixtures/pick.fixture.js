@@ -36,7 +36,7 @@ test('pick atom', function(assert) {
   var done = assert.async();
   var viewer = createViewer();
   var go = viewer.customMesh('custom');
-  io.fetchPdb('/pdbs/1crn.pdb', function(s) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(s) {
     var go = viewer.spheres('spheres', s, { showRelated : '1' });
     var firstAtom = s.atoms()[0];
     viewer.setCenter(firstAtom.pos());

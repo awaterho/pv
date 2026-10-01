@@ -32,6 +32,6 @@ cpSync(resolve(root, 'demo.js'), resolve(demoDir, 'demo.js'));
 cpSync(resolve(root, 'favicon.ico'), resolve(demoDir, 'favicon.ico'));
 cpSync(resolve(root, 'pv-icon.png'), resolve(demoDir, 'pv-icon.png'));
 cpSync(resolve(root, 'dist'), resolve(demoDir, 'dist'), { recursive: true });
-cpSync(resolve(root, 'pdbs'), resolve(demoDir, 'pdbs'), { recursive: true });
+cpSync(resolve(root, 'structures'), resolve(demoDir, 'structures'), { recursive: true });
 
 console.log(`Pages site assembled in ${outDir}`);

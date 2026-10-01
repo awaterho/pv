@@ -20,7 +20,7 @@ test('set opacity on line geom with trace assoc on complete structure',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.sline('object', structure, { 
                              color : color.uniform('red') });
       assert.ok(!!obj);
@@ -46,7 +46,7 @@ test('set opacity on line geom with atom assoc on complete structure',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.lines('object', structure, { 
                              color : color.uniform('red') });
       assert.ok(!!obj);
@@ -68,7 +68,7 @@ test('set opacity on mesh geom with trace assoc on complete structure',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.cartoon('object', structure, { 
                                color : color.uniform('red') });
       assert.ok(!!obj);
@@ -94,7 +94,7 @@ test('set opacity on mesh geom with atom assoc on complete structure',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.spheres('object', structure, { 
                                color : color.uniform('red') });
       assert.ok(!!obj);
@@ -117,7 +117,7 @@ test('set opacity on line geom with trace assoc on structural subset',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.sline('object', structure, { 
                              color : color.uniform('red') });
       assert.ok(!!obj);
@@ -149,7 +149,7 @@ test('set opacity on line geom with atom assoc on structural subset',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.lines('object', structure, { 
                              color : color.uniform('red') });
       assert.ok(!!obj);
@@ -177,7 +177,7 @@ test('set opacity on mesh geom with trace assoc on structural subset',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.cartoon('object', structure, { 
                                color : color.uniform('red') });
       assert.ok(!!obj);
@@ -209,7 +209,7 @@ test('set opacity on mesh geom with atom assoc on structural subset',
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
       var obj = viewer.spheres('object', structure, { 
                                color : color.uniform('red') });
       assert.ok(!!obj);

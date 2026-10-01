@@ -1,7 +1,7 @@
 // Minimal XMLHttpRequest shim so io.js's fetch()-via-XHR helpers work
 // under Vitest's Node test environment. Only supports what io.js actually
 // uses: GET requests resolved against the repo root and read from disk
-// (test fixtures live under pdbs/), reporting back through .response and
+// (test fixtures live under tests/data/), reporting back through .response and
 // firing onload asynchronously like a real XHR would.
 import fs from 'node:fs';
 import path from 'node:path';
