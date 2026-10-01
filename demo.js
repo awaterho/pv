@@ -703,6 +703,26 @@ function selectResidue(picked, atom, event) {
   }));
 }
 
+// Shows what's under picked/atom in the status bar and arms the hover
+// highlight -- the information mousemove shows on desktop, also used for a
+// touch tap below, since touch has no hover of its own.
+function showResidueInfo(picked, atom, event) {
+  setHovered(null);
+  if (atom === null) {
+    setStatus('');
+    return;
+  }
+  const res = atom.residue();
+  const isPolymer = res.chain().name()[0] !== '_' &&
+                    (res.isAminoacid() || res.isNucleotide());
+  if (isPolymer) {
+    highlightAtom(picked, atom, event);
+  } else {
+    setHovered(picked.node(), res);
+    setStatus(`${res.name()} ${res.num()}`);
+  }
+}
+
 function doPVMouse(event) {
   if (isDragging()) return;
 
@@ -720,21 +740,7 @@ function doPVMouse(event) {
     return;
   }
 
-  setHovered(null);
-
-  if (atom === null) {
-    setStatus('');
-  } else {
-    const res = atom.residue();
-    const isPolymer = res.chain().name()[0] !== '_' &&
-                      (res.isAminoacid() || res.isNucleotide());
-    if (isPolymer) {
-      highlightAtom(picked, atom, event);
-    } else {
-      setHovered(picked.node(), res);
-      setStatus(`${res.name()} ${res.num()}`);
-    }
-  }
+  showResidueInfo(picked, atom, event);
   viewer.requestRedraw();
 }
 
@@ -742,3 +748,25 @@ document.body.addEventListener('mousemove',
   (e) => e.target.matches('#viewer canvas') ? doPVMouse(e) : null, true);
 document.body.addEventListener('click',
   (e) => e.target.matches('#viewer canvas') ? doPVMouse(e) : null, true);
+
+// Touch gets none of the above: there's no hover, and touch.ts's
+// preventDefault() calls suppress the synthetic mouse/click events a tap
+// would otherwise generate. Its 'click' (tap) and 'longPress' events are
+// pv's internal dispatch (see touch.ts), so they're wired up here instead:
+// a tap shows residue info like mousemove does, and a long press selects
+// like a mouse click; double-tap-to-zoom is unaffected, registered
+// separately above via 'doubleClick'.
+viewer.on('click', function(picked, event) {
+  if (!event.type.startsWith('touch')) return;  // desktop handled above
+  const atom = picked !== null ? picked.target() : null;
+  showResidueInfo(picked, atom, event);
+  viewer.requestRedraw();
+});
+
+viewer.on('longPress', function(picked, event) {
+  const atom = picked !== null ? picked.target() : null;
+  if (atom === null) return;
+  showResidueInfo(picked, atom, event);
+  selectResidue(picked, atom, event);
+  viewer.requestRedraw();
+});
