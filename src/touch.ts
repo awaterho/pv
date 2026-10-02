@@ -87,10 +87,23 @@ function getRotationAngle(prevPointers: Point[], newPointers: Point[]): number {
         getAngle(prevPointers[1]!, prevPointers[0]!);
 }
 
+// maximum finger movement (in CSS pixels) still considered a tap rather than
+// a drag. Real touchscreens report tiny amounts of jitter even when the
+// finger is held still, so cancelling the tap on *any* touchmove (as opposed
+// to one that moves further than this) makes tap/double-tap unreliable.
+const TAP_MOVE_THRESHOLD = 10;
+
+// how long a finger has to stay down, without moving past
+// TAP_MOVE_THRESHOLD, for it to count as a long press rather than a tap.
+const LONG_PRESS_DELAY = 500;
+
 class TouchHandler {
   private _element: HTMLElement;
   private _touchState: TouchState;
   private _lastSingleTap: number | null;
+  private _tapStartPos: Point | null;
+  private _longPressTimer: number | null;
+  private _longPressFired: boolean;
   private _viewer: TouchViewer;
   private _cam: Cam;
 
@@ -112,8 +125,38 @@ class TouchHandler {
       center : undefined
     };
     this._lastSingleTap = null;
+    this._tapStartPos = null;
+    this._longPressTimer = null;
+    this._longPressFired = false;
     this._viewer = viewer;
     this._cam = cam;
+  }
+
+  private _clearLongPressTimer(): void {
+    if (this._longPressTimer !== null) {
+      window.clearTimeout(this._longPressTimer);
+      this._longPressTimer = null;
+    }
+  }
+
+  // arms a timer that, unless cancelled by movement/lift-off beforehand,
+  // fires a 'longPress' event for whatever is under the finger -- used by
+  // callers to select, since touch has no hover to arm a click the way
+  // mouse does (see mouse.ts's _mouseUp).
+  private _startLongPressTimer(event: TouchEvent): void {
+    this._longPressTimer = window.setTimeout(() => {
+      this._longPressTimer = null;
+      this._longPressFired = true;
+      this._lastSingleTap = null;
+      const pos = this._tapStartPos;
+      if (pos === null) {
+        return;
+      }
+      const rect = this._element.getBoundingClientRect();
+      const picked = this._viewer.pick(
+          { x : pos.x - rect.left, y : pos.y - rect.top });
+      this._viewer._dispatchEvent(event, 'longPress', picked);
+    }, LONG_PRESS_DELAY);
   }
 
   // calculates the relevant touch/gesture properties based on previous touch
@@ -186,19 +229,31 @@ class TouchHandler {
     }
     this._viewer.requestRedraw();
     this._touchState = newState;
-    this._lastSingleTap = null;
+    if (newState.numTouches !== 1 || this._tapStartPos === null ||
+        distance(this._tapStartPos, newState.pointers![0]!) > TAP_MOVE_THRESHOLD) {
+      this._lastSingleTap = null;
+      this._tapStartPos = null;
+      this._clearLongPressTimer();
+    }
   }
 
 
 
   private _touchStart(event: TouchEvent): void {
     event.preventDefault();
+    this._clearLongPressTimer();
     if (event.targetTouches.length === 1) {
+      this._tapStartPos = { x : event.targetTouches[0]!.clientX,
+                            y : event.targetTouches[0]!.clientY };
+      this._longPressFired = false;
+
       // detect double tap
       let now: number | null = new Date().getTime();
+      let isDoubleTap = false;
       if (this._lastSingleTap !== null) {
         const delta = now - this._lastSingleTap;
         if (delta < 300) {
+          isDoubleTap = true;
           this._viewer._mouseHandler._mouseDoubleClick({
               clientX : event.targetTouches[0]!.clientX,
               clientY : event.targetTouches[0]!.clientY });
@@ -206,8 +261,14 @@ class TouchHandler {
         }
       }
       this._lastSingleTap = now;
+      // the second tap of a double tap is handled above; don't also treat
+      // it as the start of a long press.
+      if (!isDoubleTap) {
+        this._startLongPressTimer(event);
+      }
     } else {
       this._lastSingleTap = null;
+      this._tapStartPos = null;
     }
     this._touchState =
       this._extractEventAttributes(this._touchState, event);
@@ -215,14 +276,16 @@ class TouchHandler {
 
   private _touchEnd(event: TouchEvent): void {
     event.preventDefault();
-    // detect first tap
-    if (this._lastSingleTap) {
+    this._clearLongPressTimer();
+    // detect a tap that wasn't already handled as a long press
+    if (this._lastSingleTap && !this._longPressFired) {
       const rect = this._element.getBoundingClientRect();
       const pointer = this._touchState.pointers![0]!;
       const picked = this._viewer.pick(
           { x : pointer.x - rect.left, y : pointer.y - rect.top });
       this._viewer._dispatchEvent(event, 'click', picked);
     }
+    this._longPressFired = false;
   }
 }
 

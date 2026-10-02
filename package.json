@@ -44,6 +44,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:debug": "vite build --mode debug",
+    "build:pages": "vite build && node scripts/build-pages.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

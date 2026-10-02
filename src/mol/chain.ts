@@ -241,6 +241,7 @@ class Chain extends ChainBase<Residue> {
   _structure: ChainStructure;
   _name: string;
   _cachedTraces: BackboneTrace<Residue>[];
+  _properties: Record<string, unknown>;
 
   constructor(structure: ChainStructure, name: string) {
     super();
@@ -249,6 +250,22 @@ class Chain extends ChainBase<Residue> {
     this._cachedTraces = [];
     this._residues = [];
     this._rnumsOrdered = true;
+    this._properties = {};
+  }
+
+  // like Residue/Atom: a method of that name if there is one, otherwise a
+  // custom property set with setProp() (0 when it was never set).
+  override prop(propName: string): unknown {
+    const fn = (this as unknown as Record<string, (() => unknown) | undefined>)[propName];
+    if (fn !== undefined) {
+      return fn.call(this);
+    }
+    const property = this._properties[propName];
+    return property === undefined ? 0 : property;
+  }
+
+  setProp(propName: string, value: unknown): void {
+    this._properties[propName] = value;
   }
 
   override structure(): ChainStructure { return this._structure; }
@@ -451,6 +468,14 @@ class ChainView extends ChainBase<ResidueView> {
   full(): Chain { return this._chain; }
 
   name(): string { return this._chain.name(); }
+
+  override prop(propName: string): unknown {
+    return this._chain.prop(propName);
+  }
+
+  setProp(propName: string, value: unknown): void {
+    this._chain.setProp(propName, value);
+  }
 
   override structure(): unknown { return this._molView; }
 }

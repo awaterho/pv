@@ -4,7 +4,7 @@ import io from '../../io';
 
 test('assign helix sheet', function(assert) {
   var done = assert.async();
-  io.fetchPdb('pdbs/1crn.pdb', function(structure) {
+  io.fetchPdb('tests/data/1crn.pdb', function(structure) {
     // clear assigned secondary structure
     structure.eachResidue(function(r) {
       r.setSS('C');

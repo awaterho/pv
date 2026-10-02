@@ -26,6 +26,8 @@ import color from './color';
 import viewpoint from './viewpoint';
 import traj from './traj';
 import mvs from './mvs';
+import snfg from './snfg';
+import rings from './rings';
 
 // export
 export default {
@@ -36,6 +38,8 @@ export default {
     traj : traj,
     color : color,
     mol : mol,
+    snfg : snfg,
+    rings : rings,
     // for backward compatibility prior to version 1.4
     rgb : {
       setColorPalette : color.setColorPalette,

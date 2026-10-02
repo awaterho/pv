@@ -220,7 +220,7 @@ test('occupancy and temp-factor', function(assert) {
 
 test('load multi-model PDB file', function(assert) {
   var done = assert.async();
-  io.fetchPdb('/pdbs/1nmr.pdb', function(structures) {
+  io.fetchPdb('/tests/data/1nmr.pdb', function(structures) {
     assert.strictEqual(structures.length, 20);
     for (var i = 0; i < structures.length; ++i) {
       // check that all structures have the same number of atoms and 
@@ -237,10 +237,37 @@ test('load multi-model PDB file', function(assert) {
 
 test('only load first model when loadAllModels option is not set', function(assert) {
   var done = assert.async();
-  io.fetchPdb('/pdbs/1nmr.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1nmr.pdb', function(structure) {
     assert.strictEqual(structure.atoms().length, 1290);
     assert.strictEqual(structure.assembly(), null);
     assert.strictEqual(structure.chain('A').residueByRnum(19).ss(),  'H');
     done();
   });
+});
+
+test('fetchPdb resolves its promise with the structure', async function() {
+  var structure = await io.fetchPdb('/tests/data/1crn.pdb');
+  strictEqual(structure.atoms().length > 0, true);
+});
+
+test('fetchPdb rejects on HTTP error and does not call the callback', async function() {
+  var called = false;
+  var error = null;
+  try {
+    await io.fetchPdb('/tests/data/missing.pdb', function() { called = true; });
+  } catch (e) {
+    error = e;
+  }
+  strictEqual(called, false);
+  strictEqual(/HTTP 404/.test(error.message), true);
+});
+
+test('fetchPdb rejects when the response holds no structure', async function() {
+  var error = null;
+  try {
+    await io.fetchPdb('/package.json');
+  } catch (e) {
+    error = e;
+  }
+  strictEqual(/no structure/.test(error.message), true);
 });

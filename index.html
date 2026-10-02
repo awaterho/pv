@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>pv - JavaScript protein viewer</title>
+    <title>PV - The Protein Viewer</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
-    <link rel="icon" type="image/png" href="/pv-icon.png" sizes="64x64">
+    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" type="image/png" href="./pv-icon.png" sizes="64x64">
   
     <!-- 
       // Use dist file for your own deployment
@@ -13,7 +13,7 @@
       <script src="dist/pv.iife.js"></script> 
     -->
 
-    <script type="module" src="/demo.js"></script>
+    <script type="module" src="./demo.js"></script>
     <style>
       /* The rules of Foundation 5.4.7 (ZURB, MIT license) that this page
          uses: base styles, grid, buttons, inputs and the top bar menu. */
@@ -700,9 +700,10 @@
         display: none;
       }
       #display-widget {
+        overflow:auto; max-height: calc(100vh - 60px);
         position: absolute;
-        top: 50px;
-        right: 20px;
+        top: 54px;
+        right: 12px;
         background: rgba(255,255,255,0.85);
         padding: 8px 12px;
         border-radius: 4px;
@@ -710,9 +711,46 @@
         font-family: sans-serif;
         font-size: 13px;
       }
+      #pv_status {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(255,255,255,0.85);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        font-size: 13px;
+        pointer-events: none;
+        text-align: right;
+      }
+      #pv_status:empty {
+        display: none;
+      }
+      #pv_warning {
+        position: absolute;
+        top: 57px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        background: #fff3cd;
+        color: #664d03;
+        border: 1px solid #e0c36a;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        font-size: 13px;
+        pointer-events: none;
+      }
+      #pv_warning:empty {
+        display: none;
+      }
       #display-widget input[type=range] {
         vertical-align: middle;
         margin-left: 8px;
+      }
+      #display-widget .toggles {
+        display: flex;
+        flex-direction: column;
       }
       #display-widget .toggles label {
         display: inline-block;
@@ -721,6 +759,17 @@
       #display-widget input[type=checkbox] {
         vertical-align: middle;
         margin: 0 4px 0 0;
+      }
+      /* the PDB id leading each Load menu entry, in a fixed-width column so
+         the names line up (entries without one keep an empty column) */
+      .top-bar-section .dropdown .pdb-id {
+        display: inline-block;
+        width: 4ch;
+        margin-right: 0.8em;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.95em;
+        letter-spacing: 0.02em;
+        opacity: 0.7;
       }
     </style>
     </head>
@@ -739,7 +788,7 @@
   <section class="top-bar-section">
     <!-- Right Nav Section -->
     <ul class=left>
-<div class="row collapse">
+<div class="row collapse" style="display: flex; align-items: center;">
     <div class="large-8 small-9 columns">
       <input type="text" id=load-from-pdb>
     </div>
@@ -752,18 +801,20 @@
       <li class="has-dropdown">
         <a href="#">Load</a>
         <ul class="dropdown">
-          <li><a id=1r6a href="#">Methyl Transferase</a></li>
-          <li><a id=4c46 href="#">Long Helices</a></li>
-          <li><a id=4umt href="#">MELK + Inhibitor (bond orders)</a></li>
-          <li><a id=beta-flower href="#">Beta Flower (AlphaFold)</a></li>
-          <li><a id=2f8v href="#">Telethonin</a></li>
-          <li><a id=1ake href="#">Adenylate Kinase</a></li>
-          <li><a id=4ubb href="#">DNA Polymerase</a></li>
-          <li><a id=1crn href="#">Crambin</a></li>
-          <li><a id=2por href="#">Porin</a></li>
-          <li><a id=ensemble href="#">NMR ensemble</a></li>
-          <li><a id=trajectory href="#">Trajectory</a></li>
-          <li><a id=custom-mesh href="#">Custom Mesh Demo</a></li>
+          <li><a id=4umt href="#"><span class="pdb-id">4UMT</span>MELK + Inhibitor (bond orders)</a></li>
+          <li><a id=4byh href="#"><span class="pdb-id">4BYH</span>IgG Fc + Glycans</a></li>
+          <li><a id=1bos href="#"><span class="pdb-id">1BOS</span>Shiga Toxin + Gb3 Receptor</a></li>
+          <li><a id=8yti href="#"><span class="pdb-id">8YTI</span>Nucleosomes + H1x Linker Histone</a></li>
+          <li><a id=beta-flower href="#"><span class="pdb-id"></span>Beta Flower (AlphaFold)</a></li>
+          <li><a id=2f8v href="#"><span class="pdb-id">2F8V</span>Titin&ndash;Telethonin (6 chains)</a></li>
+          <li><a id=1ake href="#"><span class="pdb-id">1AKE</span>Adenylate Kinase</a></li>
+          <li><a id=4ubb href="#"><span class="pdb-id">4UBB</span>DNA Polymerase</a></li>
+          <li><a id=1ehz href="#"><span class="pdb-id">1EHZ</span>tRNA-Phe (modified bases)</a></li>
+          <li><a id=2por href="#"><span class="pdb-id">2POR</span>Porin Trimer (symmetry assembly)</a></li>
+          <li><a id=1f8v href="#"><span class="pdb-id">1F8V</span>Pariacoto Virus + RNA Cage (60-mer)</a></li>
+          <li><a id=ensemble href="#"><span class="pdb-id">1NMR</span>NMR ensemble</a></li>
+          <li><a id=trajectory href="#"><span class="pdb-id"></span>Trajectory</a></li>
+          <li><a id=custom-mesh href="#"><span class="pdb-id"></span>Custom Mesh</a></li>
         </ul>
       </li>
       <li class="has-dropdown">
@@ -786,6 +837,7 @@
         <ul class="dropdown">
           <li><a id=color-uniform href="#">Uniform</a></li>
           <li><a id=color-chain href="#">Chain</a></li>
+          <li><a id=color-entity href="#">Entity</a></li>
           <li><a id=color-element href="#">Element</a></li>
           <li><a id=color-ss href="#">Secondary Structure</a></li>
           <li><a id=color-ss-succ href="#">Secondary Structure Succession</a></li>
@@ -805,11 +857,22 @@
   <input type="range" id="opacity-slider" min="0" max="1" step="0.01" value="1">
   <label for="background-slider">Background</label>
   <input type="range" id="background-slider" min="0" max="1" step="0.01" value="0">
+  <label for="ssao-radius-slider" title="Screen-Space Ambient Occlusion">SSAO Radius: <span id="ssao-radius-value">2.0</span></label>
+  <input type="range" id="ssao-radius-slider" min="0.1" max="10" step="0.1" value="2">
+  <label for="ssao-intensity-slider" title="Screen-Space Ambient Occlusion">SSAO Intensity: <span id="ssao-intensity-value">1.0</span></label>
+  <input type="range" id="ssao-intensity-slider" min="0" max="3" step="0.1" value="1">
   <div class="toggles">
     <label><input type="checkbox" id="fog-toggle">Fog</label>
     <label><input type="checkbox" id="outline-toggle">Outline</label>
+    <label title="Screen-Space Ambient Occlusion"><input type="checkbox" id="ssao-toggle">SSAO</label>
+    <label><input type="checkbox" id="spin-toggle">Spin</label>
+    <label><input type="checkbox" id="rock-toggle">Rock and roll</label>
+    <label title="3D Symbol Nomenclature for Glycans"><input type="checkbox" id="snfg-toggle" checked>SNFG symbols</label>
+    <label><input type="checkbox" id="rings-toggle">Filled rings</label>
   </div>
 </div>
+<div id="pv_status"></div>
+<div id="pv_warning"></div>
 </body>
 </html>
 

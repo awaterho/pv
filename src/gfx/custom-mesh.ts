@@ -40,6 +40,9 @@ interface ObjectIdData {
   center: vec3;
   userData: unknown;
   geom: CustomMesh;
+  // the symmetry copy the shape was drawn for (its copy option), reported
+  // by picking as symIndex()
+  copy: number | null;
 }
 
 interface Shader extends IVAShader, ShaderProgram {
@@ -54,16 +57,41 @@ interface ShaderCatalog {
   [pass: string]: Shader | undefined;
 }
 
+// copy: for meshes that draw the copies of a symmetry assembly themselves,
+// which copy (in the order of the assembly's generators and their
+// matrices) the shape belongs to, so picking reports it as symIndex() and
+// setHover() can tint just that copy.
 interface TubeOptions {
   color?: string | number[];
   cap?: boolean;
   userData?: unknown;
+  copy?: number;
 }
 
 interface SphereOptions {
   color?: string | number[];
   userData?: unknown;
+  copy?: number;
 }
+
+interface TrianglesOptions {
+  // one color for the whole shape, or triangleColors with one color per
+  // triangle (e.g. a two-colored symbol); defaults to white.
+  color?: string | number[];
+  triangleColors?: (string | number[])[];
+  // per-vertex normals (same layout as positions) for a smooth-shaded
+  // shape; by default every triangle is flat-shaded.
+  normals?: ArrayLike<number>;
+  userData?: unknown;
+  copy?: number;
+}
+
+const FLOATS_PER_VERT = 12;
+// position (3), normal (3), then the color's r, g, b, a, the object id and
+// the select flag
+const ALPHA_OFFSET = 9;
+const SELECT_OFFSET = 11;
+const MAX_CHUNK_VERTS = 65535;
 
 // small helper with the same interface as IndexedVertexArray that can be used
 // as a drop-in when the number of vertices/indices is not known in advance.
@@ -71,11 +99,80 @@ class DynamicIndexedVertexArray {
   private _vertData: number[];
   private _indexData: number[];
   private _numVerts: number;
+  private _shapeStarts: number[];
+  private _shapeUserData: unknown[];
+  private _shapeCopies: (number | null)[];
 
   constructor() {
     this._vertData = [];
     this._indexData = [];
     this._numVerts = 0;
+    this._shapeStarts = [];
+    this._shapeUserData = [];
+    this._shapeCopies = [];
+  }
+
+  // marks the start of a shape (sphere, tube, ...): its triangles only
+  // reference its own vertices, so the data can be split between shapes
+  // into chunks small enough for 16 bit indices, see chunks().
+  beginShape(userData: unknown, copy: number | null): void {
+    this._shapeStarts.push(this._numVerts, this._indexData.length);
+    this._shapeUserData.push(userData);
+    this._shapeCopies.push(copy);
+  }
+
+  // sets every shape's select flag (the vertices' last float, read by the
+  // shaders: 1 selected, -1 hovered, 0 neither) to flagFor(its userData,
+  // its copy). Returns whether anything changed.
+  setShapeFlags(flagFor: (userData: unknown, copy: number | null) => number): boolean {
+    let changed = false;
+    const n = this._shapeUserData.length;
+    for (let shape = 0; shape < n; ++shape) {
+      const flag = flagFor(this._shapeUserData[shape], this._shapeCopies[shape]!);
+      const start = this._shapeStarts[shape * 2]!;
+      const end = shape + 1 < n ? this._shapeStarts[shape * 2 + 2]! : this._numVerts;
+      for (let v = start; v < end; ++v) {
+        const i = v * FLOATS_PER_VERT + SELECT_OFFSET;
+        if (this._vertData[i] !== flag) {
+          this._vertData[i] = flag;
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  // vertex and index data in chunks of whole shapes with at most
+  // MAX_CHUNK_VERTS vertices each, indices rebased to their chunk.
+  chunks(): { vertData: number[]; indexData: number[] }[] {
+    const result: { vertData: number[]; indexData: number[] }[] = [];
+    const starts = this._shapeStarts.concat([this._numVerts, this._indexData.length]);
+    let chunkVert = 0;
+    let chunkIndex = 0;
+    const flush = (endVert: number, endIndex: number) => {
+      if (endVert === chunkVert) {
+        return;
+      }
+      const indexData = this._indexData.slice(chunkIndex, endIndex);
+      for (let i = 0; i < indexData.length; ++i) {
+        indexData[i] = indexData[i]! - chunkVert;
+      }
+      result.push({
+        vertData: this._vertData.slice(chunkVert * FLOATS_PER_VERT,
+                                       endVert * FLOATS_PER_VERT),
+        indexData,
+      });
+      chunkVert = endVert;
+      chunkIndex = endIndex;
+    };
+    for (let i = 2; i < starts.length; i += 2) {
+      // shape i/2 - 1 ends where the next one starts
+      if (starts[i]! - chunkVert > MAX_CHUNK_VERTS) {
+        flush(starts[i - 2]!, starts[i - 1]!);
+      }
+    }
+    flush(this._numVerts, this._indexData.length);
+    return result;
   }
 
   numVerts(): number {
@@ -93,6 +190,12 @@ class DynamicIndexedVertexArray {
   }
   numIndices(): number {
     return this._indexData.length;
+  }
+  // sets the alpha of every vertex added so far
+  setAlpha(alpha: number): void {
+    for (let i = ALPHA_OFFSET; i < this._vertData.length; i += FLOATS_PER_VERT) {
+      this._vertData[i] = alpha;
+    }
   }
   indexData(): number[] {
     return this._indexData;
@@ -128,7 +231,7 @@ export interface CustomMesh extends ISceneNode {
   _data: DynamicIndexedVertexArray;
   _protoSphere: InstanceType<typeof gb.ProtoSphere>;
   _protoCyl: InstanceType<typeof gb.ProtoCylinder>;
-  _va: InstanceType<typeof IndexedVertexArray> | null;
+  _vas: InstanceType<typeof IndexedVertexArray>[];
   _idRanges: ContinuousIdRange<ObjectIdData>[];
   _idPool: UniqueObjectIdPool<ObjectIdData>;
   _ready: boolean;
@@ -139,6 +242,14 @@ export interface CustomMesh extends ISceneNode {
   addTube(start: vec3, end: vec3, radius: number, options?: TubeOptions): void;
   _nextObjectId(data: ObjectIdData): number;
   addSphere(center: vec3, radius: number, options?: SphereOptions): void;
+  addTriangles(positions: ArrayLike<number>, options?: TrianglesOptions): void;
+  setOpacity(val: number): void;
+  setSelection(test: ((userData: unknown) => boolean) | null): void;
+  setHover(test: ((userData: unknown) => boolean) | null, copy?: number | null): void;
+  _selectionTest: ((userData: unknown) => boolean) | null;
+  _hoverTest: ((userData: unknown) => boolean) | null;
+  _hoverCopy: number | null;
+  _applySelection(): void;
   _prepareVertexArray(): void;
   shaderForStyleAndPass(shaderCatalog: ShaderCatalog, style: unknown, pass: unknown): Shader | null;
 }
@@ -165,7 +276,10 @@ const CustomMesh = function(
   this._data = new DynamicIndexedVertexArray();
   this._protoSphere = new gb.ProtoSphere(8, 8);
   this._protoCyl = new gb.ProtoCylinder(8);
-  this._va = null;
+  this._vas = [];
+  this._selectionTest = null;
+  this._hoverTest = null;
+  this._hoverCopy = null;
   this._idRanges = [];
   this._idPool = idPool;
   this._ready = false;
@@ -193,6 +307,9 @@ utils.derive(CustomMesh, SceneNode, {
       if (options.cap !== undefined) {
         cap = options.cap;
       }
+      const userData = options.userData !== undefined ? options.userData : null;
+      const copy = options.copy !== undefined ? options.copy : null;
+      this._data.beginShape(userData, copy);
       vec3.sub(dir, end, start);
       const length = vec3.length(dir);
       vec3.normalize(dir, dir);
@@ -204,11 +321,11 @@ utils.derive(CustomMesh, SceneNode, {
         this._data.addVertex(start, [-dir[0], -dir[1], -dir[2]], color, 0);
         capTubeStart(this._data, startIndex, 8);
       }
-      const userData = options.userData !== undefined ? options.userData : null;
       const objectId = this._nextObjectId({
         center : midPoint,
         userData : userData,
-        geom : this
+        geom : this,
+        copy : copy,
       });
       this._protoCyl.addTransformed(this._data, midPoint, length, radius,
                                     rotation, color, color, objectId, objectId);
@@ -241,27 +358,142 @@ utils.derive(CustomMesh, SceneNode, {
     options = options || {};
     const color = forceRGB(options.color || 'white');
     const userData = options.userData !== undefined ? options.userData : null;
+    const copy = options.copy !== undefined ? options.copy : null;
+    this._data.beginShape(userData, copy);
     const objectId = this._nextObjectId({
       center : center,
       userData : userData,
-      geom : this
+      geom : this,
+      copy : copy,
     });
     this._protoSphere.addTransformed(this._data, center, radius,
                                      color, objectId);
     this._ready = false;
   },
+  // an arbitrary shape: positions holds 9 numbers (three xyz vertices,
+  // counter-clockwise seen from outside) per triangle, flat-shaded unless
+  // options.normals are given. The whole shape is one pickable object,
+  // centered on its vertex mean.
+  addTriangles: (function() {
+    const a = vec3.create();
+    const b = vec3.create();
+    const c = vec3.create();
+    const ab = vec3.create();
+    const ac = vec3.create();
+    const normal = vec3.create();
+    const na = vec3.create();
+    const nb = vec3.create();
+    const nc = vec3.create();
+    return function(this: CustomMesh, positions: ArrayLike<number>,
+                    options?: TrianglesOptions): void {
+      options = options || {};
+      const numTriangles = Math.floor(positions.length / 9);
+      if (numTriangles === 0) {
+        return;
+      }
+      const center = vec3.create();
+      for (let i = 0; i < numTriangles * 9; i += 3) {
+        center[0] += positions[i]!;
+        center[1] += positions[i + 1]!;
+        center[2] += positions[i + 2]!;
+      }
+      vec3.scale(center, center, 1 / (numTriangles * 3));
+      const userData = options.userData !== undefined ? options.userData : null;
+      const copy = options.copy !== undefined ? options.copy : null;
+      const objectId = this._nextObjectId({
+        center : center,
+        userData : userData,
+        geom : this,
+        copy : copy,
+      });
+      const uniformColor = forceRGB(options.color || 'white');
+      this._data.beginShape(userData, copy);
+      for (let t = 0; t < numTriangles; ++t) {
+        const o = t * 9;
+        vec3.set(a, positions[o]!, positions[o + 1]!, positions[o + 2]!);
+        vec3.set(b, positions[o + 3]!, positions[o + 4]!, positions[o + 5]!);
+        vec3.set(c, positions[o + 6]!, positions[o + 7]!, positions[o + 8]!);
+        vec3.sub(ab, b, a);
+        vec3.sub(ac, c, a);
+        vec3.cross(normal, ab, ac);
+        vec3.normalize(normal, normal);
+        const triangleColor = options.triangleColors !== undefined ?
+          forceRGB(options.triangleColors[t] || 'white') : uniformColor;
+        const normals = options.normals;
+        if (normals !== undefined) {
+          vec3.set(na, normals[o]!, normals[o + 1]!, normals[o + 2]!);
+          vec3.set(nb, normals[o + 3]!, normals[o + 4]!, normals[o + 5]!);
+          vec3.set(nc, normals[o + 6]!, normals[o + 7]!, normals[o + 8]!);
+        } else {
+          vec3.copy(na, normal);
+          vec3.copy(nb, normal);
+          vec3.copy(nc, normal);
+        }
+        const base = this._data.numVerts();
+        this._data.addVertex(a, na, triangleColor, objectId);
+        this._data.addVertex(b, nb, triangleColor, objectId);
+        this._data.addVertex(c, nc, triangleColor, objectId);
+        // pv culls front faces (canvas.ts), i.e. its own meshes wind
+        // clockwise seen from outside: emit the triangle reversed
+        this._data.addTriangle(base, base + 2, base + 1);
+      }
+      this._ready = false;
+    };
+  })(),
+  // the opacity of everything added so far (0 transparent - 1 opaque),
+  // drawn through the viewer's order-independent transparency like the
+  // other render objects' setOpacity()
+  setOpacity: function(this: CustomMesh, val: number) {
+    this._data.setAlpha(val);
+    this._ready = false;
+  },
+  // the shapes whose userData passes test are drawn tinted with the
+  // viewer's selectionColor, like a selection in the other render objects;
+  // null clears it. setHover() is the same with the hoverColor, winning
+  // over the selection; with copy, only for the shapes of that symmetry
+  // copy (see the copy option of addTriangles() etc.).
+  setSelection: function(this: CustomMesh, test: ((userData: unknown) => boolean) | null) {
+    this._selectionTest = test;
+    this._applySelection();
+  },
+  setHover: function(this: CustomMesh, test: ((userData: unknown) => boolean) | null,
+                     copy?: number | null) {
+    this._hoverTest = test;
+    this._hoverCopy = copy === undefined ? null : copy;
+    this._applySelection();
+  },
+  _applySelection: function(this: CustomMesh) {
+    const selected = this._selectionTest, hovered = this._hoverTest;
+    const hoverCopy = this._hoverCopy;
+    const changed = this._data.setShapeFlags(function(userData, copy) {
+      if (userData === null) {
+        return 0.0;
+      }
+      if (hovered !== null && (hoverCopy === null || copy === hoverCopy) &&
+          hovered(userData)) {
+        return -1.0;
+      }
+      return selected !== null && selected(userData) ? 1.0 : 0.0;
+    });
+    if (changed) {
+      this._ready = false;
+    }
+  },
   _prepareVertexArray: function(this: CustomMesh) {
     this._ready = true;
-    if (this._va !== null) {
-      this._va.destroy();
+    for (let i = 0; i < this._vas.length; ++i) {
+      this._vas[i]!.destroy();
     }
-    this._va = new IndexedVertexArray(this._gl, this._data.numVerts(),
-                                      this._data.numIndices(),
-                                      this._float32Allocator,
-                                      this._uint16Allocator as never);
-    // FIXME: find a better way to do this
-    this._va.setIndexData(this._data.indexData());
-    this._va.setVertData(this._data.vertData());
+    this._vas = this._data.chunks().map((chunk) => {
+      const va = new IndexedVertexArray(this._gl, chunk.vertData.length / FLOATS_PER_VERT,
+                                        chunk.indexData.length,
+                                        this._float32Allocator,
+                                        this._uint16Allocator as never);
+      // FIXME: find a better way to do this
+      va.setIndexData(chunk.indexData);
+      va.setVertData(chunk.vertData);
+      return va;
+    });
   },
 
   draw: function(this: CustomMesh, cam: Cam, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
@@ -277,10 +509,12 @@ utils.derive(CustomMesh, SceneNode, {
     }
     cam.bind(shader);
     this._gl.uniform1i(shader.symId, 255);
-    const va = this._va!;
-    va.bind(shader);
-    va.draw();
-    va.releaseAttribs(shader);
+    for (let i = 0; i < this._vas.length; ++i) {
+      const va = this._vas[i]!;
+      va.bind(shader);
+      va.draw();
+      va.releaseAttribs(shader);
+    }
   },
   // 'style' is currently always 'hemilight' (the only shading style pv
   // supports), so this always resolves to the hemilight shader -- kept as a

@@ -57,9 +57,12 @@ interface RenderModule {
   sline(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   trace(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   cartoon(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
-  surfaceAtoms(structure: RenderStructure): { atoms: RenderAtom[]; data: Float32Array };
+  surfaceAtoms(structure: RenderStructure, copies?: { matrix: mat4; chains: string[] }[]): {
+    atoms: RenderAtom[]; data: Float32Array; copyOf: number[]; transforms: (mat4 | null)[];
+  };
   surface(mesh: SurfaceMesh, atoms: RenderAtom[], structure: RenderStructure,
-          gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
+          gl: WebGL2RenderingContext, opts: RenderOptions,
+          copyOf?: number[], transforms?: (mat4 | null)[]): BaseGeom;
 }
 const render = renderModuleRaw as unknown as RenderModule;
 
@@ -323,6 +326,7 @@ interface ResolvedViewerOptions {
   ssaoRadius: number;
   ssaoIntensity: number;
   selectionColor: RGBA;
+  hoverColor: RGBA;
   fov: number;
   doubleClick: ClickHandler;
   click: ClickHandler;
@@ -462,6 +466,7 @@ class Viewer {
       ssaoIntensity : optValue(opts, 'ssaoIntensity', 1.0),
       selectionColor : color.forceRGB(optValue<string | RGBA>(opts, 'selectionColor', '#3f3'),
                                       0.7),
+      hoverColor : color.forceRGB(optValue<string | RGBA>(opts, 'hoverColor', '#f93'), 0.7),
       fov : optValue(opts, 'fov', 45.0),
       doubleClick : getDoubleClickHandler(opts),
       click : getClickHandler(opts),
@@ -532,6 +537,8 @@ class Viewer {
         this._cam.setFieldOfViewY((value as number) * Math.PI / 180.0);
       } else if (optName === 'selectionColor') {
         this._cam.setSelectionColor(color.forceRGB(value as string | RGBA, 0.7));
+      } else if (optName === 'hoverColor') {
+        this._cam.setHoverColor(color.forceRGB(value as string | RGBA, 0.7));
       } else if (optName === 'outlineColor') {
         // NOTE: setOutlineColorColor is not a typo we introduced -- this
         // pre-existing call site never matched Cam's actual setOutlineColor
@@ -603,6 +610,7 @@ class Viewer {
     this._cam.setFogColor(this._options.background as vec3);
     this._cam.setOutlineColor(this._options.outlineColor as vec3);
     this._cam.setSelectionColor(this._options.selectionColor);
+    this._cam.setHoverColor(this._options.hoverColor);
     this._cam.setFieldOfViewY(this._options.fov * Math.PI / 180.0);
     this._mouseHandler.setCam(this._cam);
 
@@ -741,8 +749,11 @@ class Viewer {
 
   private _drawWithPass(pass: string): void {
     for (let i = 0, e = this._objects.length; i !== e; ++i) {
-      this._objects[i]!
-          .draw(this._cam, this._shaderCatalog, this._options.style, pass);
+      const obj = this._objects[i]!;
+      // which symmetry copy of the object its hover tints, see setHover()
+      const hoverSymId = (obj as { hoverSymId?(): number }).hoverSymId;
+      this._cam.setHoverSymId(hoverSymId !== undefined ? hoverSymId.call(obj) : -1);
+      obj.draw(this._cam, this._shaderCatalog, this._options.style, pass);
     }
   }
 
@@ -1267,7 +1278,19 @@ class Viewer {
       probeRadius: options.probeRadius === undefined ? 1.4 : options.probeRadius as number,
       gridSpacing: (options.gridSpacing as number | undefined) || 0.5,
     };
-    const { atoms, data } = render.surfaceAtoms(structure);
+    // with showRelated (an assembly), the surface of the whole assembly
+    const assembly = options.showRelated && options.showRelated !== 'asym'
+      ? (structure as unknown as {
+          assembly(name: string): {
+            generators(): { matrices(): mat4[]; chains(): string[] }[];
+          } | null;
+        }).assembly(options.showRelated as string)
+      : null;
+    const copies = assembly
+      ? assembly.generators().flatMap((gen) =>
+          gen.matrices().map((matrix: mat4) => ({ matrix, chains: gen.chains() })))
+      : undefined;
+    const { atoms, data, copyOf, transforms } = render.surfaceAtoms(structure, copies);
     // the grid is cut into slabs that a pool of workers, one per core,
     // computes in parallel
     const numWorkers = Math.max(1, navigator.hardwareConcurrency || 4);
@@ -1291,7 +1314,7 @@ class Viewer {
         stop();
         const mesh = { chunks: results.flat(), gridSpacing: plan.grid.spacing };
         const obj = render.surface(mesh, atoms, structure, this._canvas!.gl(),
-                                   options as unknown as RenderOptions);
+                                   options as unknown as RenderOptions, copyOf, transforms);
         resolve(this.add(name, obj));
       };
       const dispatch = (worker: Worker) => {
@@ -1601,15 +1624,24 @@ class Viewer {
     } else {
       if (picked.atom !== undefined) {
         target = picked.atom;
-        transformedPos = picked.atom.pos();
+        // geometry with the symmetry copies built in (a surface over an
+        // assembly) records each atom's copy and its operator
+        const builtIn = (picked as { transform?: mat4 }).transform;
+        if (builtIn !== undefined) {
+          transform = builtIn;
+          vec3.transformMat4(transformedPos, picked.atom.pos(), builtIn);
+        } else {
+          transformedPos = picked.atom.pos();
+        }
         connectivity = picked.isTrace ? 'trace' : 'full';
       } else {
         target = picked.userData;
         transformedPos = picked.center!;
       }
     }
+    const copy = (picked as { copy?: number | null }).copy;
     return new PickedObject(target, picked.geom,
-                            symIndex < 255 ? symIndex : null,
+                            symIndex < 255 ? symIndex : (copy ?? null),
                             transformedPos, picked, transform,
                             connectivity);
   }

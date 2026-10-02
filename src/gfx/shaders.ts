@@ -85,10 +85,13 @@ int intMod(int x, int y) { \n\
 }\n\
 \n\
 uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
 \n\
+// vertSelect: 1 = selected, -1 = hovered, 0 = neither\n\
 vec3 handleSelect(vec3 inColor, float vertSelect) { \n\
-  return mix(inColor, selectionColor.rgb, \n\
-             step(0.5, vertSelect) * selectionColor.a); \n\
+  vec3 c = mix(inColor, selectionColor.rgb, \n\
+               step(0.5, vertSelect) * selectionColor.a); \n\
+  return mix(c, hoverColor.rgb, step(0.5, -vertSelect) * hoverColor.a); \n\
 } \n\
 \n\
 uniform bool fog;\n\
@@ -132,14 +135,14 @@ uniform float fogFar;\n\
 uniform vec3 fogColor;\n\
 uniform bool fog;\n\
 uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
 \n\
 void main(void) {\n\
   float edge = lineEdge;\n\
   float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
     1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
-  gl_FragColor = mix(vec4(0.0, 0.0, 0.0, 0.0), \n\
-                     vec4(selectionColor.rgb, 1.0), vertSelect);\n\
-  gl_FragColor.a = step(0.5, vertSelect) * coverage;\n\
+  gl_FragColor.rgb = vertSelect < 0.0 ? hoverColor.rgb : selectionColor.rgb;\n\
+  gl_FragColor.a = step(0.5, abs(vertSelect)) * coverage;\n\
   if (gl_FragColor.a == 0.0) { discard; }\n\
   float depth = gl_FragCoord.z / gl_FragCoord.w;\n\
   if (fog) {\n\
@@ -162,6 +165,17 @@ uniform vec2 relativePixelSize;\n\
 varying float vertSelect;\n\
 varying vec2 lineMapping;\n\
 varying float lineEdge;\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main(void) {\n\
   vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
@@ -173,7 +187,7 @@ void main(void) {\n\
   gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
                     0.25 * relativePixelSize;\n\
   gl_Position.z += gl_Position.w * 0.000001;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
   lineMapping = attrMapping;\n\
   lineEdge = 2.0 / max(pointSize, 1.0);\n\
 }',
@@ -320,13 +334,24 @@ varying vec4 vertColor;\n\
 varying vec3 vertNormal;\n\
 varying vec3 vertPos;\n\
 varying float vertSelect;\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main(void) {\n\
   vertPos = (modelviewMat * vec4(attrPos, 1.0)).xyz;\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 n = (modelviewMat * vec4(attrNormal, 0.0));\n\
   vertNormal = n.xyz;\n\
   vertColor = attrColor;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
 }',
 
 // outline shader. mixes outlineColor with fogColor
@@ -337,8 +362,9 @@ varying float vertSelect;\n\
 uniform vec3 outlineColor;\n\
 \n\
 void main() {\n\
-  gl_FragColor = vec4(mix(outlineColor, selectionColor.rgb, \n\
-                          step(0.5, vertSelect)), \n\
+  vec3 selColor = vertSelect < 0.0 ? hoverColor.rgb : selectionColor.rgb;\n\
+  gl_FragColor = vec4(mix(outlineColor, selColor, \n\
+                          step(0.5, abs(vertSelect))), \n\
                       vertAlpha);\n\
   gl_FragColor.rgb = handleFog(gl_FragColor.rgb);\n\
   gl_FragColor = handleAlpha(gl_FragColor);\n\
@@ -363,13 +389,24 @@ uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
 uniform float outlineOffset;\n\
 \n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
   vertAlpha = attrColor.a;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
   vec2 expansion = relativePixelSize * \n\
-       (outlineWidth + 2.0 * step(0.5, attrSelect));\n\
+       (outlineWidth + 2.0 * step(0.5, abs(vertSelect)));\n\
   vec2 offset = normal.xy * expansion;\n\
   gl_Position.xy += gl_Position.w * offset;\n\
   gl_Position.z += gl_Position.w * outlineOffset;\n\
@@ -467,6 +504,17 @@ out vec2 vertTex;\n\
 out float border;\n\
 out vec4 vertCenter;\n\
 out float vertSelect;\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main() {\n\
   vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
@@ -474,7 +522,7 @@ void main() {\n\
                 (vec4(attrPos, 1.0)+rotated);\n\
   vertTex = attrNormal.xy;\n\
   vertColor = attrColor;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w;\n\
@@ -485,7 +533,7 @@ void main() {\n\
 SELECT_SPHERES_FS : '\n\
 in vec2 vertTex;\n\
 in vec4 vertCenter;\n\
-in vec4 vertColor;\n\
+in float objAlpha;\n\
 uniform mat4 projectionMat;\n\
 in float objId;\n\
 in float radius;\n\
@@ -494,7 +542,7 @@ out vec4 fragColor;\n\
 \n\
 void main(void) {\n\
   float zz = dot(vertTex, vertTex);\n\
-  if (zz > 1.0)\n\
+  if (zz > 1.0 || objAlpha == 0.0)\n\
     discard;\n\
   vec3 normal = vec3(vertTex.x, vertTex.y, sqrt(1.0-zz));\n\
   vec3 pos = vertCenter.xyz + normal * radius;\n\
@@ -527,6 +575,7 @@ uniform mat4 rotationMat;\n\
 out vec2 vertTex;\n\
 out vec4 vertCenter;\n\
 out float objId;\n\
+out float objAlpha;\n\
 void main() {\n\
   vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
@@ -537,6 +586,7 @@ void main() {\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   radius = attrNormal.z;\n\
   objId = attrObjId;\n\
+  objAlpha = attrColor.a;\n\
 }',
 
 // --- weighted blended order-independent transparency (OIT) shaders ---
@@ -568,13 +618,24 @@ out vec4 vertColor;\n\
 out vec3 vertNormal;\n\
 out vec3 vertPos;\n\
 out float vertSelect;\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main(void) {\n\
   vertPos = (modelviewMat * vec4(attrPos, 1.0)).xyz;\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 n = (modelviewMat * vec4(attrNormal, 0.0));\n\
   vertNormal = n.xyz;\n\
   vertColor = attrColor;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
 }',
 
 OIT_ACCUM_HEMILIGHT_FS : '#version 300 es\n\
@@ -585,6 +646,7 @@ in vec3 vertNormal;\n\
 in float vertSelect;\n\
 \n\
 uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
 uniform bool fog;\n\
 uniform float fogNear;\n\
 uniform float fogFar;\n\
@@ -594,7 +656,8 @@ layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
 vec3 handleSelect(vec3 inColor, float sel) {\n\
-  return mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
+  vec3 c = mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
+  return mix(c, hoverColor.rgb, step(0.5, -sel) * hoverColor.a);\n\
 }\n\
 vec3 handleFog(vec3 inColor, float depth) {\n\
   if (fog) {\n\
@@ -720,6 +783,17 @@ out vec2 vertTex;\n\
 out float border;\n\
 out vec4 vertCenter;\n\
 out float vertSelect;\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
 void main() {\n\
   vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
@@ -727,7 +801,7 @@ void main() {\n\
                 (vec4(attrPos, 1.0)+rotated);\n\
   vertTex = attrNormal.xy;\n\
   vertColor = attrColor;\n\
-  vertSelect = attrSelect;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w;\n\
@@ -748,6 +822,7 @@ uniform vec3 outlineColor;\n\
 in float border;\n\
 uniform bool outlineEnabled;\n\
 uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
 uniform bool fog;\n\
 uniform float fogNear;\n\
 uniform float fogFar;\n\
@@ -757,7 +832,8 @@ layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
 vec3 handleSelect(vec3 inColor, float sel) {\n\
-  return mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
+  vec3 c = mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
+  return mix(c, hoverColor.rgb, step(0.5, -sel) * hoverColor.a);\n\
 }\n\
 vec3 handleFog(vec3 inColor, float depth) {\n\
   if (fog) {\n\

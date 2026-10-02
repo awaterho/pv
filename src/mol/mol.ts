@@ -229,6 +229,13 @@ abstract class MolBase<C extends MolChain> {
         return !res.isAminoacid() && !res.isWater();
       });
     }
+    // sugars, as the mmCIF reader marks them from chem_comp.type; empty
+    // for formats without that information, such as PDB.
+    if (what === 'carbohydrate') {
+      return this.residueSelect(function(r) {
+        return (r as { prop(name: string): unknown }).prop('isCarbohydrate') === true;
+      });
+    }
     if (what === 'polymer') {
       return select.polymer(this as never, new MolView(this as never) as never);
     }

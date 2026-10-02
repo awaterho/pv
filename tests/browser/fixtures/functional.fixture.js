@@ -20,7 +20,7 @@ test('renders structure subset asymmetric units in all styles', function(assert)
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var view = structure.select({ rnumRange : [40, 60] })
       var obj = viewer.renderAs(ALL_STYLES[i], view, ALL_STYLES[i]);
@@ -40,7 +40,7 @@ test('renders structure subset asymmetric units in all styles', function(assert)
 test('renders structure subset assembly 1 in all styles', function(assert) {
   var done = assert.async();
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var view = structure.select({ rnumRange : [40, 60] })
       var obj = viewer.renderAs(ALL_STYLES[i], view, 
@@ -62,7 +62,7 @@ test('renders full structure asymmetric units in all styles', function(assert) {
   var done = assert.async();
 
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var obj = viewer.renderAs(ALL_STYLES[i], structure, ALL_STYLES[i]);
       obj.setSelection(obj.selection());
@@ -81,7 +81,7 @@ test('renders full structure asymmetric units in all styles', function(assert) {
 test('renders full structure assembly 1 in all styles', function(assert) {
   var done = assert.async();
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var obj = viewer.renderAs(ALL_STYLES[i], structure, 
                                 ALL_STYLES[i], { showRelated : '1'});
@@ -101,7 +101,7 @@ test('renders full structure assembly 1 in all styles', function(assert) {
 test('apply coloring full', function(assert) {
   var done = assert.async();
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var obj = viewer.renderAs(ALL_STYLES[i], structure, 
                                 ALL_STYLES[i], { showRelated : '1'});
@@ -124,7 +124,7 @@ test('apply coloring full', function(assert) {
 test('apply coloring partial', function(assert) {
   var done = assert.async();
   var viewer = createViewer();
-  io.fetchPdb('/pdbs/1r6a.pdb', function(structure) {
+  io.fetchPdb('/tests/data/1r6a.pdb', function(structure) {
     var view = structure.select({rnumRange : [50, 75]});
     for (var i = 0; i < ALL_STYLES.length; ++i) {
       var obj = viewer.renderAs(ALL_STYLES[i], structure, 

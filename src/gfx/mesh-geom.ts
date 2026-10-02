@@ -209,12 +209,13 @@ utils.derive(MeshGeom, BaseGeom, {
 
   _drawVertArrays: function(
     this: MeshGeom, cam: unknown, shader: Shader, indexedVAs: IndexedVA[], additionalTransforms: mat4[] | null,
+    firstSymId?: number,
   ) {
     let i;
     if (additionalTransforms) {
       for (i = 0; i < indexedVAs.length; ++i) {
         (indexedVAs[i] as MeshChainData).drawSymmetryRelated(cam as never, shader,
-                                                 additionalTransforms);
+                                                 additionalTransforms, firstSymId);
       }
     } else {
       (cam as { bind(s: Shader): void }).bind(shader);

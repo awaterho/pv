@@ -1,8 +1,9 @@
 // Minimal XMLHttpRequest shim so io.js's fetch()-via-XHR helpers work
 // under Vitest's Node test environment. Only supports what io.js actually
 // uses: GET requests resolved against the repo root and read from disk
-// (test fixtures live under pdbs/), reporting back through .response and
-// firing onload asynchronously like a real XHR would.
+// (test fixtures live under tests/data/), reporting back through .status and
+// .response and firing onload asynchronously like a real XHR would. A missing
+// file answers 404, as a web server would.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,11 +21,13 @@ class NodeXMLHttpRequest {
     setTimeout(() => {
       try {
         this.response = fs.readFileSync(filePath, 'utf8');
-        this.responseText = this.response;
-        if (this.onload) this.onload();
-      } catch (err) {
-        if (this.onerror) this.onerror(err);
+        this.status = 200;
+      } catch {
+        this.response = 'Not Found';
+        this.status = 404;
       }
+      this.responseText = this.response;
+      if (this.onload) this.onload();
     }, 0);
   }
 }
