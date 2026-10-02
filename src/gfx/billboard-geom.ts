@@ -18,7 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 import utils from '../utils';
-import MeshGeom, { type MeshGeom as IMeshGeom } from './mesh-geom';
+import InstancedGeom, { type InstancedGeom as IInstancedGeom } from './instanced-geom';
+import { SPHERE_LAYOUT, sphereQuad } from './instanced-array';
 import type Cam from './cam';
 
 interface ShaderCatalog {
@@ -28,10 +29,13 @@ interface ShaderCatalog {
   [pass: string]: unknown;
 }
 
+// one billboarded sphere per instance: a quad, expanded to face the camera
+// in SPHERES_VS, with the sphere surface and depth computed per fragment
+//
 // NOTE: kept as a prototype-based constructor function -- see
 // gfx/vertex-array-base.ts/gfx/base-geom.ts for why (this chain-invokes
-// MeshGeom via `.call()`).
-export type BillboardGeom = IMeshGeom & {
+// InstancedGeom via `.call()`).
+export type BillboardGeom = IInstancedGeom & {
   _matte: boolean;
   // shade the spheres like meshes (hemilight, no highlight), so that they
   // join cylinders of the same radius seamlessly, as in licorice
@@ -39,23 +43,22 @@ export type BillboardGeom = IMeshGeom & {
 };
 
 interface BillboardGeomConstructor {
-  new (gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown): BillboardGeom;
-  (
-    this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown,
-  ): void;
+  new (gl: WebGL2RenderingContext, float32Allocator: unknown): BillboardGeom;
+  (this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown): void;
   prototype: BillboardGeom;
 }
 
 const BillboardGeom = function(
-  this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown,
+  this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown,
 ) {
-  (MeshGeom as unknown as (
-    this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown
-  ) => void).call(this, gl, float32Allocator, uint16Allocator);
+  (InstancedGeom as unknown as (
+    this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown,
+    layout: typeof SPHERE_LAYOUT, shape: ReturnType<typeof sphereQuad>,
+  ) => void).call(this, gl, float32Allocator, SPHERE_LAYOUT, sphereQuad(gl));
   this._matte = false;
 } as unknown as BillboardGeomConstructor;
 
-utils.derive(BillboardGeom, MeshGeom, {
+utils.derive(BillboardGeom, InstancedGeom, {
   setMatte: function(this: BillboardGeom, matte: boolean) {
     this._matte = matte;
   },
@@ -70,7 +73,7 @@ utils.derive(BillboardGeom, MeshGeom, {
     }
     // we need the back-faces for the outline rendering
     this._gl.disable(this._gl.CULL_FACE);
-    (MeshGeom.prototype.draw as (
+    (InstancedGeom.prototype.draw as (
       this: BillboardGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown
     ) => void).call(this, cam, shaderCatalog, style, pass);
     this._gl.enable(this._gl.CULL_FACE);

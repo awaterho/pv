@@ -243,6 +243,12 @@ class ProtoCylinder {
     return this._indices.length;
   }
 
+  // the unit cylinder (radius 1, length 1, along z), for drawing it
+  // instanced, see CylinderGeom
+  verts(): Float32Array { return this._verts; }
+  normals(): Float32Array { return this._normals; }
+  indices(): Uint16Array { return this._indices; }
+
   addTransformed = (function() {
     const pos = vec3.create(), normal = vec3.create();
     return function(

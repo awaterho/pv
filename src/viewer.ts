@@ -27,7 +27,7 @@ import FrameBuffer from './gfx/framebuffer';
 import SceneBuffers from './gfx/oit-buffers';
 import PoolAllocator from './buffer-allocators';
 import Cam, { type ShaderProgram } from './gfx/cam';
-import shaders from './gfx/shaders';
+import shaders, { cylinderVS } from './gfx/shaders';
 import TouchHandler from './touch';
 import MouseHandler from './mouse';
 import renderModuleRaw from './gfx/render';
@@ -680,7 +680,13 @@ class Viewer {
                                  shaders.SELECT_LINES_FS, p),
       pickLines : c.initShader(shaders.PICK_LINES_VS,
                shaders.SELECT_FS, p),
-      select : c.initShader(shaders.SELECT_VS, shaders.SELECT_FS, p)
+      select : c.initShader(shaders.SELECT_VS, shaders.SELECT_FS, p),
+      // the sticks of balls and sticks and of licorice, drawn instanced
+      hemilightCylinders : c.initShader(cylinderVS(shaders.HEMILIGHT_VS),
+                                        shaders.PRELUDE_FS + shaders.HEMILIGHT_FS, p),
+      outlineCylinders : c.initShader(cylinderVS(shaders.OUTLINE_VS),
+                                      shaders.PRELUDE_FS + shaders.OUTLINE_FS, p),
+      selectCylinders : c.initShader(cylinderVS(shaders.SELECT_VS), shaders.SELECT_FS, p),
     };
     // billboarded spheres need gl_FragDepth, which is core in WebGL2 -- no
     // extension check (getExtension('EXT_frag_depth') is always null there).
@@ -704,6 +710,8 @@ class Viewer {
     if (this._sceneBuffers.oitSupported()) {
       this._shaderCatalog.hemilightTransparent =
         c.initShader(shaders.OIT_ACCUM_VS, shaders.OIT_ACCUM_HEMILIGHT_FS, p);
+      this._shaderCatalog.hemilightCylindersTransparent =
+        c.initShader(cylinderVS(shaders.OIT_ACCUM_VS), shaders.OIT_ACCUM_HEMILIGHT_FS, p);
       this._shaderCatalog.spheresTransparent =
         c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
       this._shaderCatalog.linesTransparent =

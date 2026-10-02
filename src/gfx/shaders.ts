@@ -505,7 +505,8 @@ SPHERES_VS : '#version 300 es\n\
 precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
-in vec3 attrNormal;\n\
+in vec2 attrQuadCorner;\n\
+in float attrRadius;\n\
 in float attrSelect;\n\
 uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
@@ -533,7 +534,7 @@ float selectForCopy(float flag) {\n\
 void main() {\n\
   // 1.5 times the radius: under perspective, the outline of a sphere off\n\
   // the view axis is an ellipse a little larger than the radius\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
+  vec3 d = vec3(attrQuadCorner * attrRadius * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
@@ -544,7 +545,7 @@ void main() {\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
-  radius = attrNormal.z;\n\
+  radius = attrRadius;\n\
 }',
 
 SELECT_SPHERES_FS : '\n\
@@ -592,7 +593,8 @@ SELECT_SPHERES_VS : '#version 300 es\n\
 precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
-in vec3 attrNormal;\n\
+in vec2 attrQuadCorner;\n\
+in float attrRadius;\n\
 in float attrObjId;\n\
 out float radius;\n\
 \n\
@@ -606,13 +608,13 @@ out float objAlpha;\n\
 void main() {\n\
   // 1.5 times the radius: under perspective, the outline of a sphere off\n\
   // the view axis is an ellipse a little larger than the radius\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
+  vec3 d = vec3(attrQuadCorner * attrRadius * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
-  radius = attrNormal.z;\n\
+  radius = attrRadius;\n\
   objId = attrObjId;\n\
   objAlpha = attrColor.a;\n\
 }',
@@ -797,7 +799,8 @@ OIT_ACCUM_SPHERES_VS : '#version 300 es\n\
 precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
-in vec3 attrNormal;\n\
+in vec2 attrQuadCorner;\n\
+in float attrRadius;\n\
 in float attrSelect;\n\
 uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
@@ -825,7 +828,7 @@ float selectForCopy(float flag) {\n\
 void main() {\n\
   // 1.5 times the radius: under perspective, the outline of a sphere off\n\
   // the view axis is an ellipse a little larger than the radius\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
+  vec3 d = vec3(attrQuadCorner * attrRadius * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
@@ -836,7 +839,7 @@ void main() {\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
-  radius = attrNormal.z;\n\
+  radius = attrRadius;\n\
 }',
 
 OIT_ACCUM_SPHERES_FS : '#version 300 es\n\
@@ -1086,6 +1089,38 @@ void main(void) {\n\
 }'
 
 };
+
+// turns a mesh vertex shader (HEMILIGHT_VS, OUTLINE_VS, SELECT_VS,
+// OIT_ACCUM_VS) into one drawing instanced cylinders (see CylinderGeom): the
+// unit cylinder's vertices are placed by the instance's center and axes, as
+// ProtoCylinder.addTransformed() does on the CPU, before the shader's own
+// code reads attrPos and attrNormal.
+export function cylinderVS(meshVS: string): string {
+  const q = meshVS.startsWith('#version 300 es') ? 'in' : 'attribute';
+  const pos = q + ' vec3 attrPos;\n';
+  const normal = q + ' vec3 attrNormal;\n';
+  const main = 'void main(void) {\n';
+  if (meshVS.split(pos).length !== 2 || meshVS.split(main).length !== 2) {
+    throw new Error('cylinderVS: unexpected vertex shader');
+  }
+  return meshVS
+    .replace(normal, '')
+    .replace(pos,
+             q + ' vec3 attrProtoPos;\n' +
+             q + ' vec3 attrProtoNormal;\n' +
+             q + ' vec3 attrCylCenter;\n' +
+             q + ' vec3 attrCylLeft;\n' +
+             q + ' vec3 attrCylUp;\n' +
+             q + ' vec3 attrCylAxis;\n' +
+             'vec3 attrPos;\n' +
+             'vec3 attrNormal;\n')
+    .replace(main,
+             main +
+             '  attrPos = attrCylCenter + attrProtoPos.x * attrCylLeft +\n' +
+             '            attrProtoPos.y * attrCylUp + attrProtoPos.z * attrCylAxis;\n' +
+             '  attrNormal = normalize(attrProtoNormal.x * attrCylLeft +\n' +
+             '                         attrProtoNormal.y * attrCylUp);\n');
+}
 
 export default shaders;
 
