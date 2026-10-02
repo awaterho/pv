@@ -1,7 +1,7 @@
-pvng - WebGL2 protein viewer
+PV - The Protein Viewer
 =========================================
 
-`pvng` is a WebGL2-based protein viewer for the browser. It renders cartoons, ball-and-stick,
+`PV` is a WebGL2-based protein viewer for the browser. It renders cartoons, ball-and-stick,
 line, trace, sphere and point representations directly from PDB or mmCIF files, with custom
 color schemes, selections, and proper order-independent transparency, all at interactive
 framerates even for large macromolecules.
@@ -11,12 +11,12 @@ You can try the [online demo](https://awaterho.github.io/pvng/demo/).
 Origins
 -----------------------------------------
 
-`pvng` is a fork and continuation of [`pv`](https://github.com/biasmv/pv), the WebGL protein
+`pvng` is a fork and continuation of [`PV`](https://github.com/biasmv/pv), the WebGL protein
 viewer originally created by [Marco Biasini](https://github.com/biasmv). The original project
 was archived as no longer maintained; `pvng` builds on that foundation and carries the work
 forward: the rendering engine, molecule model and file parsers are all still fundamentally
-Marco's design. Huge thanks to him, and to everyone who contributed to the original `pv`
-(`@Traksewt`, `@kozmad`, `@greenify`, `@andreasprlic`, and others credited in `pv`'s own
+Marco's design. Huge thanks to him, and to everyone who contributed to the original `PV`
+(`@Traksewt`, `@kozmad`, `@greenify`, `@andreasprlic`, and others credited in `PV`'s own
 history).
 
 Since forking, the project has been substantially modernized:
