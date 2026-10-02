@@ -105,6 +105,12 @@ function ballsAndSticks() {
   viewer.ballsAndSticks('structure', structure, { showRelated : related() });
 }
 
+function licorice() {
+  viewer.clear();
+  addLigands();
+  viewer.licorice('structure', structure, { showRelated : related() });
+}
+
 // a surface over the protein only; DNA/RNA chains are drawn as a cartoon
 // instead (backbone tube, plus the bases from addLigands), which keeps
 // strands, grooves and bases readable where a surface would merge them
@@ -193,7 +199,7 @@ function ligands() {
 // get filled, outlined rings on a stick from the backbone tube in the
 // base's color (pv.rings.drawBases).
 function addLigands(withBases) {
-  viewer.ballsAndSticks('structure.ligand', ligands(), { showRelated : related() });
+  viewer.licorice('structure.ligand', ligands(), { showRelated : related() });
   if (withBases) {
     pv.rings.drawBases(viewer, 'structure.bases', structure,
                        { sticks : true, showRelated : related() });
@@ -800,6 +806,7 @@ onClick('style-sline', useStyle(sline));
 onClick('style-trace', useStyle(trace));
 onClick('style-lines', useStyle(lines));
 onClick('style-balls-and-sticks', useStyle(ballsAndSticks));
+onClick('style-licorice', useStyle(licorice));
 onClick('style-surface', useStyle(surface));
 onClick('style-points', useStyle(points));
 onClick('style-spheres', useStyle(spheres));

@@ -45,6 +45,8 @@ export interface ShaderProgram extends WebGLProgram {
   outlineWidth: WebGLUniformLocation;
   outlineEnabled: WebGLUniformLocation;
   opaqueOnly: WebGLUniformLocation;
+  // billboarded spheres only, see BillboardGeom.setMatte()
+  matte?: WebGLUniformLocation | null;
   hoverSymId?: WebGLUniformLocation | null;
   stateId: number;
 }

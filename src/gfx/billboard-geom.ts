@@ -31,7 +31,12 @@ interface ShaderCatalog {
 // NOTE: kept as a prototype-based constructor function -- see
 // gfx/vertex-array-base.ts/gfx/base-geom.ts for why (this chain-invokes
 // MeshGeom via `.call()`).
-export type BillboardGeom = IMeshGeom;
+export type BillboardGeom = IMeshGeom & {
+  _matte: boolean;
+  // shade the spheres like meshes (hemilight, no highlight), so that they
+  // join cylinders of the same radius seamlessly, as in licorice
+  setMatte(matte: boolean): void;
+};
 
 interface BillboardGeomConstructor {
   new (gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown): BillboardGeom;
@@ -47,10 +52,22 @@ const BillboardGeom = function(
   (MeshGeom as unknown as (
     this: BillboardGeom, gl: WebGL2RenderingContext, float32Allocator: unknown, uint16Allocator: unknown
   ) => void).call(this, gl, float32Allocator, uint16Allocator);
+  this._matte = false;
 } as unknown as BillboardGeomConstructor;
 
 utils.derive(BillboardGeom, MeshGeom, {
+  setMatte: function(this: BillboardGeom, matte: boolean) {
+    this._matte = matte;
+  },
   draw: function(this: BillboardGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown) {
+    // the matte flag is per object, not part of what Cam.bind() sets
+    const shader = this.shaderForStyleAndPass(shaderCatalog as ShaderCatalog, style, pass) as
+      (WebGLProgram & { matte?: WebGLUniformLocation | null }) | null;
+    if (shader && shader.matte) {
+      this._gl.useProgram(shader);
+      this._gl.uniform1i(shader.matte, this._matte ? 1 : 0);
+      cam.invalidateCurrentShader();
+    }
     // we need the back-faces for the outline rendering
     this._gl.disable(this._gl.CULL_FACE);
     (MeshGeom.prototype.draw as (

@@ -1222,7 +1222,7 @@ class Viewer {
 
   RENDER_MODES = [
     'sline', 'lines', 'trace', 'lineTrace', 'cartoon', 'tube', 'spheres',
-    'ballsAndSticks', 'points'
+    'ballsAndSticks', 'licorice', 'points'
   ];
 
   /// simple dispatcher which allows to render using a certain style.
@@ -1442,6 +1442,26 @@ class Viewer {
     options.sphereDetail = options.sphereDetail || this.options('sphereDetail');
     options.scaleByAtomRadius = optValue(options, 'scaleByAtomRadius', true);
 
+    const obj = render.ballsAndSticks(structure, this._canvas!.gl(), options as unknown as RenderOptions);
+    return this.add(name, obj);
+  }
+
+  // sticks with rounded ends, in the manner of NGL's licorice: balls and
+  // sticks of one radius (default 0.2), shaded alike, so that each molecule
+  // reads as one smooth tube. Bond orders show as thinner parallel sticks
+  // within that radius. The sticks get three times the usual arc detail,
+  // as they are mostly drawn for ligands, where a few more triangles are
+  // cheap and facets would show against the perfectly round balls.
+  licorice(name: string, structure: RenderStructure, opts?: Record<string, unknown>): BaseGeom {
+    const options = this._handleStandardMolOptions(opts, structure as never);
+    options.color = options.color || color.byElement();
+    const radius = (options.radius as number | undefined) || 0.2;
+    options.cylRadius = radius;
+    options.sphereRadius = radius;
+    options.arcDetail = ((options.arcDetail as number) || (this.options('arcDetail') as number)) * 6;
+    options.sphereDetail = options.sphereDetail || this.options('sphereDetail');
+    options.scaleByAtomRadius = false;
+    options.licorice = true;
     const obj = render.ballsAndSticks(structure, this._canvas!.gl(), options as unknown as RenderOptions);
     return this.add(name, obj);
   }

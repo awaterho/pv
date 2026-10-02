@@ -103,6 +103,9 @@ export interface RenderOptions {
   strength: number;
   radius: number;
   scaleByAtomRadius?: boolean;
+  // balls and sticks of one radius, shaded alike, for one smooth tube
+  // through each molecule (see Viewer.licorice())
+  licorice?: boolean;
   sphereRadius: number;
   cylRadius: number;
   lineWidth: number;
@@ -409,8 +412,10 @@ const ballsAndSticksForChain = (function() {
         vec3.sub(axis, bond.atom_two().pos(), bond.atom_one().pos());
         geom.ortho(perp, axis);
         vec3.normalize(perp, perp);
-        const cylRadius = opts.cylRadius * 0.5;
-        const gap = opts.cylRadius * 1.7;
+        // licorice keeps the thinner cylinders within the stick's radius,
+        // so that they end inside the atom's sphere like a single bond
+        const gap = opts.licorice ? 2 * opts.cylRadius / numCylinders : opts.cylRadius * 1.7;
+        const cylRadius = opts.licorice ? 0.4 * gap : opts.cylRadius * 0.5;
         for (let k = 0; k < numCylinders; ++k) {
           const offset = (k - (numCylinders - 1) / 2) * gap;
           vec3.scaleAndAdd(cylCenter, centerPoint, perp, offset);
@@ -432,6 +437,9 @@ exports.ballsAndSticks = function(structure: RenderStructure, gl: WebGL2Renderin
   const sticks = new MeshGeomCtor(gl, opts.float32Allocator,
                                   opts.uint16Allocator);
   const composite = new CompositeGeomCtor(gl, [spheres, sticks]);
+  if (opts.licorice) {
+    spheres.setMatte(true);
+  }
   composite.addVertAssoc(vertAssoc as never);
   composite.setShowRelated(opts.showRelated);
   opts.color.begin(structure as never);

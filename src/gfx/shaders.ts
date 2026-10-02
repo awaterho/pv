@@ -452,8 +452,9 @@ void main() { \n\
 // compiled as ES3_HEADER + PRELUDE_FS + SPHERES_FS; the prelude only uses
 // constructs valid in both dialects.
 SPHERES_FS : '\n\
-in vec2 vertTex;\n\
+precision highp float; // for the ray casting\n\
 in vec4 vertCenter;\n\
+in vec3 vertViewPos;\n\
 in vec4 vertColor;\n\
 in float vertSelect;\n\
 in float radius;\n\
@@ -461,25 +462,39 @@ uniform mat4 projectionMat;\n\
 uniform vec3 outlineColor;\n\
 in float border;\n\
 uniform bool outlineEnabled;\n\
+uniform bool matte;\n\
 out vec4 fragColor;\n\
 \n\
 void main(void) {\n\
-  float zz = dot(vertTex, vertTex);\n\
-  if (zz > 1.0)\n\
+  // the eye ray through this fragment (the eye is at the origin of view\n\
+  // space), intersected with the sphere: exact under perspective, where\n\
+  // shading the quad as if seen head-on would get the outline, depth and\n\
+  // normals of spheres off the view axis slightly wrong\n\
+  vec3 ray = normalize(vertViewPos);\n\
+  vec3 offset = ray * dot(ray, vertCenter.xyz) - vertCenter.xyz;\n\
+  // how close the ray passes the center, in radii: 1 at the outline\n\
+  float rim = length(offset) / radius;\n\
+  if (rim > 1.0)\n\
     discard;\n\
-  vec3 normal = vec3(vertTex.x, vertTex.y, sqrt(1.0-zz));\n\
+  vec3 normal = offset / radius - ray * sqrt(1.0 - rim * rim);\n\
   vec3 pos = vertCenter.xyz + normal * radius;\n\
   float dp = normal.z;\n\
   float hemi = sqrt(min(1.0, max(0.3, dp) + 0.2));\n\
   vec4 projected = projectionMat * vec4(pos, 1.0);\n\
   float depth = projected.z / projected.w;\n\
   gl_FragDepth = (depth + 1.0) * 0.5;\n\
-  vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
-  if (outlineEnabled) { \n\
-    rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
-  } else { \n\
+  vec3 rgbColor;\n\
+  if (matte) {\n\
+    // the meshes\' hemilight shading, so that spheres blend into the\n\
+    // cylinders of the same radius they join (licorice)\n\
+    rgbColor = vertColor.rgb * min(1.0, max(0.0, dp)*0.6+0.5);\n\
+  } else {\n\
+    rgbColor = vertColor.rgb * hemi; \n\
+    rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
     rgbColor *= hemi; \n\
+  }\n\
+  if (outlineEnabled) { \n\
+    rgbColor = mix(rgbColor, outlineColor, step(border, rim));\n\
   } \n\
   rgbColor = handleSelect(rgbColor, vertSelect);\n\
   vec4 fogged = vec4(handleFog(rgbColor), vertColor.a);\n\
@@ -487,7 +502,7 @@ void main(void) {\n\
 }',
 
 SPHERES_VS : '#version 300 es\n\
-precision ${PRECISION} float;\n\
+precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
 in vec3 attrNormal;\n\
@@ -500,9 +515,9 @@ uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
 out vec4 vertColor;\n\
-out vec2 vertTex;\n\
 out float border;\n\
 out vec4 vertCenter;\n\
+out vec3 vertViewPos;\n\
 out float vertSelect;\n\
 // the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
 // the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
@@ -516,23 +531,26 @@ float selectForCopy(float flag) {\n\
   return flag;\n\
 }\n\
 void main() {\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
+  // 1.5 times the radius: under perspective, the outline of a sphere off\n\
+  // the view axis is an ellipse a little larger than the radius\n\
+  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
-  vertTex = attrNormal.xy;\n\
   vertColor = attrColor;\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
+  vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
-  float dd = dist / gl_Position.w;\n\
+  float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
   radius = attrNormal.z;\n\
 }',
 
 SELECT_SPHERES_FS : '\n\
-in vec2 vertTex;\n\
+precision highp float; // for the ray casting\n\
 in vec4 vertCenter;\n\
+in vec3 vertViewPos;\n\
 in float objAlpha;\n\
 uniform mat4 projectionMat;\n\
 in float objId;\n\
@@ -541,10 +559,19 @@ uniform int symId;\n\
 out vec4 fragColor;\n\
 \n\
 void main(void) {\n\
-  float zz = dot(vertTex, vertTex);\n\
-  if (zz > 1.0 || objAlpha == 0.0)\n\
+  if (objAlpha == 0.0)\n\
     discard;\n\
-  vec3 normal = vec3(vertTex.x, vertTex.y, sqrt(1.0-zz));\n\
+  // the eye ray through this fragment (the eye is at the origin of view\n\
+  // space), intersected with the sphere: exact under perspective, where\n\
+  // shading the quad as if seen head-on would get the outline, depth and\n\
+  // normals of spheres off the view axis slightly wrong\n\
+  vec3 ray = normalize(vertViewPos);\n\
+  vec3 offset = ray * dot(ray, vertCenter.xyz) - vertCenter.xyz;\n\
+  // how close the ray passes the center, in radii: 1 at the outline\n\
+  float rim = length(offset) / radius;\n\
+  if (rim > 1.0)\n\
+    discard;\n\
+  vec3 normal = offset / radius - ray * sqrt(1.0 - rim * rim);\n\
   vec3 pos = vertCenter.xyz + normal * radius;\n\
   vec4 projected = projectionMat * vec4(pos, 1.0);\n\
   float depth = projected.z / projected.w;\n\
@@ -562,7 +589,7 @@ void main(void) {\n\
 }',
 
 SELECT_SPHERES_VS : '#version 300 es\n\
-precision ${PRECISION} float;\n\
+precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
 in vec3 attrNormal;\n\
@@ -572,18 +599,19 @@ out float radius;\n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
-out vec2 vertTex;\n\
 out vec4 vertCenter;\n\
+out vec3 vertViewPos;\n\
 out float objId;\n\
 out float objAlpha;\n\
 void main() {\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
+  // 1.5 times the radius: under perspective, the outline of a sphere off\n\
+  // the view axis is an ellipse a little larger than the radius\n\
+  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
-  //vec4 rotated = vec4(d, 0.0);\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
-  vertTex = attrNormal.xy;\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
+  vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
   radius = attrNormal.z;\n\
   objId = attrObjId;\n\
   objAlpha = attrColor.a;\n\
@@ -766,7 +794,7 @@ void main(void) {\n\
 // targets instead of gl_FragColor, and uses native gl_FragDepth instead of
 // gl_FragDepthEXT (core in ES 3.00, no extension needed).
 OIT_ACCUM_SPHERES_VS : '#version 300 es\n\
-precision ${PRECISION} float;\n\
+precision highp float; // for the ray casting\n\
 in vec3 attrPos;\n\
 in vec4 attrColor;\n\
 in vec3 attrNormal;\n\
@@ -779,9 +807,9 @@ uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
 out vec4 vertColor;\n\
-out vec2 vertTex;\n\
 out float border;\n\
 out vec4 vertCenter;\n\
+out vec3 vertViewPos;\n\
 out float vertSelect;\n\
 // the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
 // the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
@@ -795,25 +823,27 @@ float selectForCopy(float flag) {\n\
   return flag;\n\
 }\n\
 void main() {\n\
-  vec3 d = vec3(attrNormal.xy * attrNormal.z, 0.0);\n\
+  // 1.5 times the radius: under perspective, the outline of a sphere off\n\
+  // the view axis is an ellipse a little larger than the radius\n\
+  vec3 d = vec3(attrNormal.xy * attrNormal.z * 1.5, 0.0);\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
-  vertTex = attrNormal.xy;\n\
   vertColor = attrColor;\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
+  vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
-  float dd = dist / gl_Position.w;\n\
+  float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
   radius = attrNormal.z;\n\
 }',
 
 OIT_ACCUM_SPHERES_FS : '#version 300 es\n\
-precision ${PRECISION} float;\n\
+precision highp float; // for the ray casting\n\
 \n\
-in vec2 vertTex;\n\
 in vec4 vertCenter;\n\
+in vec3 vertViewPos;\n\
 in vec4 vertColor;\n\
 in float vertSelect;\n\
 in float radius;\n\
@@ -821,6 +851,7 @@ uniform mat4 projectionMat;\n\
 uniform vec3 outlineColor;\n\
 in float border;\n\
 uniform bool outlineEnabled;\n\
+uniform bool matte;\n\
 uniform vec4 selectionColor;\n\
 uniform vec4 hoverColor;\n\
 uniform bool fog;\n\
@@ -847,22 +878,35 @@ float oitWeight(float z, float a) {\n\
 }\n\
 \n\
 void main(void) {\n\
-  float zz = dot(vertTex, vertTex);\n\
-  if (zz > 1.0)\n\
+  // the eye ray through this fragment (the eye is at the origin of view\n\
+  // space), intersected with the sphere: exact under perspective, where\n\
+  // shading the quad as if seen head-on would get the outline, depth and\n\
+  // normals of spheres off the view axis slightly wrong\n\
+  vec3 ray = normalize(vertViewPos);\n\
+  vec3 offset = ray * dot(ray, vertCenter.xyz) - vertCenter.xyz;\n\
+  // how close the ray passes the center, in radii: 1 at the outline\n\
+  float rim = length(offset) / radius;\n\
+  if (rim > 1.0)\n\
     discard;\n\
-  vec3 normal = vec3(vertTex.x, vertTex.y, sqrt(1.0-zz));\n\
+  vec3 normal = offset / radius - ray * sqrt(1.0 - rim * rim);\n\
   vec3 pos = vertCenter.xyz + normal * radius;\n\
   float dp = normal.z;\n\
   float hemi = sqrt(min(1.0, max(0.3, dp) + 0.2));\n\
   vec4 projected = projectionMat * vec4(pos, 1.0);\n\
   float depth = projected.z / projected.w;\n\
   gl_FragDepth = (depth + 1.0) * 0.5;\n\
-  vec3 rgbColor = vertColor.rgb * hemi; \n\
-  rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
-  if (outlineEnabled) { \n\
-    rgbColor = mix(rgbColor * hemi, outlineColor, step(border, sqrt(zz)));\n\
-  } else { \n\
+  vec3 rgbColor;\n\
+  if (matte) {\n\
+    // the meshes\' hemilight shading, so that spheres blend into the\n\
+    // cylinders of the same radius they join (licorice)\n\
+    rgbColor = vertColor.rgb * min(1.0, max(0.0, dp)*0.6+0.5);\n\
+  } else {\n\
+    rgbColor = vertColor.rgb * hemi; \n\
+    rgbColor += min(vertColor.rgb, 0.8) * 0.12 * pow(max(0.0, dp), 32.0);\n\
     rgbColor *= hemi; \n\
+  }\n\
+  if (outlineEnabled) { \n\
+    rgbColor = mix(rgbColor, outlineColor, step(border, rim));\n\
   } \n\
   rgbColor = handleSelect(rgbColor, vertSelect);\n\
   vec4 color = vec4(handleFog(rgbColor, gl_FragCoord.z / gl_FragCoord.w), vertColor.a);\n\

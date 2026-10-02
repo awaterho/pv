@@ -247,6 +247,7 @@ class Canvas {
     shaderProgram.outlineEnabled = getUniformLoc(shaderProgram,
                                                  'outlineEnabled')!;
     shaderProgram.opaqueOnly = getUniformLoc(shaderProgram, 'opaqueOnly')!;
+    shaderProgram.matte = getUniformLoc(shaderProgram, 'matte');
 
     return shaderProgram as unknown as ShaderProgram;
   }
