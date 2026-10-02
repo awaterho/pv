@@ -143,10 +143,10 @@ function preset() {
 
 // the last style and color scheme picked from the menus. Loading a new
 // structure goes through showStructure(), which redraws it with both, so
-// switching structures keeps the look. currentColor stays null until a
-// color is picked, leaving each style's own default coloring in place.
+// switching structures keeps the look. Colors start out as secondary
+// structure succession, for every style.
 var currentStyle = preset;
-var currentColor = null;
+var currentColor = ssSuccession;
 
 function showStructure() {
   currentStyle();
