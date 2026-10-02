@@ -63,15 +63,15 @@ interface AssocTrace {
 // The vertex association data for the atom-based render styles is managed
 // by AtomVertexAssoc, whereas the trace-based render styles are managed
 // by the TraceVertexAssoc class.
-// Spreads per-residue selection flags over the interpolated trace, giving
-// each point the flag of its nearest residue. Unlike a linear blend, this
-// keeps a hovered residue (-1) full width next to a selected one (1).
-function nearestResidueFlags(values: Float32Array, num: number): Float32Array {
-  const out = new Float32Array(num * (values.length - 1) + 1);
-  for (let i = 0; i < out.length; ++i) {
-    out[i] = values[Math.round(i / num)]!;
+// the selection flags last written to the associations' vertices, grown to
+// count entries; new ones are NaN (never written).
+function growFlags(flags: Float32Array, count: number): Float32Array {
+  if (flags.length === count) {
+    return flags;
   }
-  return out;
+  const grown = new Float32Array(count).fill(NaN);
+  grown.set(flags.subarray(0, Math.min(flags.length, count)));
+  return grown;
 }
 
 interface AtomAssocEntry {
@@ -87,6 +87,11 @@ interface AtomAssocEntry {
 export class AtomVertexAssoc {
   _structure: AssocStructure;
   private _assocs: AtomAssocEntry[];
+  // the selection flag last written to each association's vertices, so
+  // that setSelection() only rewrites the ones that changed: moving the
+  // hover from one residue to the next touches two residues' vertices, not
+  // all of them
+  private _applied: Float32Array = new Float32Array(0);
   private _callBeginEnd: boolean;
 
   constructor(structure: AssocStructure, callColoringBeginEnd: boolean) {
@@ -166,12 +171,17 @@ export class AtomVertexAssoc {
       });
     }
     const perCopy = hoverCopy !== undefined && hoverCopy !== null;
+    const applied = this._applied = growFlags(this._applied, this._assocs.length);
     for (let i = 0; i < this._assocs.length; ++i) {
       const assoc = this._assocs[i]!;
       let selected = flags[assoc.atom.index()] || 0.0;
       if (selected < 0.0 && perCopy && assoc.copy !== null && assoc.copy !== hoverCopy) {
         selected = selected < -1.5 ? 1.0 : 0.0;
       }
+      if (applied[i] === selected) {
+        continue;
+      }
+      applied[i] = selected;
       const va = assoc.vertexArray;
       for (let j = assoc.vertStart ; j < assoc.vertEnd; ++j) {
         va.setSelected(j, selected);
@@ -211,6 +221,11 @@ interface TraceAssocEntry {
 export class TraceVertexAssoc {
   _structure: AssocStructure;
   private _assocs: TraceAssocEntry[];
+  // the selection flag last written to each association's vertices, so
+  // that setSelection() only rewrites the ones that changed: moving the
+  // hover from one residue to the next touches two residues' vertices, not
+  // all of them
+  private _applied: Float32Array = new Float32Array(0);
   private _callBeginEnd: boolean;
   private _interpolation: number;
   private _perResidueColors: Record<number, Float32Array>;
@@ -315,29 +330,29 @@ export class TraceVertexAssoc {
     let i, j;
     const traces = this._structure.backboneTraces();
     for (i = 0; i < traces.length; ++i) {
-      // get current residue colors
-      const data = new Float32Array(this._perResidueColors[i]!.length);
-      let index = 0;
       const trace = traces[i]!;
+      const data = new Float32Array(trace.length());
       for (j = 0; j < trace.length(); ++j) {
         const residue = trace.residueAt(j);
-        data[index] = hover && hover.containsResidue(residue) ? -1.0 :
-                      view.containsResidue(residue) ? 1.0 : 0.0;
-        index+=1;
+        data[j] = hover && hover.containsResidue(residue) ? -1.0 :
+                  view.containsResidue(residue) ? 1.0 : 0.0;
       }
-      if (this._interpolation > 1) {
-        selData.push(nearestResidueFlags(data, this._interpolation));
-      } else {
-        selData.push(data);
-      }
+      selData.push(data);
     }
 
-    // store the color in the actual interleaved vertex array.
+    // store the flags in the actual interleaved vertex array. Each point of
+    // the interpolated trace takes the flag of its nearest residue: unlike a
+    // linear blend, this keeps a hovered residue (-1) full width next to a
+    // selected one (1).
+    const applied = this._applied = growFlags(this._applied, this._assocs.length);
+    const interpolation = this._interpolation;
     for (i = 0; i < this._assocs.length; ++i) {
       const assoc = this._assocs[i]!;
-      const ai = assoc.slice;
-      const sel = selData[assoc.traceIndex]!;
-      const a = sel[ai]!;
+      const a = selData[assoc.traceIndex]![Math.round(assoc.slice / interpolation)]!;
+      if (applied[i] === a) {
+        continue;
+      }
+      applied[i] = a;
       const va = assoc.vertexArray;
       for (j = assoc.vertStart ; j < assoc.vertEnd; ++j) {
         va.setSelected(j, a);

@@ -419,7 +419,10 @@ class Cam {
     }
     this._updateModelViewMat = true;
     const factor = 1.0 + delta * 0.1;
-    this._zoom = Math.min(1000.0, Math.max(2.0, factor * this._zoom));
+    // the upper limit leaves room to zoom out from autoZoom()'s fit of even
+    // the largest structures (the HIV-1 capsid, 3J3Q, fits beyond 1000 A),
+    // which sets the zoom without this clamp
+    this._zoom = Math.min(10000.0, Math.max(2.0, factor * this._zoom));
     this._informOnCameraChangedListeners();
     return this._zoom;
   }

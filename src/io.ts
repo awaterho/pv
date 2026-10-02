@@ -674,6 +674,24 @@ function crd(text: string): Mol {
 
 interface CifOptions {
   loadAllModels?: boolean;
+  // keep only the polymer residues' central atoms -- CA of an amino acid,
+  // C3' of a nucleotide -- and no ligands or water: enough for the trace
+  // based styles (cartoon, tube, trace, ...) and coarse surfaces, at a
+  // fraction of the memory. For huge structures that wouldn't fit in full,
+  // e.g. the 2.4 million atoms of the HIV-1 capsid (3J3Q).
+  traceOnly?: boolean;
+}
+
+function isTraceAtom(category: string, row: CIFRow): boolean {
+  if (category !== 'atom_site') {
+    return true;
+  }
+  const seqId = row.get('label_seq_id');
+  if (seqId === undefined || seqId === '.' || seqId === '?') {
+    return false;
+  }
+  const atomName = row.get('label_atom_id');
+  return atomName === 'CA' || atomName === 'C3\'';
 }
 
 // builds a gl-matrix mat4 from one _pdbx_struct_oper_list row's matrix[i][j]/
@@ -1246,7 +1264,7 @@ class CIFReader {
 // (label_asym_id/label_seq_id/label_atom_id/label_comp_id) to build chains/
 // residues/atoms, not auth_* -- see src/cif.ts for the underlying tokenizer.
 function cif(text: string, options?: CifOptions): Mol | (Mol | null)[] | undefined {
-  const doc = parseCIF(text);
+  const doc = parseCIF(text, options?.traceOnly ? { keepRow: isTraceAtom } : undefined);
   const reader = new CIFReader(doc, options || {});
   return reader.read();
 }

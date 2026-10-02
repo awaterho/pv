@@ -57,7 +57,8 @@ interface RenderModule {
   sline(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   trace(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
   cartoon(structure: RenderStructure, gl: WebGL2RenderingContext, opts: RenderOptions): BaseGeom;
-  surfaceAtoms(structure: RenderStructure, copies?: { matrix: mat4; chains: string[] }[]): {
+  surfaceAtoms(structure: RenderStructure, copies?: { matrix: mat4; chains: string[] }[],
+               radiusOffset?: number): {
     atoms: RenderAtom[]; data: Float32Array; copyOf: number[]; transforms: (mat4 | null)[];
   };
   surface(mesh: SurfaceMesh, atoms: RenderAtom[], structure: RenderStructure,
@@ -67,6 +68,59 @@ interface RenderModule {
 const render = renderModuleRaw as unknown as RenderModule;
 
 type RGBA = ReturnType<typeof color.forceRGB>;
+
+// geometry detail of the viewer's quality settings
+const QUALITY_DETAIL: Record<string, { arcDetail: number; sphereDetail: number; splineDetail: number }> = {
+  high: { arcDetail: 4, sphereDetail: 16, splineDetail: 8 },
+  medium: { arcDetail: 2, sphereDetail: 10, splineDetail: 5 },
+  low: { arcDetail: 2, sphereDetail: 8, splineDetail: 3 },
+};
+
+// with quality 'auto', structures drawing more residues than this get low
+// detail. A trace-only HIV-1 capsid (3J3Q, 313k residues) is some 80 million
+// triangles as a cartoon at high detail.
+const AUTO_LOW_QUALITY_RESIDUES = 50000;
+
+interface CountedStructure {
+  residueCount(): number;
+  chains(): { name(): string; residues(): unknown[] }[];
+  assembly(name: string): { generators(): { chains(): string[]; matrices(): unknown[] }[] } | null;
+}
+
+function sameKey(a: unknown[], b: unknown[] | null): boolean {
+  if (b === null || a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; ++i) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// the residues drawn of structure, the copies of an assembly (showRelated)
+// included: each copy costs as many triangles as the asymmetric unit, though
+// no extra memory. The 60 copies of 1F8V draw 77,700 residues from the 1,295
+// stored.
+function drawnResidueCount(structure: CountedStructure, showRelated: string): number {
+  const assembly = showRelated !== 'asym' ? structure.assembly(showRelated) : null;
+  if (assembly === null) {
+    return structure.residueCount();
+  }
+  let count = 0;
+  for (const gen of assembly.generators()) {
+    const chains = new Set(gen.chains());
+    let residues = 0;
+    for (const chain of structure.chains()) {
+      if (chains.has(chain.name())) {
+        residues += chain.residues().length;
+      }
+    }
+    count += residues * gen.matrices().length;
+  }
+  return count;
+}
 type CanvasT = InstanceType<typeof canvasModule.Canvas>;
 type SlabStrategy = InstanceType<typeof slab.FixedSlab> | InstanceType<typeof slab.AutoSlab> | null;
 type EventCallback = (arg: unknown, event: unknown) => void;
@@ -362,6 +416,8 @@ class Viewer {
   _mouseHandler!: MouseHandler;
   private _touchHandler!: TouchHandler;
   private _pickBuffer!: FrameBuffer;
+  // what the pick buffer was last drawn for, see _pickKey()
+  private _lastPickKey: unknown[] | null = null;
   private _sceneBuffers!: SceneBuffers;
   private _compositeShader!: ShaderProgram;
   private _compositeUniforms!: {
@@ -454,7 +510,7 @@ class Viewer {
       animateTime : (opts.animateTime as number || 0),
       antialias : opts.antialias as boolean | undefined,
       forceManualAntialiasing: optValue(opts, 'forceManualAntialiasing', true),
-      quality : optValue(opts, 'quality', 'low'),
+      quality : optValue(opts, 'quality', 'auto'),
       style : optValue(opts, 'style', 'hemilight'),
       background : color.forceRGB(opts.background as string || 'white'),
       slabMode : slabModeToStrategy(opts.slabMode as string | undefined),
@@ -492,6 +548,7 @@ class Viewer {
     this._cam.setViewportSize(this._canvas!.viewportWidth(),
                               this._canvas!.viewportHeight());
     this._pickBuffer.resize(this._options.width, this._options.height);
+    this._lastPickKey = null;
     this._sceneBuffers.resize(this._canvas!.viewportWidth(), this._canvas!.viewportHeight());
   }
 
@@ -554,25 +611,19 @@ class Viewer {
     return this._options[optName];
   }
 
+  // 'high', 'medium' or 'low' geometry detail for everything drawn from
+  // then on, or 'auto' (the default): high, except low for structures that draw more than
+  // AUTO_LOW_QUALITY_RESIDUES residues, see _handleStandardMolOptions().
   quality(qual?: string): string {
     if (qual === undefined) {
       return this._options.quality;
     }
     this._options.quality = qual;
-    if (qual === 'high') {
-      this._options.arcDetail = 4;
-      this._options.sphereDetail = 16;
-      this._options.splineDetail = 8;
-    }
-    if (qual === 'medium') {
-      this._options.arcDetail = 2;
-      this._options.sphereDetail = 10;
-      this._options.splineDetail = 5;
-    }
-    if (qual === 'low') {
-      this._options.arcDetail = 2;
-      this._options.sphereDetail = 8;
-      this._options.splineDetail = 3;
+    const detail = QUALITY_DETAIL[qual === 'auto' ? 'high' : qual];
+    if (detail !== undefined) {
+      this._options.arcDetail = detail.arcDetail;
+      this._options.sphereDetail = detail.sphereDetail;
+      this._options.splineDetail = detail.splineDetail;
     }
     return this._options.quality;
   }
@@ -588,6 +639,7 @@ class Viewer {
       width : this._options.width, height : this._options.height
     };
     this._pickBuffer = new FrameBuffer(this._canvas!.gl(), fbOptions);
+    this._lastPickKey = null;
   }
 
   private _initViewer(): boolean {
@@ -1099,6 +1151,8 @@ class Viewer {
       this._objects[i]!.destroy();
     }
     this._objects = [];
+    // the key holds the objects: let the removed ones go
+    this._lastPickKey = null;
     this._cancelSurfaces(/.*/);
   }
 
@@ -1201,6 +1255,17 @@ class Viewer {
         resolved.showRelated = 'asym';
       }
     }
+    // with quality 'auto', a huge structure gets low detail unless the call
+    // asks for its own: every frame and every hover pick draws all of its
+    // triangles, about five times as many at high detail
+    if (this._options.quality === 'auto' &&
+        drawnResidueCount(structure as never, resolved.showRelated as string) >
+          AUTO_LOW_QUALITY_RESIDUES) {
+      const low = QUALITY_DETAIL['low']!;
+      resolved.arcDetail = resolved.arcDetail ?? low.arcDetail;
+      resolved.sphereDetail = resolved.sphereDetail ?? low.sphereDetail;
+      resolved.splineDetail = resolved.splineDetail ?? low.splineDetail;
+    }
     return resolved;
   }
 
@@ -1268,6 +1333,9 @@ class Viewer {
   //  - probeRadius: solvent probe radius in Angstrom, default 1.4
   //  - gridSpacing: sampling grid spacing in Angstrom, default 0.5. Smaller
   //    values give finer surfaces at a steep cost in time and memory.
+  //  - radiusOffset: added to every atom's van der Waals radius, default 0.
+  //    About 2 gives a coarse but closed surface over a trace-only structure
+  //    (one atom per residue, see io.cif's traceOnly).
   // Resolves to the added object, or to null when the surface got removed
   // (with rm or clear) before it was ready.
   surface(name: string, structure: RenderStructure, opts?: Record<string, unknown>): Promise<BaseGeom | null> {
@@ -1290,7 +1358,8 @@ class Viewer {
       ? assembly.generators().flatMap((gen) =>
           gen.matrices().map((matrix: mat4) => ({ matrix, chains: gen.chains() })))
       : undefined;
-    const { atoms, data, copyOf, transforms } = render.surfaceAtoms(structure, copies);
+    const { atoms, data, copyOf, transforms } =
+      render.surfaceAtoms(structure, copies, (options.radiusOffset as number | undefined) || 0);
     // the grid is cut into slabs that a pool of workers, one per core,
     // computes in parallel
     const numWorkers = Math.max(1, navigator.hardwareConcurrency || 4);
@@ -1593,11 +1662,36 @@ class Viewer {
     this._drawWithPass('select');
   }
 
+  // everything the picking scene depends on: the canvas size, the camera,
+  // and each object with its visibility and pickVersion() (shapes,
+  // opacity, symmetry copies). Colors, selection and hover don't matter
+  // to it.
+  private _pickKey(): unknown[] {
+    const cam = this._cam;
+    const key: unknown[] = [this._options.width, this._options.height, cam.zoom()];
+    for (const m of [cam.rotation(), cam.center(), cam.projection()]) {
+      for (let i = 0; i < m.length; ++i) {
+        key.push(m[i]);
+      }
+    }
+    for (const obj of this._objects) {
+      const o = obj as unknown as { visible?(): boolean; pickVersion?(): number };
+      key.push(obj, o.visible ? o.visible() : true, o.pickVersion ? o.pickVersion() : 0);
+    }
+    return key;
+  }
+
   pick(pos: { x: number; y: number }): PickedObject | null {
     this._pickBuffer.bind();
-    this._drawPickingScene();
-    let pixels: Uint8Array | { data: Uint8Array } = new Uint8Array(4);
     const gl = this._canvas!.gl();
+    // the picking scene is only drawn again when what it shows changed:
+    // moving the mouse over a still scene just reads the next pixel back
+    const key = this._pickKey();
+    if (!sameKey(key, this._lastPickKey)) {
+      this._drawPickingScene();
+      this._lastPickKey = key;
+    }
+    let pixels: Uint8Array | { data: Uint8Array } = new Uint8Array(4);
     gl.readPixels(pos.x, this._options.height - pos.y, 1, 1,
                   gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     this._pickBuffer.release();
@@ -1719,6 +1813,7 @@ class Viewer {
       }
     }
     this._objects = newObjects;
+    this._lastPickKey = null;
     this._cancelSurfaces(regex);
   }
   all(): ViewerObject[] {

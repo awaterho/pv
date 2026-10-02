@@ -235,6 +235,10 @@ export interface CustomMesh extends ISceneNode {
   _idRanges: ContinuousIdRange<ObjectIdData>[];
   _idPool: UniqueObjectIdPool<ObjectIdData>;
   _ready: boolean;
+  // bumped by every change to what picking sees: shapes added, opacity
+  // (fully transparent parts can't be picked), see Viewer.pick()
+  _pickVersion: number;
+  pickVersion(): number;
   _currentRange: ContinuousIdRange<ObjectIdData> | null;
 
   updateProjectionIntervals(): void;
@@ -283,11 +287,15 @@ const CustomMesh = function(
   this._idRanges = [];
   this._idPool = idPool;
   this._ready = false;
+  this._pickVersion = 0;
   this._currentRange = null;
 } as unknown as CustomMeshConstructor;
 
 utils.derive(CustomMesh, SceneNode, {
   updateProjectionIntervals: function(this: CustomMesh) {},
+  pickVersion: function(this: CustomMesh) {
+    return this._pickVersion;
+  },
   updateSquaredSphereRadius: function(this: CustomMesh, center: vec3, radius: number | null) {
     return radius;
   },
@@ -335,6 +343,7 @@ utils.derive(CustomMesh, SceneNode, {
         capTubeEnd(this._data, baseIndex - 8, 8);
       }
       this._ready = false;
+      this._pickVersion += 1;
     };
   })(),
   _nextObjectId: function(this: CustomMesh, data: ObjectIdData) {
@@ -369,6 +378,7 @@ utils.derive(CustomMesh, SceneNode, {
     this._protoSphere.addTransformed(this._data, center, radius,
                                      color, objectId);
     this._ready = false;
+    this._pickVersion += 1;
   },
   // an arbitrary shape: positions holds 9 numbers (three xyz vertices,
   // counter-clockwise seen from outside) per triangle, flat-shaded unless
@@ -438,6 +448,7 @@ utils.derive(CustomMesh, SceneNode, {
         this._data.addTriangle(base, base + 2, base + 1);
       }
       this._ready = false;
+      this._pickVersion += 1;
     };
   })(),
   // the opacity of everything added so far (0 transparent - 1 opaque),
@@ -446,6 +457,7 @@ utils.derive(CustomMesh, SceneNode, {
   setOpacity: function(this: CustomMesh, val: number) {
     this._data.setAlpha(val);
     this._ready = false;
+    this._pickVersion += 1;
   },
   // the shapes whose userData passes test are drawn tinted with the
   // viewer's selectionColor, like a selection in the other render objects;
@@ -502,6 +514,10 @@ utils.derive(CustomMesh, SceneNode, {
     }
     if (!this._ready) {
       this._prepareVertexArray();
+    }
+    // like BaseGeom.draw(): no transparent pass without translucent vertices
+    if (pass === 'transparent' && !this._vas.some((va) => va.translucent())) {
+      return;
     }
     const shader = this.shaderForStyleAndPass(shaderCatalog, style, pass);
     if (!shader) {

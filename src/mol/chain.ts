@@ -185,6 +185,18 @@ function shouldIntroduceTraceBreak(
   // deriveConnectivity(). We don't really care about correctness of bond
   // lengths here. The only thing that matters is that the residues are
   // more or less close so that they could potentially be connected.
+  // trace-only residues (see Residue._deduceType()) have no linking atoms,
+  // so go by the distance between their central atoms: about 3.8 A for
+  // consecutive CAs, 4.5-7 A for consecutive C3's.
+  if (prevResidue.atoms().length === 1 || thisResidue.atoms().length === 1) {
+    const prevCentral = prevResidue.atom(aaStretch ? 'CA' : 'C3\'');
+    const thisCentral = thisResidue.atom(aaStretch ? 'CA' : 'C3\'');
+    if (prevCentral === null || thisCentral === null) {
+      return true;
+    }
+    const maxDist = aaStretch ? 4.3 : 8.0;
+    return vec3.sqrDist(prevCentral.pos(), thisCentral.pos()) > maxDist * maxDist;
+  }
   let prevAtom, thisAtom;
   if (aaStretch) {
     prevAtom = prevResidue.atom('C');

@@ -971,9 +971,11 @@ exports.cartoon = function(structure: RenderStructure, gl: WebGL2RenderingContex
 // With copies (the operators of a symmetry assembly, each for the chains it
 // applies to), the atoms of every copy, moved there, so the surface is
 // computed over the whole assembly and its interfaces are buried; copyOf
-// says which copy each entry of atoms is.
+// says which copy each entry of atoms is. radiusOffset is added to every
+// radius.
 exports.surfaceAtoms = function(
   structure: RenderStructure, copies?: { matrix: mat4; chains: string[] }[],
+  radiusOffset?: number,
 ) {
   const all: RenderAtom[] = [];
   structure.eachAtom(function(atom) {
@@ -1014,7 +1016,8 @@ exports.surfaceAtoms = function(
     data[i * 4 + 1] = pos[1]!;
     data[i * 4 + 2] = pos[2]!;
     data[i * 4 + 3] =
-      (VDW_RADIUS as Record<string, number>)[atom.element().toUpperCase()] || 1.7;
+      ((VDW_RADIUS as Record<string, number>)[atom.element().toUpperCase()] || 1.7) +
+      (radiusOffset || 0);
   }
   return { atoms, data, copyOf, transforms };
 };

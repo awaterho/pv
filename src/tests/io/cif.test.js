@@ -1,4 +1,5 @@
 import { test, strictEqual, deepEqual } from '../helpers';
+import fs from 'node:fs';
 import * as glMatrix from 'gl-matrix';
 import io from '../../io';
 
@@ -404,4 +405,30 @@ test('derives bond order from chem_comp_bond instead of guessing from distance',
   })[0];
   strictEqual(c1c2.order(), 2);
   strictEqual(c2c3.order(), 1);
+});
+
+// structures/8yti.cif: two nucleosomes with H1x, 22 protein and DNA chains
+test('traceOnly keeps the polymer central atoms and the same backbone traces', function() {
+  var text = fs.readFileSync('structures/8yti.cif', 'utf8');
+  var full = io.cif(text);
+  var trace = io.cif(text, { traceOnly: true });
+  function traceLengths(structure) {
+    var lengths = [];
+    structure.chains().forEach(function(chain) {
+      chain.backboneTraces().forEach(function(t) { lengths.push(chain.name() + ':' + t.length()); });
+    });
+    return lengths;
+  }
+  deepEqual(traceLengths(trace), traceLengths(full));
+  var names = {};
+  trace.eachResidue(function(residue) {
+    strictEqual(residue.atoms().length, 1);
+    strictEqual(residue.isAminoacid() || residue.isNucleotide(), true);
+    names[residue.atoms()[0].name()] = true;
+  });
+  deepEqual(Object.keys(names).sort(), ['C3\'', 'CA']);
+  // a trace-only residue still gets a usable normal (no O/C to take it from)
+  var normal = glMatrix.vec3.create();
+  trace.chains()[0].backboneTraces()[0].normalAt(normal, 5);
+  strictEqual(Math.abs(glMatrix.vec3.length(normal) - 1) < 1e-5, true);
 });

@@ -61,6 +61,7 @@ interface VertArray {
     zInterval: { update(v: number): void }, transform?: mat4,
   ): void;
   updateSquaredSphereRadius(center: vec3, radius: number | null, transform?: mat4): number | null;
+  translucent(): boolean;
 }
 
 type CentralAtomCallback = (atom: unknown, pos: vec3) => void;
@@ -151,6 +152,11 @@ export interface BaseGeom extends ISceneNode {
   hover(): unknown;
   hoverSymId(): number;
   _hoverSymId: number;
+  // bumped by every change to what picking sees: opacity (fully
+  // transparent parts can't be picked) and the drawn symmetry copies, see
+  // Viewer.pick()
+  _pickVersion: number;
+  pickVersion(): number;
   // set for geometry with the symmetry copies built into its vertices (a
   // surface over an assembly), drawn once rather than once per copy
   _copiesBuiltIn?: boolean;
@@ -171,6 +177,7 @@ const BaseGeom = function(this: BaseGeom, gl: WebGL2RenderingContext) {
   this._selection = null;
   this._hover = null;
   this._hoverSymId = -1;
+  this._pickVersion = 0;
 } as unknown as BaseGeomConstructor;
 
 utils.derive(BaseGeom, SceneNode, {
@@ -183,7 +190,12 @@ utils.derive(BaseGeom, SceneNode, {
       }
     }
     this._showRelated = rel;
+    this._pickVersion += 1;
     return rel;
+  },
+
+  pickVersion: function(this: BaseGeom) {
+    return this._pickVersion;
   },
 
   symWithIndex: function(this: BaseGeom, index: number): mat4 | null {
@@ -362,6 +374,11 @@ utils.derive(BaseGeom, SceneNode, {
     if (!this._visible) {
       return;
     }
+    // the transparent pass only draws translucent fragments: skip geometry
+    // that has none, i.e. nearly always, rather than draw all of it again
+    if (pass === 'transparent' && !this.vertArrays().some((va) => va.translucent())) {
+      return;
+    }
 
     const shader = this.shaderForStyleAndPass(shaderCatalog, style, pass);
 
@@ -387,6 +404,7 @@ utils.derive(BaseGeom, SceneNode, {
 
   setOpacity: function(this: BaseGeom, val: number, view?: unknown) {
     this._ready = false;
+    this._pickVersion += 1;
     view = view || this.structure();
     for (let i = 0; i < this._vertAssocs.length; ++i) {
       (this._vertAssocs[i] as AtomVertexAssoc).setOpacity(val, view as never);

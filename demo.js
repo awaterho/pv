@@ -115,8 +115,14 @@ function surface() {
                  structure.residueSelect(function(r) { return r.isNucleotide(); }),
                  { showRelated : related(), baseSticks : false });
   addLigands(true);
-  viewer.surface('structure', structure.select('protein'), {
+  var protein = structure.select('protein');
+  // a trace-only protein (one CA per residue, see getFromRcsb()) has CAs
+  // 3.8 A apart: inflated by 2 A their spheres merge into a closed, coarse
+  // surface, instead of a thin tube along each chain
+  var traceOnly = protein.atomCount() === protein.residueCount();
+  viewer.surface('structure', protein, {
     color: color.ssSuccession(), showRelated : related(),
+    radiusOffset : traceOnly ? 2 : 0,
   }).then(function(go) {
     if (go) {
       // the surface arrives after showStructure() has already recolored,
@@ -818,12 +824,32 @@ function getFromRcsb(pdbId) {
   var fail = function() {
     showWarning('Could not load PDB entry "' + pdbId + '"');
   };
-  io.fetchCif(url).then(function(s) {
-    structure = s;
-    showStructure();
-    viewer.autoZoom();
-  }, fail);
+  // RCSB's entry metadata says how big the structure is before downloading
+  // it; above HUGE_ATOM_COUNT only the polymers' central atoms (CA, C3') are
+  // kept. When the metadata request fails, load in full.
+  window.fetch('https://data.rcsb.org/rest/v1/core/entry/' + pdbId)
+    .then(function(response) { return response.ok ? response.json() : null; })
+    .catch(function() { return null; })
+    .then(function(entry) {
+      var atomCount = entry && entry.rcsb_entry_info ?
+                      entry.rcsb_entry_info.deposited_atom_count : 0;
+      var traceOnly = atomCount > HUGE_ATOM_COUNT;
+      if (traceOnly) {
+        showWarning(pdbId.toUpperCase() + ' has ' + atomCount.toLocaleString() +
+                    ' atoms: loading CA/C3\' atoms only');
+      }
+      return io.fetchCif(url, undefined, { traceOnly : traceOnly });
+    })
+    .then(function(s) {
+      structure = s;
+      showStructure();
+      viewer.autoZoom();
+    }, fail);
 }
+
+// above this many atoms a structure is loaded trace-only (see getFromRcsb()):
+// about where a full-atom model would take more than a gigabyte of memory
+var HUGE_ATOM_COUNT = 500000;
 
 var warningTimer = null;
 function showWarning(text) {
@@ -859,7 +885,6 @@ viewer = pv.Viewer(document.getElementById('viewer'), {
     antialias : true, 
     fog : true,
     outline : true, 
-    quality : 'high',
     selectionColor : 'white',
     hoverColor: 'yellow',
     background : '#ccc', 

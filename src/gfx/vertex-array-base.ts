@@ -49,6 +49,7 @@ interface VertexArrayBase {
   _vertBuffer: WebGLBuffer;
   _float32Allocator: PoolAllocatorLike;
   _ready: boolean;
+  _translucent: boolean;
   _boundingSphere: Sphere | null;
   _vertData: Float32Array;
   _FLOATS_PER_VERT: number;
@@ -64,6 +65,7 @@ interface VertexArrayBase {
   _calculateBoundingSphere(): Sphere | null;
   destroy(): void;
   bindBuffers(): void;
+  translucent(): boolean;
   updateSquaredSphereRadius(
     sphereCenter: vec3, radius: number | null, transform?: import('gl-matrix').mat4
   ): number | null;
@@ -91,6 +93,7 @@ const VertexArrayBase = function(
   this._vertBuffer = gl.createBuffer()!;
   this._float32Allocator = float32Allocator || null;
   this._ready = false;
+  this._translucent = false;
   this._boundingSphere = null;
   const numFloats = this._FLOATS_PER_VERT * numVerts;
   this._vertData = float32Allocator.request(numFloats);
@@ -123,8 +126,12 @@ VertexArrayBase.prototype = {
 
   setSelected: function(this: VertexArrayBase, index: number, a: number): void {
     const selected = index * this._FLOATS_PER_VERT + this._SELECT_OFFSET;
-    this._vertData[selected] = a;
-    this._ready = false;
+    // only a change needs the buffer uploaded again: hovering one residue
+    // of a huge structure then re-uploads only the arrays holding it
+    if (this._vertData[selected] !== a) {
+      this._vertData[selected] = a;
+      this._ready = false;
+    }
   },
 
 
@@ -174,6 +181,25 @@ VertexArrayBase.prototype = {
     this._gl.bufferData(this._gl.ARRAY_BUFFER, this._vertData,
                         this._gl.STATIC_DRAW);
     this._ready = true;
+    // whether any vertex is translucent, checked whenever the data changed:
+    // geometry without any skips the transparent pass, see translucent()
+    let translucent = false;
+    const numVerts = this.numVerts();
+    for (let i = 0; i < numVerts; ++i) {
+      if (this._vertData[i * this._FLOATS_PER_VERT + this._COLOR_OFFSET + 3]! < 0.999) {
+        translucent = true;
+        break;
+      }
+    }
+    this._translucent = translucent;
+  },
+
+  // true when some vertex has an alpha below 1 (as of the last upload,
+  // which every pass before the transparent one triggers): only such
+  // vertices contribute to the transparent pass, whose shaders discard
+  // opaque fragments.
+  translucent: function(this: VertexArrayBase): boolean {
+    return this._translucent;
   },
 
   // Helper method to calculate the squared bounding sphere radius of the

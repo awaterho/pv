@@ -151,6 +151,17 @@ class Residue extends ResidueBase<Atom> {
                          this.atom('C4\'') !== null && this.atom('O3\'') !== null;
     this._isAminoacid = this.atom('N') !== null && this.atom('CA') !== null &&
                         this.atom('C') !== null && this.atom('O') !== null;
+    // trace-only residues (io.cif's traceOnly option, or CA-only models):
+    // the central atom alone, CA for an amino acid, C3' for a nucleotide.
+    // The element check keeps a calcium ion (atom CA, element CA) out.
+    if (this._atoms.length === 1) {
+      const atom = this._atoms[0]!;
+      if (atom.name() === 'CA' && atom.element().toUpperCase() === 'C') {
+        this._isAminoacid = true;
+      } else if (atom.name() === 'C3\'') {
+        this._isNucleotide = true;
+      }
+    }
   }
 
   name(): string { return this._name; }

@@ -57,7 +57,18 @@ class BackboneTrace<R extends TraceResidue> {
   normalAt(out: vec3, index: number): vec3 {
     const residue = this._trace[index]!;
     if (residue.isAminoacid()) {
-      vec3.sub(out, residue.atom('O')!.pos(), residue.atom('C')!.pos());
+      const o = residue.atom('O'), c = residue.atom('C');
+      if (o !== null && c !== null) {
+        vec3.sub(out, o.pos(), c.pos());
+      } else {
+        // a trace-only residue: the bisector of the CA angle, which turns
+        // with the backbone much like the C=O direction does
+        const prev = this._trace[Math.max(0, index - 1)]!.centralAtom()!.pos();
+        const next = this._trace[Math.min(this._trace.length - 1, index + 1)]!.centralAtom()!.pos();
+        const pos = residue.centralAtom()!.pos();
+        vec3.set(out, prev[0] + next[0] - 2 * pos[0], prev[1] + next[1] - 2 * pos[1],
+                 prev[2] + next[2] - 2 * pos[2]);
+      }
     }
     vec3.normalize(out, out);
     return out;

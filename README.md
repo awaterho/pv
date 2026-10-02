@@ -76,7 +76,6 @@ using a bundler or `require`):
     width: 'auto',
     height: 'auto',
     antialias: true,
-    quality: 'high',
   });
 
   pv.io.fetchCif('https://files.rcsb.org/download/1HBB.cif', function (structure) {
