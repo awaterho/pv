@@ -91,9 +91,6 @@ function tube() {
   viewer.clear();
   addLigands(true);
   viewer.tube('structure', structure, { showRelated : related(), baseSticks : false });
-  viewer.lines('structure.ca', structure.select({aname :'CA'}),
-            { color: color.uniform('blue'), lineWidth : 1,
-              showRelated : related() });
 }
 
 function trace() {
