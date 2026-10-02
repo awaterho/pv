@@ -110,13 +110,13 @@ class MouseHandler {
   }
 
   private _mouseWheel(event: WheelEvent & { wheelDelta: number }): void {
-    this._cam.zoom(event.wheelDelta < 0 ? -1 : 1);
+    this._cam.zoom(event.wheelDelta < 0 ? 1 : -1);
     event.preventDefault();
     this._viewer.requestRedraw();
   }
 
   private _mouseWheelFF(event: WheelEvent): void {
-    this._cam.zoom(event.deltaY < 0 ? 1 : -1);
+    this._cam.zoom(event.deltaY < 0 ? -1 : 1);
     event.preventDefault();
     this._viewer.requestRedraw();
   }

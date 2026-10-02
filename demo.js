@@ -929,7 +929,7 @@ function initDisplayControls() {
 }
 initDisplayControls();
 
-viewer.addListener('viewerReady', iggFcGlycans);
+viewer.addListener('viewerReady', melkInhibitor );
 
 // A single click only selects; double-click moves the camera, onto the
 // residue and its surroundings, or out to the whole structure.
