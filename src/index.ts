@@ -24,7 +24,6 @@ import io from './io';
 import mol from './mol/all';
 import color from './color';
 import viewpoint from './viewpoint';
-import traj from './traj';
 import snfg from './snfg';
 import rings from './rings';
 
@@ -33,7 +32,6 @@ export default {
     Viewer : viewer.Viewer,
     isWebGLSupported : viewer.isWebGLSupported,
     io : io,
-    traj : traj,
     color : color,
     mol : mol,
     snfg : snfg,

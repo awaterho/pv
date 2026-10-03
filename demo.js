@@ -224,46 +224,12 @@ function addLigandOverlays() {
 
 // loads a structure from its local mmCIF fixture (structures/<id>.cif).
 function load(cif_id) {
-  document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('structures/'+cif_id+'.cif').then(function(s) {
     structure = s;
     showStructure();
     viewer.autoZoom();
   }, function(error) {
     showWarning('Could not load structure "' + cif_id + '": ' + error.message);
-  });
-}
-
-function trajectory() {
-  viewer.clear();
-  document.getElementById('traj-widget').style.display = 'block';
-  var theTimeOut;
-  var intervalFunc;
-  var button = document.getElementById('traj-button');
-  button.onclick = function(event) {
-    event.preventDefault();
-    if (button.textContent === 'Start') {
-      button.textContent = 'Stop';
-      theTimeOut = setInterval(intervalFunc, 1000.0/15.0);
-    } else {
-      clearInterval(theTimeOut);
-      button.textContent = 'Start';
-    }
-  };
-  pv.io.fetchCrd('structures/trj.crd', function(s) {
-    structure = s;
-    viewer.ballsAndSticks('trajectory', structure);
-    viewer.autoZoom();
-    pv.traj.fetchDcd('structures/trj.dcd', s, function(cg) {
-      var frameId = 0;
-      intervalFunc = function() {
-        cg.useFrame(frameId);
-        frameId += 1;
-        frameId = frameId % 32;
-        viewer.clear();
-        viewer.ballsAndSticks('trajectory', structure);
-      };
-    });
   });
 }
 
@@ -326,7 +292,6 @@ function nucleosomeH1x() {
 // from those same STRN rows. Without it every strand falls back to a plain
 // coil tube and the "flower" is invisible.
 function betaFlower() {
-  document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('structures/a0a4y8at86.cif', function(s) {
     structure = s;
     showStructure();
@@ -705,7 +670,6 @@ function customMeshDemo() {
 }
 
 function ensemble() {
-  document.getElementById('traj-widget').style.display = 'none';
   io.fetchCif('structures/1nmr.cif', function(structures) {
     viewer.clear()
     structure = structures[0];
@@ -843,7 +807,6 @@ onClick('color-chain', useColor(byChain));
 onClick('color-entity', useColor(byEntity));
 onClick('color-ss-succ', useColor(ssSuccession));
 onClick('color-ss', useColor(ss));
-onClick('trajectory', trajectory);
 onClick('color-rainbow', useColor(rainbow));
 onClick('color-pro-red', useColor(proInRed));
 // fetches and renders a structure by id in mmCIF format, used by both
@@ -966,7 +929,6 @@ function loadDroppedFile(file) {
       throw new Error('no atoms found');
     }
     assignMissingSS(s);
-    document.getElementById('traj-widget').style.display = 'none';
     structure = s;
     showStructure();
     viewer.autoZoom();
