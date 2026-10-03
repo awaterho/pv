@@ -59,13 +59,10 @@ function lines() {
 
 function cartoon() {
   viewer.clear();
-  var go = viewer.cartoon('structure', structure, {
+  viewer.cartoon('structure', structure, {
       color : color.ssSuccession(), showRelated : related(), baseSticks : false,
   });
-  var rotation = viewpoint.principalAxes(go);
   addLigands(true);
-  //go.setSelection(go.select({rtype : 'C' }));
-  viewer.setRotation(rotation)
 }
 
 function lineTrace() {
@@ -318,7 +315,7 @@ function ssSuccession() {
 function uniform() {
   viewer.forEach(function(go) {
     if(go.name()!=='structure.ligand' && typeof go.colorBy === 'function')
-      go.colorBy(color.uniform([0,1,0]));
+      go.colorBy(color.uniform([0.55, 0.65, 0.78]));
   });
   viewer.requestRedraw();
 }
@@ -889,12 +886,59 @@ function customMeshDemo() {
   viewer.setZoom(150, 0);
 }
 
+// the 20 models of an NMR structure (the C-terminal domain of T. cruzi
+// poly(A)-binding protein), colored by how much they disagree: for each
+// residue, the RMS deviation of its CA from the mean over the models, from
+// blue where they agree (the well-determined helices) to red where they
+// fan out (the disordered ends). The first model is drawn as a cartoon,
+// the others as thin tubes around it.
+//
+// The coloring is a custom pv.color.ColorOp: a function filling in the
+// color of each atom, here looked up from the residue's spread.
 function ensemble() {
   io.fetchCif('structures/1nmr.cif', function(structures) {
-    viewer.clear()
+    viewer.clear();
     structure = structures[0];
-    for (var i = 0; i < structures.length; ++i) {
-      viewer.cartoon('ensemble_'+ i, structures[i]);
+
+    // each residue's CA positions over the models, by residue number
+    var positions = new Map();
+    structures.forEach(function(model) {
+      model.eachResidue(function(residue) {
+        var ca = residue.atom('CA');
+        if (ca === null) return;
+        if (!positions.has(residue.num())) positions.set(residue.num(), []);
+        positions.get(residue.num()).push(ca.pos());
+      });
+    });
+    var spread = new Map();
+    positions.forEach(function(list, num) {
+      var mean = [0, 0, 0];
+      list.forEach(function(p) {
+        for (var k = 0; k < 3; ++k) mean[k] += p[k] / list.length;
+      });
+      var sum = 0;
+      list.forEach(function(p) {
+        for (var k = 0; k < 3; ++k) sum += (p[k] - mean[k]) * (p[k] - mean[k]);
+      });
+      spread.set(num, Math.sqrt(sum / list.length));
+    });
+
+    // 0 A blue, 3 A pale, 6 A and more red
+    var gradient = color.gradient(['#2f5fb3', '#e9e4dc', '#c8372d']);
+    var maxSpread = 6.0;
+    var rgba = [0, 0, 0, 1];
+    var bySpread = new pv.color.ColorOp(function(atom, out, index) {
+      var s = spread.get(atom.residue().num());
+      gradient.colorAt(rgba, Math.min((s === undefined ? 0 : s) / maxSpread, 1));
+      out[index] = rgba[0];
+      out[index + 1] = rgba[1];
+      out[index + 2] = rgba[2];
+      out[index + 3] = rgba[3];
+    }, null, null);
+
+    viewer.cartoon('ensemble_0', structures[0], { color : bySpread });
+    for (var i = 1; i < structures.length; ++i) {
+      viewer.tube('ensemble_' + i, structures[i], { color : bySpread, radius : 0.12 });
     }
     viewer.autoZoom();
   }, { loadAllModels : true } );
