@@ -1,18 +1,18 @@
 {
-  "name": "pvng",
+  "name": "pv",
   "version": "2.0.0-dev",
   "description": "WebGL2 protein viewer",
   "type": "module",
-  "homepage": "https://github.com/awaterho/pvng",
+  "homepage": "https://github.com/awaterho/pv",
   "author": {
     "name": "Andrew Waterhouse"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/awaterho/pvng.git"
+    "url": "git://github.com/awaterho/pv.git"
   },
   "bugs": {
-    "url": "https://github.com/awaterho/pvng/issues"
+    "url": "https://github.com/awaterho/pv/issues"
   },
   "license": "MIT",
   "exports": {

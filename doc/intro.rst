@@ -1,15 +1,15 @@
-Getting started with pvng
+Getting started with pv
 ========================================================
 
-Getting the pvng source-code
+Getting the pv source-code
 --------------------------------------------------------
 
-`pvng` is built with `Vite <https://vitejs.dev>`_ and distributed via npm/git rather than as pre-built release tarballs or through bower. Clone the repository and build it yourself:
+`pv` is built with `Vite <https://vitejs.dev>`_ and distributed via npm/git rather than as pre-built release tarballs or through bower. Clone the repository and build it yourself:
 
 .. code-block:: bash
 
-  git clone https://github.com/awaterho/pvng.git
-  cd pvng
+  git clone https://github.com/awaterho/pv.git
+  cd pv
   npm install
   npm run build
 
@@ -17,20 +17,20 @@ This produces ``dist/pv.iife.js`` (a self-contained bundle defining a global ``p
 
 .. note::
 
-  WebGL2 is required. pvng does not run in browsers without WebGL2 support.
+  WebGL2 is required. pv does not run in browsers without WebGL2 support.
 
 
 Setting up a small website
 -----------------------------------------------------
 
-The following minimal example shows how to include pvng in a website for protein structure visualisation. For that purpose, we will create a small index.html file containing the bare-minimum required to run pvng. The example does not depend on any external library. But of course it is also possible to combine pvng with jQuery or other popular JS libraries.
+The following minimal example shows how to include pv in a website for protein structure visualisation. For that purpose, we will create a small index.html file containing the bare-minimum required to run pv. The example does not depend on any external library. But of course it is also possible to combine pv with jQuery or other popular JS libraries.
 
 In case you want to recreate the example, create a directory for the index.html file and change into that directory.
 
 The index.html file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The page is essentially a bare-bone HTML page which includes the pv.iife.js bundle built above. In the preamble, we define a meta element to prevent page scrolling and load the pvng library.
+The page is essentially a bare-bone HTML page which includes the pv.iife.js bundle built above. In the preamble, we define a meta element to prevent page scrolling and load the pv library.
 
 .. code-block:: html
 

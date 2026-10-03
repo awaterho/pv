@@ -6,14 +6,14 @@ line, trace, sphere and point representations directly from PDB or mmCIF files, 
 color schemes, selections, and proper order-independent transparency, all at interactive
 framerates even for large macromolecules.
 
-You can try the [online demo](https://awaterho.github.io/pvng/demo/).
+You can try the [online demo](https://awaterho.github.io/pv/demo/).
 
 Origins
 -----------------------------------------
 
-`pvng` is a fork and continuation of [`PV`](https://github.com/biasmv/pv), the WebGL protein
+`PV` is a fork and continuation of [`PV`](https://github.com/biasmv/pv), the WebGL protein
 viewer originally created by [Marco Biasini](https://github.com/biasmv). The original project
-was archived as no longer maintained; `pvng` builds on that foundation and carries the work
+was archived as no longer maintained; `pv` builds on that foundation and carries the work
 forward: the rendering engine, molecule model and file parsers are all still fundamentally
 Marco's design. Huge thanks to him, and to everyone who contributed to the original `PV`
 (`@Traksewt`, `@kozmad`, `@greenify`, `@andreasprlic`, and others credited in `PV`'s own
@@ -38,8 +38,8 @@ Trying it out
 Clone this repository:
 
 ```bash
-git clone https://github.com/awaterho/pvng.git
-cd pvng
+git clone https://github.com/awaterho/pv.git
+cd pv
 npm install
 ```
 
@@ -52,14 +52,14 @@ npm run dev
 This opens `index.html`, which loads the viewer directly from TypeScript source. 
 
 
-Using pvng on your website
+Using pv on your website
 ----------------------------------------
 
 Build the single js file you need to run PV in your website:
 
 ```bash
-git clone https://github.com/awaterho/pvng.git
-cd pvng
+git clone https://github.com/awaterho/pv.git
+cd pv
 npm install
 npm run build
 ```
@@ -85,7 +85,7 @@ using a bundler or `require`):
 </script>
 ```
 
-WebGL2 is required, so pvng won't run in browsers without WebGL2 support.
+WebGL2 is required, so pv won't run in browsers without WebGL2 support.
 
 Development
 ----------------------------------------

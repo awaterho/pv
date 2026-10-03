@@ -1,4 +1,4 @@
-pvng for developers documentation
+pv for developers documentation
 =========================================
 
 How to Contribute
@@ -45,10 +45,10 @@ Before submitting, or sending the pull request
 
 
 
-How to release a new version of pvng
+How to release a new version of pv
 ------------------------------------------
 
-These are the steps to release a new version of pvng:
+These are the steps to release a new version of pv:
 
 Release Testing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
