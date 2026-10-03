@@ -1189,15 +1189,19 @@ class CIFReader {
     return null;
   }
 
+  // helices from struct_conf, strands from struct_sheet_range as the PDB
+  // lays them out -- or from struct_conf too, as STRN rows, the way
+  // AlphaFold DB files list their DSSP strands
   private _assignSecondaryStructure(structure: Mol): void {
-    const helixRows = this._doc.loopRows('struct_conf');
-    for (let i = 0; i < helixRows.length; ++i) {
-      const row = helixRows[i]!;
-      const confType = row.get('conf_type_id');
-      if (confType === undefined || confType.toUpperCase().indexOf('HELX') !== 0) {
-        continue;
+    const confRows = this._doc.loopRows('struct_conf');
+    for (let i = 0; i < confRows.length; ++i) {
+      const row = confRows[i]!;
+      const confType = (row.get('conf_type_id') || '').toUpperCase();
+      if (confType.indexOf('HELX') === 0) {
+        this._applySSRange(structure, row, 'H');
+      } else if (confType.indexOf('STRN') === 0) {
+        this._applySSRange(structure, row, 'E');
       }
-      this._applySSRange(structure, row, 'H');
     }
     const sheetRows = this._doc.loopRows('struct_sheet_range');
     for (let i = 0; i < sheetRows.length; ++i) {

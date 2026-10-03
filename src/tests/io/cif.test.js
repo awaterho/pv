@@ -234,6 +234,16 @@ test('wires _struct_sheet_range into strand secondary structure assignment', fun
   strictEqual(chainB.residueByRnum(3).ss(), 'C');
 });
 
+test('takes strands from STRN rows of _struct_conf, as AlphaFold DB files list them', function(assert) {
+  var structure = io.cif(SS_CIF.replace('HELX_P A 1 A 3', 'HELX_P A 1 A 3\nSTRN B 1 B 3')
+                               .replace('S1 B 1 B 3', 'S1 A 9 A 9'));
+  var chainB = structure.chain('B');
+  strictEqual(chainB.residueByRnum(1).ss(), 'C');
+  strictEqual(chainB.residueByRnum(2).ss(), 'E');
+  strictEqual(chainB.residueByRnum(3).ss(), 'C');
+  strictEqual(structure.chain('A').residueByRnum(2).ss(), 'H');
+});
+
 var ASSEMBLY_CIF = [
   'loop_',
   '_atom_site.group_PDB',

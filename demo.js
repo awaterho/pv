@@ -1075,8 +1075,9 @@ onClick('color-rainbow', useColor(rainbow));
 onClick('color-pro-red', useColor(proInRed));
 // fetches and renders a structure by id in mmCIF format, used by both
 // pressing Enter/blurring the input (the 'change' event) and clicking the
-// "Get" button next to it. Ids starting "ma-" come from ModelArchive, all
-// others are PDB ids fetched from RCSB.
+// "Get" button next to it. Ids starting "ma-" come from ModelArchive, ids
+// starting "AF-" from the AlphaFold DB, all others are PDB ids fetched from
+// RCSB.
 var fetchingPdbId = null;
 function getById(id) {
   id = (id || '').trim();
@@ -1087,6 +1088,8 @@ function getById(id) {
   }
   if (/^ma-/i.test(id)) {
     getFromModelArchive(id.toLowerCase());
+  } else if (/^af-/i.test(id)) {
+    getFromAlphaFold(id);
   } else {
     getFromRcsb(id);
   }
@@ -1109,6 +1112,49 @@ function getFromModelArchive(maId) {
     fetchingPdbId = null;
     showWarning('Could not load ModelArchive entry "' + maId + '"');
   });
+}
+
+// AlphaFold DB entries: AF-<UniProt accession>-F1 (e.g. AF-P69905-F1) or the
+// newer numbered ones, which include heteromers (e.g. AF-0000000212009592),
+// optionally with the model version, e.g. AF-0000000212009592-model-v1 (or
+// -model_v1, as the files are named; classic ids look like
+// AF-P24941-F1-model-v6). Without a version it is the latest. The entry's
+// metadata says where the latest version's file is; the DB keeps no files
+// of earlier versions, so asking for one says which version there is.
+function getFromAlphaFold(afId) {
+  var parts = /^(.*?)(?:-model[-_]v(\d+))?(?:\.cif)?$/i.exec(afId);
+  var entry = parts[1].toUpperCase();
+  var version = parts[2] === undefined ? null : parseInt(parts[2], 10);
+  fetchingPdbId = afId;
+  window.fetch('https://alphafold.ebi.ac.uk/api/prediction/' + entry)
+    .then(function(response) {
+      if (!response.ok) throw new Error('not found');
+      return response.json();
+    })
+    .then(function(models) {
+      var model = models[0];
+      if (!model || !model.cifUrl) throw new Error('not found');
+      if (version !== null && version !== model.latestVersion) {
+        throw new Error('only version ' + model.latestVersion + ' is available');
+      }
+      return io.fetchCif(model.cifUrl);
+    })
+    .then(function(s) {
+      fetchingPdbId = null;
+      if (!s || s.atomCount() === 0) {
+        throw new Error('no atoms found');
+      }
+      assignMissingSS(s);
+      structure = s;
+      showStructure();
+      viewer.autoZoom();
+      showPdbId(afId);
+    })
+    .catch(function(error) {
+      fetchingPdbId = null;
+      showWarning('Could not load AlphaFold DB entry "' + afId + '"' +
+                  (/^only version/.test(error.message) ? ': ' + error.message : ''));
+    });
 }
 
 function getFromRcsb(pdbId) {
