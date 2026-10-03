@@ -917,6 +917,19 @@ function showWarning(text) {
   warningTimer = setTimeout(function() { el.textContent = ''; }, 4000);
 }
 
+// focusing the input clears it for a new id; leaving it empty puts back the
+// id of what's on screen
+var pdbIdBeforeFocus = '';
+document.getElementById('load-from-pdb').addEventListener('focus', function() {
+  pdbIdBeforeFocus = this.value;
+  this.value = '';
+});
+document.getElementById('load-from-pdb').addEventListener('blur', function() {
+  if (!this.value) {
+    this.value = pdbIdBeforeFocus;
+  }
+});
+
 // PDB ids never contain whitespace, so drop any that is typed or pasted
 document.getElementById('load-from-pdb').addEventListener('input', function() {
   var cleaned = this.value.replace(/\s+/g, '');
