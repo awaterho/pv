@@ -20,6 +20,8 @@ export default tseslint.config(
         Image: 'readonly',
         CustomEvent: 'readonly',
         WebGL2RenderingContext: 'readonly',
+        DecompressionStream: 'readonly',
+        Response: 'readonly',
       },
     },
     rules: {
@@ -34,6 +36,7 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'dist-debug/**',
+      'pages-dist/**',
       'node_modules/**',
       'doc/**',
       'snippets/**',
