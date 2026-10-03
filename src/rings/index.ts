@@ -18,6 +18,7 @@ import { copiesFor, transformed } from './copies';
 interface RNucleotide extends RResidue {
   isNucleotide(): boolean;
   atom(name: string): RAtom | null;
+  chain(): { residues(): { isNucleotide(): boolean }[] };
 }
 interface RChained {
   chain(): { name(): string };
@@ -174,11 +175,13 @@ export interface BaseOptions {
   showRelated?: string;
 }
 
-// the bases of all nucleotides in structure as filled rings with an
-// outline; with options.sticks each on a stick from its C3' (the atom pv's
-// nucleic-acid tube runs through) to the base atom bonded to C1' -- N9 of a
-// purine, N1 of a pyrimidine, C5 of pseudouridine. Returns the custom mesh
-// object.
+// the bases of all nucleotides of DNA/RNA chains in structure as filled
+// rings with an outline; with options.sticks each on a stick from its C3'
+// (the atom pv's nucleic-acid tube runs through) to the base atom bonded to
+// C1' -- N9 of a purine, N1 of a pyrimidine, C5 of pseudouridine. A free
+// nucleotide (a ligand such as ATP, alone in its chain) has no tube to
+// stand on and is left out: it's shown like any other ligand. Returns the
+// custom mesh object.
 function drawBases(viewer: RViewer, name: string, structure: RStructure,
                    options?: BaseOptions): RMesh {
   options = options || {};
@@ -186,10 +189,20 @@ function drawBases(viewer: RViewer, name: string, structure: RStructure,
   const stickRadius = options.stickRadius ?? 0.3;
   const outlineRadius = options.outlineRadius ?? 0.12;
   const mesh = viewer.customMesh(name);
+  const nucleicChains = new Map<unknown, boolean>();
+  const inNucleicChain = function(residue: RNucleotide): boolean {
+    const chain = residue.chain();
+    let nucleic = nucleicChains.get(chain);
+    if (nucleic === undefined) {
+      nucleic = chain.residues().filter((r) => r.isNucleotide()).length > 1;
+      nucleicChains.set(chain, nucleic);
+    }
+    return nucleic;
+  };
   eachCopy(mesh, structure, options.showRelated, function(target, r) {
     const residue = r as RNucleotide;
     const mesh = target;
-    if (!residue.isNucleotide()) {
+    if (!residue.isNucleotide() || !inNucleicChain(residue)) {
       return;
     }
     // the base's rings: the residue's rings without an oxygen, i.e. not
