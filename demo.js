@@ -846,17 +846,45 @@ onClick('color-ss', useColor(ss));
 onClick('trajectory', trajectory);
 onClick('color-rainbow', useColor(rainbow));
 onClick('color-pro-red', useColor(proInRed));
-// fetches and renders a structure by PDB id from RCSB in mmCIF format, used
-// by both pressing Enter/blurring the input (the 'change' event) and
-// clicking the "Get" button next to it.
+// fetches and renders a structure by id in mmCIF format, used by both
+// pressing Enter/blurring the input (the 'change' event) and clicking the
+// "Get" button next to it. Ids starting "ma-" come from ModelArchive, all
+// others are PDB ids fetched from RCSB.
 var fetchingPdbId = null;
-function getFromRcsb(pdbId) {
-  pdbId = (pdbId || '').trim().toUpperCase();
+function getById(id) {
+  id = (id || '').trim();
   // clicking Get blurs an edited input first, so 'change' has already
   // asked for the same id
-  if (!pdbId || pdbId === fetchingPdbId) {
+  if (!id || id === fetchingPdbId) {
     return;
   }
+  if (/^ma-/i.test(id)) {
+    getFromModelArchive(id.toLowerCase());
+  } else {
+    getFromRcsb(id);
+  }
+}
+
+// ModelArchive's ids are lower case, e.g. ma-amun-bacp-03
+function getFromModelArchive(maId) {
+  fetchingPdbId = maId;
+  io.fetchCif('https://modelarchive.org/doi/10.5452/' + maId + '.cif').then(function(s) {
+    fetchingPdbId = null;
+    if (!s || s.atomCount() === 0) {
+      throw new Error('no atoms found');
+    }
+    assignMissingSS(s);
+    structure = s;
+    showStructure();
+    viewer.autoZoom();
+    showPdbId(maId);
+  }).catch(function() {
+    fetchingPdbId = null;
+    showWarning('Could not load ModelArchive entry "' + maId + '"');
+  });
+}
+
+function getFromRcsb(pdbId) {
   fetchingPdbId = pdbId;
   var url = 'https://files.rcsb.org/download/' + pdbId + '.cif';
   // on any failure the current structure stays on screen.
@@ -889,9 +917,113 @@ function getFromRcsb(pdbId) {
     }, fail);
 }
 
+// models (e.g. from SWISS-MODEL, AlphaFold or ModelArchive) often come
+// without helix/sheet records; assign them from the CA trace so cartoons
+// aren't all coil
+function assignMissingSS(s) {
+  var hasSS = false;
+  s.eachResidue(function(residue) {
+    if (residue.ss() === 'H' || residue.ss() === 'E') {
+      hasSS = true;
+      return false;
+    }
+  });
+  if (!hasSS) {
+    pv.mol.assignHelixSheet(s);
+  }
+}
+
+// dropping a PDB or mmCIF file (optionally gzipped) anywhere on the page
+// loads it. The format comes from the file name, falling back to sniffing
+// for mmCIF's leading "data_" block header.
+function loadDroppedFile(file) {
+  var name = file.name.toLowerCase();
+  var gzipped = /\.gz$/.test(name);
+  name = name.replace(/\.gz$/, '');
+  var text;
+  if (gzipped) {
+    var stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
+    text = new Response(stream).text();
+  } else {
+    text = file.text();
+  }
+  text.then(function(data) {
+    var isCif = /\.(cif|mmcif)$/.test(name) ||
+                (!/\.(pdb|ent)$/.test(name) && /^\s*data_/.test(data));
+    var s;
+    if (isCif) {
+      var atomCount = (data.match(/^(ATOM|HETATM)/gm) || []).length;
+      var traceOnly = atomCount > HUGE_ATOM_COUNT;
+      if (traceOnly) {
+        showWarning(file.name + ' has ' + atomCount.toLocaleString() +
+                    ' atoms: loading CA/C3\' atoms only');
+      }
+      s = io.cif(data, { traceOnly : traceOnly });
+    } else {
+      s = io.pdb(data);
+    }
+    if (!s || s.atomCount() === 0) {
+      throw new Error('no atoms found');
+    }
+    assignMissingSS(s);
+    document.getElementById('traj-widget').style.display = 'none';
+    structure = s;
+    showStructure();
+    viewer.autoZoom();
+    showFileName(file.name);
+  }).catch(function(error) {
+    showWarning('Could not load "' + file.name + '": ' + error.message);
+  });
+}
+
+// only drags carrying files show the drop overlay; dragenter/dragleave fire
+// for every child element crossed, so count them to know when the drag
+// has left the window
+var dragDepth = 0;
+function isFileDrag(event) {
+  return Array.prototype.indexOf.call(event.dataTransfer.types, 'Files') >= 0;
+}
+function setDropOverlay(visible) {
+  document.getElementById('drop-overlay').style.display = visible ? 'flex' : 'none';
+}
+window.addEventListener('dragenter', function(event) {
+  if (!isFileDrag(event)) return;
+  dragDepth++;
+  setDropOverlay(true);
+});
+window.addEventListener('dragleave', function(event) {
+  if (!isFileDrag(event)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) setDropOverlay(false);
+});
+window.addEventListener('dragover', function(event) {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+});
+window.addEventListener('drop', function(event) {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragDepth = 0;
+  setDropOverlay(false);
+  var files = event.dataTransfer.files;
+  if (files.length > 0) {
+    loadDroppedFile(files[0]);
+  }
+});
+
 // the PDB id of what's on screen goes in the input, empty when there's none
 function showPdbId(pdbId) {
-  document.getElementById('load-from-pdb').value = pdbId.toUpperCase();
+  document.getElementById('load-from-pdb').value = pdbId;
+  droppedFileName = null;
+}
+
+// a dropped file's name goes in the input instead, as is. "Get" leaves it
+// alone, since it isn't an id RCSB knows.
+var droppedFileName = null;
+function showFileName(name) {
+  document.getElementById('load-from-pdb').value = name;
+  droppedFileName = name;
 }
 
 // a Load menu entry's id is the one it shows (empty for entries without one)
@@ -941,7 +1073,7 @@ document.getElementById('load-from-pdb').addEventListener('input', function() {
 document.getElementById('load-from-pdb').addEventListener('change', function() {
   var pdbId = this.value;
   this.blur();
-  getFromRcsb(pdbId);
+  getById(pdbId);
 });
 
 document.getElementById('get-pdb-button').addEventListener('click', function(event) {
@@ -949,7 +1081,8 @@ document.getElementById('get-pdb-button').addEventListener('click', function(eve
   var input = document.getElementById('load-from-pdb');
   var pdbId = input.value;
   input.blur();
-  getFromRcsb(pdbId);
+  if (pdbId === droppedFileName) return;
+  getById(pdbId);
 });
 
 document.getElementById('opacity-slider').addEventListener('input', function() {
