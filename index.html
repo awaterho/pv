@@ -1,410 +1,610 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>PV - The Protein Viewer</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
-    <link rel="icon" type="image/png" href="./pv-icon.png" sizes="64x64">
-  
-    <!-- 
+
+<head>
+  <title>PV - The Protein Viewer</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" type="image/png" href="./pv-icon.png" sizes="64x64">
+
+  <!-- 
       // Use dist file for your own deployment
       // if you are not using npm run dev 
       <script src="dist/pv.iife.js"></script> 
     -->
 
-    <script type="module" src="./demo.js"></script>
-    <style>
-      /* The rules of Foundation 5.4.7 (ZURB, MIT license) that this page
+  <script type="module" src="./demo.js"></script>
+  <style>
+    /* The rules of Foundation 5.4.7 (ZURB, MIT license) that this page
          uses: base styles, grid, buttons, inputs and the top bar menu. */
-      html,
-      body {
-        height: 100%;
-      }
-      *,
-      *:before,
-      *:after {
-        -webkit-box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        box-sizing: border-box;
-      }
-      html,
-      body {
-        font-size: 100%;
-      }
-      body {
-        background: white;
-        color: #222222;
-        padding: 0;
-        margin: 0;
-        font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
-        font-weight: normal;
-        font-style: normal;
-        line-height: 1.5;
+    html,
+    body {
+      height: 100%;
+    }
+
+    *,
+    *:before,
+    *:after {
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      font-size: 100%;
+    }
+
+    body {
+      background: white;
+      color: #222222;
+      padding: 0;
+      margin: 0;
+      font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1.5;
+      position: relative;
+      cursor: auto;
+    }
+
+    a:hover {
+      cursor: pointer;
+    }
+
+    .left {
+      float: left !important;
+    }
+
+    .right {
+      float: right !important;
+    }
+
+    textarea {
+      height: auto;
+      min-height: 50px;
+    }
+
+    .row {
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+      margin-top: 0;
+      margin-bottom: 0;
+      max-width: 62.5rem;
+    }
+
+    .row:before,
+    .row:after {
+      content: " ";
+      display: table;
+    }
+
+    .row:after {
+      clear: both;
+    }
+
+    .row.collapse>.columns {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .columns {
+      padding-left: 0.9375rem;
+      padding-right: 0.9375rem;
+      width: 100%;
+      float: left;
+    }
+
+    [class*="column"]+[class*="column"]:last-child {
+      float: right;
+    }
+
+    @media only screen {
+      .columns {
         position: relative;
-        cursor: auto;
+        padding-left: 0.9375rem;
+        padding-right: 0.9375rem;
+        float: left;
       }
-      a:hover {
-        cursor: pointer;
+
+      .small-3 {
+        width: 25%;
       }
-      .left {
-        float: left !important;
+
+      .small-9 {
+        width: 75%;
       }
-      .right {
-        float: right !important;
+    }
+
+    @media only screen and (min-width: 40.063em) {
+      .columns {
+        position: relative;
+        padding-left: 0.9375rem;
+        padding-right: 0.9375rem;
+        float: left;
       }
-      textarea {
-        height: auto;
-        min-height: 50px;
+    }
+
+    @media only screen and (min-width: 64.063em) {
+      .columns {
+        position: relative;
+        padding-left: 0.9375rem;
+        padding-right: 0.9375rem;
+        float: left;
       }
-      .row {
-        width: 100%;
-        margin-left: auto;
-        margin-right: auto;
-        margin-top: 0;
-        margin-bottom: 0;
-        max-width: 62.5rem;
+
+      .large-4 {
+        width: 33.33333%;
       }
-      .row:before,
-      .row:after {
+
+      .large-8 {
+        width: 66.66667%;
+      }
+    }
+
+    .button {
+      border-style: solid;
+      border-width: 0px;
+      cursor: pointer;
+      font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+      font-weight: normal;
+      line-height: normal;
+      margin: 0 0 1.25rem;
+      position: relative;
+      text-decoration: none;
+      text-align: center;
+      -webkit-appearance: none;
+      -webkit-border-radius: 0;
+      display: inline-block;
+      padding-top: 1rem;
+      padding-right: 2rem;
+      padding-bottom: 1.0625rem;
+      padding-left: 2rem;
+      font-size: 1rem;
+      background-color: #008cba;
+      border-color: #007095;
+      color: white;
+      transition: background-color 300ms ease-out;
+    }
+
+    .button:hover,
+    .button:focus {
+      background-color: #007095;
+    }
+
+    .button:hover,
+    .button:focus {
+      color: white;
+    }
+
+    .button.alert {
+      background-color: #f04124;
+      border-color: #cf2a0e;
+      color: white;
+    }
+
+    .button.alert:hover,
+    .button.alert:focus {
+      background-color: #cf2a0e;
+    }
+
+    .button.alert:hover,
+    .button.alert:focus {
+      color: white;
+    }
+
+    .button.expand {
+      padding-right: 0;
+      padding-left: 0;
+      width: 100%;
+    }
+
+    @media only screen and (min-width: 40.063em) {
+      .button {
+        display: inline-block;
+      }
+    }
+
+    label {
+      font-size: 0.875rem;
+      color: #4d4d4d;
+      cursor: pointer;
+      display: block;
+      font-weight: normal;
+      line-height: 1.5;
+      margin-bottom: 0;
+    }
+
+    input[type="text"],
+    textarea {
+      -webkit-appearance: none;
+      -webkit-border-radius: 0px;
+      background-color: white;
+      font-family: inherit;
+      border-style: solid;
+      border-width: 1px;
+      border-color: #cccccc;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+      color: rgba(0, 0, 0, 0.75);
+      display: block;
+      font-size: 0.875rem;
+      margin: 0 0 1rem 0;
+      padding: 0.5rem;
+      height: 2.3125rem;
+      width: 100%;
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      box-sizing: border-box;
+      transition: box-shadow 0.45s, border-color 0.45s ease-in-out;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      box-shadow: 0 0 5px #999999;
+      border-color: #999999;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      background: #fafafa;
+      border-color: #999999;
+      outline: none;
+    }
+
+    textarea {
+      max-width: 100%;
+    }
+
+    .top-bar {
+      overflow: hidden;
+      height: 45px;
+      line-height: 45px;
+      position: relative;
+      background: #333333;
+      margin-bottom: 0;
+    }
+
+    .top-bar ul {
+      margin-bottom: 0;
+      list-style: none;
+    }
+
+    .top-bar .row {
+      max-width: none;
+    }
+
+    .top-bar input {
+      margin-bottom: 0;
+    }
+
+    .top-bar input {
+      height: 1.8rem;
+      padding-top: .35rem;
+      padding-bottom: .35rem;
+      font-size: 0.75rem;
+    }
+
+    .top-bar .button {
+      padding-top: 0.4125rem;
+      padding-bottom: 0.4125rem;
+      margin-bottom: 0;
+      font-size: 0.75rem;
+    }
+
+    @media only screen and (max-width: 40em) {
+      .top-bar .button {
+        position: relative;
+        top: -1px;
+      }
+    }
+
+    .top-bar .title-area {
+      position: relative;
+      margin: 0;
+    }
+
+    .top-bar .name {
+      height: 45px;
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .top-bar .name h1 {
+      line-height: 45px;
+      font-size: 1.0625rem;
+      margin: 0;
+    }
+
+    .top-bar .name h1 a {
+      font-weight: normal;
+      color: white;
+      width: 75%;
+      display: block;
+      padding: 0 15px;
+    }
+
+    .top-bar .toggle-topbar {
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+
+    .top-bar .toggle-topbar a {
+      color: white;
+      text-transform: uppercase;
+      font-size: 0.8125rem;
+      font-weight: bold;
+      position: relative;
+      display: block;
+      padding: 0 15px;
+      height: 45px;
+      line-height: 45px;
+    }
+
+    .top-bar .toggle-topbar.menu-icon {
+      top: 50%;
+      margin-top: -16px;
+    }
+
+    .top-bar .toggle-topbar.menu-icon a {
+      height: 34px;
+      line-height: 33px;
+      padding: 0 40px 0 15px;
+      color: white;
+      position: relative;
+    }
+
+    .top-bar .toggle-topbar.menu-icon a span::after {
+      content: "";
+      position: absolute;
+      display: block;
+      height: 0;
+      top: 50%;
+      margin-top: -8px;
+      right: 15px;
+      box-shadow: 0 0px 0 1px white, 0 7px 0 1px white, 0 14px 0 1px white;
+      width: 16px;
+    }
+
+    .top-bar .toggle-topbar.menu-icon a span:hover:after {
+      box-shadow: 0 0px 0 1px "", 0 7px 0 1px "", 0 14px 0 1px "";
+    }
+
+    .top-bar.expanded {
+      height: auto;
+      background: transparent;
+    }
+
+    .top-bar.expanded .title-area {
+      background: #333333;
+    }
+
+    .top-bar.expanded .toggle-topbar a {
+      color: #888888;
+    }
+
+    .top-bar.expanded .toggle-topbar a span::after {
+      box-shadow: 0 0px 0 1px #888888, 0 7px 0 1px #888888, 0 14px 0 1px #888888;
+    }
+
+    .top-bar-section {
+      left: 0;
+      position: relative;
+      width: auto;
+      transition: left 300ms ease-out;
+    }
+
+    .top-bar-section ul {
+      padding: 0;
+      width: 100%;
+      height: auto;
+      display: block;
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .top-bar-section ul li {
+      background: #333333;
+    }
+
+    .top-bar-section ul li>a {
+      display: block;
+      width: 100%;
+      color: white;
+      padding: 12px 0 12px 0;
+      padding-left: 15px;
+      font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+      font-size: 0.8125rem;
+      font-weight: normal;
+      text-transform: none;
+    }
+
+    .top-bar-section ul li:hover:not(.has-form)>a {
+      background-color: #555555;
+      background: #272727;
+      color: white;
+    }
+
+    .top-bar-section .has-dropdown {
+      position: relative;
+    }
+
+    .top-bar-section .has-dropdown>a:after {
+      content: "";
+      display: block;
+      width: 0;
+      height: 0;
+      border: inset 5px;
+      border-color: transparent transparent transparent rgba(255, 255, 255, 0.4);
+      border-left-style: solid;
+      margin-right: 15px;
+      margin-top: -4.5px;
+      position: absolute;
+      top: 50%;
+      right: 0;
+    }
+
+    .top-bar-section .has-dropdown.moved {
+      position: static;
+    }
+
+    .top-bar-section .has-dropdown.moved>.dropdown {
+      display: block;
+      position: static !important;
+      height: auto;
+      width: auto;
+      overflow: visible;
+      clip: auto;
+      position: absolute !important;
+      width: 100%;
+    }
+
+    .top-bar-section .has-dropdown.moved>a:after {
+      display: none;
+    }
+
+    .top-bar-section .dropdown {
+      padding: 0;
+      position: absolute;
+      left: 100%;
+      top: 0;
+      z-index: 99;
+      display: block;
+      position: absolute !important;
+      height: 1px;
+      width: 1px;
+      overflow: hidden;
+      clip: rect(1px, 1px, 1px, 1px);
+    }
+
+    .top-bar-section .dropdown li {
+      width: 100%;
+      height: auto;
+    }
+
+    .top-bar-section .dropdown li a {
+      font-weight: normal;
+      padding: 8px 15px;
+    }
+
+    .top-bar-section .dropdown li a.parent-link {
+      font-weight: normal;
+    }
+
+    .top-bar-section .dropdown li.title h5,
+    .top-bar-section .dropdown li.parent-link {
+      margin-bottom: 0;
+      margin-top: 0;
+      font-size: 1.125rem;
+    }
+
+    .top-bar-section .dropdown li.title h5 a,
+    .top-bar-section .dropdown li.parent-link a {
+      color: white;
+      display: block;
+    }
+
+    .top-bar-section .dropdown li.title h5 a:hover,
+    .top-bar-section .dropdown li.parent-link a:hover {
+      background: none;
+    }
+
+    .js-generated {
+      display: block;
+    }
+
+    @media only screen and (min-width: 40.063em) {
+      .top-bar {
+        background: #333333;
+        overflow: visible;
+      }
+
+      .top-bar:before,
+      .top-bar:after {
         content: " ";
         display: table;
       }
-      .row:after {
+
+      .top-bar:after {
         clear: both;
       }
-      .row.collapse > .columns {
-        padding-left: 0;
-        padding-right: 0;
+
+      .top-bar .toggle-topbar {
+        display: none;
       }
-      .columns {
-        padding-left: 0.9375rem;
-        padding-right: 0.9375rem;
-        width: 100%;
+
+      .top-bar .title-area {
         float: left;
       }
-      [class*="column"] + [class*="column"]:last-child {
-        float: right;
-      }
-      @media only screen {
-        .columns {
-          position: relative;
-          padding-left: 0.9375rem;
-          padding-right: 0.9375rem;
-          float: left;
-        }
-        .small-3 {
-          width: 25%;
-        }
-        .small-9 {
-          width: 75%;
-        }
-      }
-      @media only screen and (min-width: 40.063em) {
-        .columns {
-          position: relative;
-          padding-left: 0.9375rem;
-          padding-right: 0.9375rem;
-          float: left;
-        }
-      }
-      @media only screen and (min-width: 64.063em) {
-        .columns {
-          position: relative;
-          padding-left: 0.9375rem;
-          padding-right: 0.9375rem;
-          float: left;
-        }
-        .large-4 {
-          width: 33.33333%;
-        }
-        .large-8 {
-          width: 66.66667%;
-        }
-      }
-      .button {
-        border-style: solid;
-        border-width: 0px;
-        cursor: pointer;
-        font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
-        font-weight: normal;
-        line-height: normal;
-        margin: 0 0 1.25rem;
-        position: relative;
-        text-decoration: none;
-        text-align: center;
-        -webkit-appearance: none;
-        -webkit-border-radius: 0;
-        display: inline-block;
-        padding-top: 1rem;
-        padding-right: 2rem;
-        padding-bottom: 1.0625rem;
-        padding-left: 2rem;
-        font-size: 1rem;
-        background-color: #008cba;
-        border-color: #007095;
-        color: white;
-        transition: background-color 300ms ease-out;
-      }
-      .button:hover,
-      .button:focus {
-        background-color: #007095;
-      }
-      .button:hover,
-      .button:focus {
-        color: white;
-      }
-      .button.alert {
-        background-color: #f04124;
-        border-color: #cf2a0e;
-        color: white;
-      }
-      .button.alert:hover,
-      .button.alert:focus {
-        background-color: #cf2a0e;
-      }
-      .button.alert:hover,
-      .button.alert:focus {
-        color: white;
-      }
-      .button.expand {
-        padding-right: 0;
-        padding-left: 0;
-        width: 100%;
-      }
-      @media only screen and (min-width: 40.063em) {
-        .button {
-          display: inline-block;
-        }
-      }
-      label {
-        font-size: 0.875rem;
-        color: #4d4d4d;
-        cursor: pointer;
-        display: block;
-        font-weight: normal;
-        line-height: 1.5;
-        margin-bottom: 0;
-      }
-      input[type="text"],
-      textarea {
-        -webkit-appearance: none;
-        -webkit-border-radius: 0px;
-        background-color: white;
-        font-family: inherit;
-        border-style: solid;
-        border-width: 1px;
-        border-color: #cccccc;
-        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-        color: rgba(0, 0, 0, 0.75);
-        display: block;
-        font-size: 0.875rem;
-        margin: 0 0 1rem 0;
-        padding: 0.5rem;
-        height: 2.3125rem;
-        width: 100%;
-        -webkit-box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        box-sizing: border-box;
-        transition: box-shadow 0.45s, border-color 0.45s ease-in-out;
-      }
-      input[type="text"]:focus,
-      textarea:focus {
-        box-shadow: 0 0 5px #999999;
-        border-color: #999999;
-      }
-      input[type="text"]:focus,
-      textarea:focus {
-        background: #fafafa;
-        border-color: #999999;
-        outline: none;
-      }
-      textarea {
-        max-width: 100%;
-      }
-      .top-bar {
-        overflow: hidden;
-        height: 45px;
-        line-height: 45px;
-        position: relative;
-        background: #333333;
-        margin-bottom: 0;
-      }
-      .top-bar ul {
-        margin-bottom: 0;
-        list-style: none;
-      }
-      .top-bar .row {
-        max-width: none;
-      }
-      .top-bar input {
-        margin-bottom: 0;
-      }
-      .top-bar input {
-        height: 1.8rem;
-        padding-top: .35rem;
-        padding-bottom: .35rem;
-        font-size: 0.75rem;
-      }
-      .top-bar .button {
-        padding-top: 0.4125rem;
-        padding-bottom: 0.4125rem;
-        margin-bottom: 0;
-        font-size: 0.75rem;
-      }
-      @media only screen and (max-width: 40em) {
-        .top-bar .button {
-          position: relative;
-          top: -1px;
-        }
-      }
-      .top-bar .title-area {
-        position: relative;
-        margin: 0;
-      }
-      .top-bar .name {
-        height: 45px;
-        margin: 0;
-        font-size: 16px;
-      }
-      .top-bar .name h1 {
-        line-height: 45px;
-        font-size: 1.0625rem;
-        margin: 0;
-      }
+
       .top-bar .name h1 a {
-        font-weight: normal;
-        color: white;
-        width: 75%;
-        display: block;
-        padding: 0 15px;
-      }
-      .top-bar .toggle-topbar {
-        position: absolute;
-        right: 0;
-        top: 0;
-      }
-      .top-bar .toggle-topbar a {
-        color: white;
-        text-transform: uppercase;
-        font-size: 0.8125rem;
-        font-weight: bold;
-        position: relative;
-        display: block;
-        padding: 0 15px;
-        height: 45px;
-        line-height: 45px;
-      }
-      .top-bar .toggle-topbar.menu-icon {
-        top: 50%;
-        margin-top: -16px;
-      }
-      .top-bar .toggle-topbar.menu-icon a {
-        height: 34px;
-        line-height: 33px;
-        padding: 0 40px 0 15px;
-        color: white;
-        position: relative;
-      }
-      .top-bar .toggle-topbar.menu-icon a span::after {
-        content: "";
-        position: absolute;
-        display: block;
-        height: 0;
-        top: 50%;
-        margin-top: -8px;
-        right: 15px;
-        box-shadow: 0 0px 0 1px white, 0 7px 0 1px white, 0 14px 0 1px white;
-        width: 16px;
-      }
-      .top-bar .toggle-topbar.menu-icon a span:hover:after {
-        box-shadow: 0 0px 0 1px "", 0 7px 0 1px "", 0 14px 0 1px "";
-      }
-      .top-bar.expanded {
-        height: auto;
-        background: transparent;
-      }
-      .top-bar.expanded .title-area {
-        background: #333333;
-      }
-      .top-bar.expanded .toggle-topbar a {
-        color: #888888;
-      }
-      .top-bar.expanded .toggle-topbar a span::after {
-        box-shadow: 0 0px 0 1px #888888, 0 7px 0 1px #888888, 0 14px 0 1px #888888;
-      }
-      .top-bar-section {
-        left: 0;
-        position: relative;
         width: auto;
-        transition: left 300ms ease-out;
       }
-      .top-bar-section ul {
-        padding: 0;
-        width: 100%;
-        height: auto;
-        display: block;
-        font-size: 16px;
-        margin: 0;
+
+      .top-bar input,
+      .top-bar .button {
+        font-size: 0.875rem;
+        position: relative;
+        top: 7px;
       }
-      .top-bar-section ul li {
+
+      .top-bar.expanded {
         background: #333333;
       }
-      .top-bar-section ul li > a {
-        display: block;
-        width: 100%;
-        color: white;
-        padding: 12px 0 12px 0;
-        padding-left: 15px;
-        font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
-        font-size: 0.8125rem;
-        font-weight: normal;
-        text-transform: none;
+
+      .top-bar-section {
+        transition: none 0 0;
+        left: 0 !important;
       }
-      .top-bar-section ul li:hover:not(.has-form) > a {
+
+      .top-bar-section ul {
+        width: auto;
+        height: auto !important;
+        display: inline;
+      }
+
+      .top-bar-section ul li {
+        float: left;
+      }
+
+      .top-bar-section ul li .js-generated {
+        display: none;
+      }
+
+      .top-bar-section li:not(.has-form) a:not(.button) {
+        padding: 0 15px;
+        line-height: 45px;
+        background: #333333;
+      }
+
+      .top-bar-section li:not(.has-form) a:not(.button):hover {
         background-color: #555555;
         background: #272727;
-        color: white;
       }
-      .top-bar-section .has-dropdown {
-        position: relative;
+
+      .top-bar-section .has-dropdown>a {
+        padding-right: 35px !important;
       }
-      .top-bar-section .has-dropdown > a:after {
+
+      .top-bar-section .has-dropdown>a:after {
         content: "";
         display: block;
         width: 0;
         height: 0;
         border: inset 5px;
-        border-color: transparent transparent transparent rgba(255, 255, 255, 0.4);
-        border-left-style: solid;
-        margin-right: 15px;
-        margin-top: -4.5px;
-        position: absolute;
-        top: 50%;
-        right: 0;
+        border-color: rgba(255, 255, 255, 0.4) transparent transparent transparent;
+        border-top-style: solid;
+        margin-top: -2.5px;
+        top: 22.5px;
       }
+
       .top-bar-section .has-dropdown.moved {
-        position: static;
+        position: relative;
       }
-      .top-bar-section .has-dropdown.moved > .dropdown {
-        display: block;
-        position: static !important;
-        height: auto;
-        width: auto;
-        overflow: visible;
-        clip: auto;
-        position: absolute !important;
-        width: 100%;
-      }
-      .top-bar-section .has-dropdown.moved > a:after {
-        display: none;
-      }
-      .top-bar-section .dropdown {
-        padding: 0;
-        position: absolute;
-        left: 100%;
-        top: 0;
-        z-index: 99;
+
+      .top-bar-section .has-dropdown.moved>.dropdown {
         display: block;
         position: absolute !important;
         height: 1px;
@@ -412,472 +612,471 @@
         overflow: hidden;
         clip: rect(1px, 1px, 1px, 1px);
       }
-      .top-bar-section .dropdown li {
-        width: 100%;
+
+      .top-bar-section .has-dropdown.not-click:hover>.dropdown {
+        display: block;
+        position: static !important;
         height: auto;
+        width: auto;
+        overflow: visible;
+        clip: auto;
+        position: absolute !important;
+        max-height: calc(100vh - 60px);
+        overflow-y: auto;
       }
+
+      .top-bar-section .has-dropdown:focus-within>.dropdown {
+        display: block;
+        position: static !important;
+        height: auto;
+        width: auto;
+        overflow: visible;
+        clip: auto;
+        position: absolute !important;
+        max-height: calc(100vh - 60px);
+        overflow-y: auto;
+      }
+
+      .top-bar-section .dropdown {
+        left: 0;
+        top: auto;
+        background: transparent;
+        min-width: 100%;
+      }
+
       .top-bar-section .dropdown li a {
-        font-weight: normal;
-        padding: 8px 15px;
-      }
-      .top-bar-section .dropdown li a.parent-link {
-        font-weight: normal;
-      }
-      .top-bar-section .dropdown li.title h5,
-      .top-bar-section .dropdown li.parent-link {
-        margin-bottom: 0;
-        margin-top: 0;
-        font-size: 1.125rem;
-      }
-      .top-bar-section .dropdown li.title h5 a,
-      .top-bar-section .dropdown li.parent-link a {
         color: white;
-        display: block;
+        line-height: 45px;
+        white-space: nowrap;
+        padding: 12px 15px;
+        background: #333333;
       }
-      .top-bar-section .dropdown li.title h5 a:hover,
-      .top-bar-section .dropdown li.parent-link a:hover {
-        background: none;
+
+      .top-bar-section .dropdown li:not(.has-form):not(.active)>a:not(.button) {
+        color: white;
+        background: #333333;
       }
-      .js-generated {
-        display: block;
+
+      .top-bar-section .dropdown li:not(.has-form):not(.active):hover>a:not(.button) {
+        color: white;
+        background-color: #555555;
+        background: #272727;
       }
-      @media only screen and (min-width: 40.063em) {
-        .top-bar {
-          background: #333333;
-          overflow: visible;
-        }
-        .top-bar:before,
-        .top-bar:after {
-          content: " ";
-          display: table;
-        }
-        .top-bar:after {
-          clear: both;
-        }
-        .top-bar .toggle-topbar {
-          display: none;
-        }
-        .top-bar .title-area {
-          float: left;
-        }
-        .top-bar .name h1 a {
-          width: auto;
-        }
-        .top-bar input,
-        .top-bar .button {
-          font-size: 0.875rem;
-          position: relative;
-          top: 7px;
-        }
-        .top-bar.expanded {
-          background: #333333;
-        }
-        .top-bar-section {
-          transition: none 0 0;
-          left: 0 !important;
-        }
-        .top-bar-section ul {
-          width: auto;
-          height: auto !important;
-          display: inline;
-        }
-        .top-bar-section ul li {
-          float: left;
-        }
-        .top-bar-section ul li .js-generated {
-          display: none;
-        }
-        .top-bar-section li:not(.has-form) a:not(.button) {
-          padding: 0 15px;
-          line-height: 45px;
-          background: #333333;
-        }
-        .top-bar-section li:not(.has-form) a:not(.button):hover {
-          background-color: #555555;
-          background: #272727;
-        }
-        .top-bar-section .has-dropdown > a {
-          padding-right: 35px !important;
-        }
-        .top-bar-section .has-dropdown > a:after {
-          content: "";
-          display: block;
-          width: 0;
-          height: 0;
-          border: inset 5px;
-          border-color: rgba(255, 255, 255, 0.4) transparent transparent transparent;
-          border-top-style: solid;
-          margin-top: -2.5px;
-          top: 22.5px;
-        }
-        .top-bar-section .has-dropdown.moved {
-          position: relative;
-        }
-        .top-bar-section .has-dropdown.moved > .dropdown {
-          display: block;
-          position: absolute !important;
-          height: 1px;
-          width: 1px;
-          overflow: hidden;
-          clip: rect(1px, 1px, 1px, 1px);
-        }
-        .top-bar-section .has-dropdown.not-click:hover > .dropdown {
-          display: block;
-          position: static !important;
-          height: auto;
-          width: auto;
-          overflow: visible;
-          clip: auto;
-          position: absolute !important;
-          max-height: calc(100vh - 60px);
-          overflow-y: auto;
-        }
-        .top-bar-section .has-dropdown > a:focus + .dropdown {
-          display: block;
-          position: static !important;
-          height: auto;
-          width: auto;
-          overflow: visible;
-          clip: auto;
-          position: absolute !important;
-          max-height: calc(100vh - 60px);
-          overflow-y: auto;
-        }
-        .top-bar-section .dropdown {
-          left: 0;
-          top: auto;
-          background: transparent;
-          min-width: 100%;
-        }
-        .top-bar-section .dropdown li a {
-          color: white;
-          line-height: 45px;
-          white-space: nowrap;
-          padding: 12px 15px;
-          background: #333333;
-        }
-        .top-bar-section .dropdown li:not(.has-form):not(.active) > a:not(.button) {
-          color: white;
-          background: #333333;
-        }
-        .top-bar-section .dropdown li:not(.has-form):not(.active):hover > a:not(.button) {
-          color: white;
-          background-color: #555555;
-          background: #272727;
-        }
-        .top-bar-section .right li .dropdown {
-          left: auto;
-          right: 0;
-        }
+
+      .top-bar-section .right li .dropdown {
+        left: auto;
+        right: 0;
       }
-      div,
-      ul,
-      li,
+    }
+
+    div,
+    ul,
+    li,
+    h1,
+    h5 {
+      margin: 0;
+      padding: 0;
+    }
+
+    a {
+      color: #008cba;
+      text-decoration: none;
+      line-height: inherit;
+    }
+
+    a:hover,
+    a:focus {
+      color: #0078a0;
+    }
+
+    h1,
+    h5 {
+      font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      color: #222222;
+      text-rendering: optimizeLegibility;
+      margin-top: 0.2rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+
+    h1 {
+      font-size: 2.125rem;
+    }
+
+    h5 {
+      font-size: 1.125rem;
+    }
+
+    ul {
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+      list-style-position: outside;
+      font-family: inherit;
+    }
+
+    ul {
+      margin-left: 1.1rem;
+    }
+
+    ul li ul {
+      margin-left: 1.25rem;
+      margin-bottom: 0;
+    }
+
+    @media only screen and (min-width: 40.063em) {
+
       h1,
       h5 {
-        margin: 0;
-        padding: 0;
-      }
-      a {
-        color: #008cba;
-        text-decoration: none;
-        line-height: inherit;
-      }
-      a:hover,
-      a:focus {
-        color: #0078a0;
-      }
-      h1,
-      h5 {
-        font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
-        font-weight: normal;
-        font-style: normal;
-        color: #222222;
-        text-rendering: optimizeLegibility;
-        margin-top: 0.2rem;
-        margin-bottom: 0.5rem;
         line-height: 1.4;
       }
+
       h1 {
-        font-size: 2.125rem;
+        font-size: 2.75rem;
       }
+
       h5 {
         font-size: 1.125rem;
       }
-      ul {
-        font-size: 1rem;
-        line-height: 1.6;
-        margin-bottom: 1.25rem;
-        list-style-position: outside;
-        font-family: inherit;
+    }
+
+    @media print {
+      * {
+        background: transparent !important;
+        color: black !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
       }
-      ul {
-        margin-left: 1.1rem;
+
+      a,
+      a:visited {
+        text-decoration: underline;
       }
-      ul li ul {
-        margin-left: 1.25rem;
-        margin-bottom: 0;
+
+      a[href]:after {
+        content: " (" attr(href) ")";
       }
-      @media only screen and (min-width: 40.063em) {
-        h1,
-        h5 {
-          line-height: 1.4;
-        }
-        h1 {
-          font-size: 2.75rem;
-        }
-        h5 {
-          font-size: 1.125rem;
-        }
+
+      a[href^="#"]:after {
+        content: "";
       }
-      @media print {
-        * {
-          background: transparent !important;
-          color: black !important;
-          box-shadow: none !important;
-          text-shadow: none !important;
-        }
-        a,
-        a:visited {
-          text-decoration: underline;
-        }
-        a[href]:after {
-          content: " (" attr(href) ")";
-        }
-        a[href^="#"]:after {
-          content: "";
-        }
+    }
+
+    @media only screen {
+      .show-for-small {
+        display: inherit !important;
       }
-      @media only screen {
-        .show-for-small {
-          display: inherit !important;
-        }
+    }
+
+    @media only screen and (min-width: 40.063em) {
+      .show-for-small {
+        display: none !important;
       }
-      @media only screen and (min-width: 40.063em) {
-        .show-for-small {
-          display: none !important;
-        }
+    }
+
+    @media only screen and (min-width: 64.063em) {
+      .show-for-small {
+        display: none !important;
       }
-      @media only screen and (min-width: 64.063em) {
-        .show-for-small {
-          display: none !important;
-        }
+    }
+
+    @media only screen and (min-width: 90.063em) {
+      .show-for-small {
+        display: none !important;
       }
-      @media only screen and (min-width: 90.063em) {
-        .show-for-small {
-          display: none !important;
-        }
+    }
+
+    @media only screen and (min-width: 120.063em) {
+      .show-for-small {
+        display: none !important;
       }
-      @media only screen and (min-width: 120.063em) {
-        .show-for-small {
-          display: none !important;
-        }
-      }
-    </style>
-    <style>
-      body {
-        padding:0px;
-        margin:0px;
-        height: 100%;
-      }
-      #viewer {
-        position:absolute;
-        top : 0px; 
-        left: 0px;
-        bottom : 0px;
-        right : 0px;
-        margin : 0px;
-        padding:0px;
-        overflow:hidden;
-      }
-      #viewer > nav {
-        position: relative;
-        z-index: 10;
-      }
-      #traj-widget {
-        width: 200px;
-        height: 20px;
-        background: #aaa;
-        position: absolute;
-        top: 50px;
-        left: 50px;
-        display: none;
-      }
-      #display-widget {
-        overflow:auto; max-height: calc(100vh - 60px);
-        position: absolute;
-        top: 54px;
-        right: 12px;
-        background: rgba(255,255,255,0.85);
-        padding: 8px 12px;
-        border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        font-family: sans-serif;
-        font-size: 13px;
-      }
-      #pv_status {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(255,255,255,0.85);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-family: sans-serif;
-        font-size: 13px;
-        pointer-events: none;
-        text-align: right;
-      }
-      #pv_status:empty {
-        display: none;
-      }
-      #pv_warning {
-        position: absolute;
-        top: 57px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 20;
-        background: #fff3cd;
-        color: #664d03;
-        border: 1px solid #e0c36a;
-        padding: 6px 12px;
-        border-radius: 4px;
-        font-family: sans-serif;
-        font-size: 13px;
-        pointer-events: none;
-      }
-      #pv_warning:empty {
-        display: none;
-      }
-      #display-widget input[type=range] {
-        vertical-align: middle;
-        margin-left: 8px;
-      }
-      #display-widget .toggles {
-        display: flex;
-        flex-direction: column;
-      }
-      #display-widget .toggles label {
-        display: inline-block;
-        margin-right: 12px;
-      }
-      #display-widget input[type=checkbox] {
-        vertical-align: middle;
-        margin: 0 4px 0 0;
-      }
-      /* the PDB id leading each Load menu entry, in a fixed-width column so
+    }
+  </style>
+  <style>
+    body {
+      padding: 0px;
+      margin: 0px;
+      height: 100%;
+    }
+
+    #viewer {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      bottom: 0px;
+      right: 0px;
+      margin: 0px;
+      padding: 0px;
+      overflow: hidden;
+    }
+
+    #viewer>nav {
+      position: relative;
+      z-index: 10;
+    }
+
+    #traj-widget {
+      width: 200px;
+      height: 20px;
+      background: #aaa;
+      position: absolute;
+      top: 50px;
+      left: 50px;
+      display: none;
+    }
+
+    /* the Display menu holds controls rather than links */
+    .top-bar-section #display-widget {
+      background: #333333;
+      color: white;
+      padding: 10px 15px 12px;
+      font-family: sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    #display-widget label {
+      white-space: nowrap;
+      color: white;
+      font-size: 13px;
+    }
+
+    #pv_status {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: sans-serif;
+      font-size: 13px;
+      pointer-events: none;
+      text-align: right;
+    }
+
+    #pv_status:empty {
+      display: none;
+    }
+
+    #pv_warning {
+      position: absolute;
+      top: 57px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: #fff3cd;
+      color: #664d03;
+      border: 1px solid #e0c36a;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: sans-serif;
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    #pv_warning:empty {
+      display: none;
+    }
+
+    /* undo the top bar's input styling, meant for a search box in the bar */
+    .top-bar #display-widget input {
+      position: static;
+      top: auto;
+      height: auto;
+      padding: 0;
+    }
+
+    #display-widget input[type=range] {
+      display: block;
+      width: 100%;
+      margin: 2px 0 6px;
+    }
+
+    #display-widget .toggles {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #display-widget .toggles label {
+      display: flex;
+      align-items: center;
+      margin-right: 12px;
+    }
+
+    #display-widget input[type=checkbox] {
+      vertical-align: middle;
+      margin: 0 4px 0 0;
+    }
+
+    /* PDB fetch box beside the title, outside the collapsible menu */
+    .top-bar .title-area {
+      display: flex;
+      align-items: center;
+    }
+
+    .top-bar .name h1 a {
+      width: auto;
+    }
+
+    .top-bar .title-area .pdb-fetch {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 45px;
+    }
+
+    .top-bar .pdb-fetch input,
+    .top-bar .pdb-fetch .button {
+      position: static;
+      top: auto;
+      margin: 0;
+      height: 30px;
+      font-size: 0.875rem;
+    }
+
+    .top-bar .pdb-fetch input {
+      width: 6.5em;
+      padding: 0 6px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .top-bar .pdb-fetch input::placeholder {
+      font-family: sans-serif;
+      font-size: 0.75rem;
+      text-transform: none;
+    }
+
+    .top-bar .pdb-fetch .button {
+      width: auto;
+      padding: 0 10px;
+      line-height: 30px;
+    }
+
+    /* the PDB id leading each Load menu entry, in a fixed-width column so
          the names line up (entries without one keep an empty column) */
-      .top-bar-section .dropdown .pdb-id {
-        display: inline-block;
-        width: 4ch;
-        margin-right: 0.8em;
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-        font-size: 0.95em;
-        letter-spacing: 0.02em;
-        opacity: 0.7;
-      }
-    </style>
-    </head>
-    <body>
+    .top-bar-section .dropdown .pdb-id {
+      display: inline-block;
+      width: 4ch;
+      margin-right: 0.8em;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.95em;
+      letter-spacing: 0.02em;
+      opacity: 0.7;
+    }
+  </style>
+</head>
 
-<div id="viewer"> 
-<nav class="top-bar" data-topbar role="navigation">
-  <ul class="title-area">
-    <li class="name">
-      <h1><a href="#">PV</a></h1>
-    </li>
-     <!-- Remove the class "menu-icon" to get rid of menu icon. Take out "Menu" to just have icon alone -->
-    <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
-  </ul>
+<body>
 
-  <section class="top-bar-section">
-    <!-- Right Nav Section -->
-    <ul class=left>
-<div class="row collapse" style="display: flex; align-items: center;">
-    <div class="large-8 small-9 columns">
-      <input type="text" id=load-from-pdb>
-    </div>
-    <div class="large-4 small-3 columns">
-      <a href="#" id="get-pdb-button" class="alert button expand">Get</a>
-    </div>
+  <!-- 3j3q is a monster  -->
+
+  <div id="viewer">
+    <nav class="top-bar" data-topbar role="navigation">
+      <ul class="title-area">
+        <li class="name">
+          <h1><a href="#">PV</a></h1>
+        </li>
+        <!-- in the title area so it stays visible when the menu folds away -->
+        <li class="pdb-fetch">
+          <input type="text" id=load-from-pdb placeholder="PDB id" spellcheck=false autocomplete=off>
+          <a href="#" id="get-pdb-button" class="alert button">Get</a>
+        </li>
+        <!-- Remove the class "menu-icon" to get rid of menu icon. Take out "Menu" to just have icon alone -->
+        <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+      </ul>
+
+      <section class="top-bar-section">
+        <!-- Right Nav Section -->
+        <ul class="right">
+          <li class="has-dropdown">
+            <a href="#">Load</a>
+            <ul class="dropdown">
+              <li><a id=4umt href="#"><span class="pdb-id">4UMT</span>MELK + Inhibitor (bond orders)</a></li>
+              <li><a id=4byh href="#"><span class="pdb-id">4BYH</span>IgG Fc + Glycans</a></li>
+              <li><a id=1bos href="#"><span class="pdb-id">1BOS</span>Shiga Toxin + Gb3 Receptor</a></li>
+              <li><a id=8yti href="#"><span class="pdb-id">8YTI</span>Nucleosomes + H1x Linker Histone</a></li>
+              <li><a id=beta-flower href="#"><span class="pdb-id"></span>Beta Flower (AlphaFold)</a></li>
+              <li><a id=2f8v href="#"><span class="pdb-id">2F8V</span>Titin&ndash;Telethonin (6 chains)</a></li>
+              <li><a id=1ake href="#"><span class="pdb-id">1AKE</span>Adenylate Kinase</a></li>
+              <li><a id=4ubb href="#"><span class="pdb-id">4UBB</span>DNA Polymerase</a></li>
+              <li><a id=1ehz href="#"><span class="pdb-id">1EHZ</span>tRNA-Phe (modified bases)</a></li>
+              <li><a id=2por href="#"><span class="pdb-id">2POR</span>Porin Trimer (symmetry assembly)</a></li>
+              <li><a id=1f8v href="#"><span class="pdb-id">1F8V</span>Pariacoto Virus + RNA Cage (60-mer)</a></li>
+              <li><a id=ensemble href="#"><span class="pdb-id">1NMR</span>NMR ensemble</a></li>
+              <li><a id=trajectory href="#"><span class="pdb-id"></span>Trajectory</a></li>
+              <li><a id=custom-mesh href="#"><span class="pdb-id"></span>Custom Mesh</a></li>
+            </ul>
+          </li>
+          <li class="has-dropdown">
+            <a href="#">Style</a>
+            <ul class="dropdown">
+              <li><a id=style-cartoon href="#">Cartoon</a></li>
+              <li><a id=style-tube href="#">Tube</a></li>
+              <li><a id=style-trace href="#">Trace</a></li>
+              <li><a id=style-line-trace href="#">Line Trace</a></li>
+              <li><a id=style-sline href="#">Smooth Line Trace</a></li>
+              <li><a id=style-lines href="#">Bonds (Lines)</a></li>
+              <li><a id=style-spheres href="#">Spheres</a></li>
+              <li><a id=style-balls-and-sticks href="#">Balls And Sticks</a></li>
+              <li><a id=style-licorice href="#">Licorice</a></li>
+              <li><a id=style-surface href="#">Surface</a></li>
+              <li><a id=style-points href="#">Points</a></li>
+            </ul>
+          </li>
+          <li class="has-dropdown">
+            <a href="#">Color</a>
+            <ul class="dropdown">
+              <li><a id=color-uniform href="#">Uniform</a></li>
+              <li><a id=color-chain href="#">Chain</a></li>
+              <li><a id=color-entity href="#">Entity</a></li>
+              <li><a id=color-element href="#">Element</a></li>
+              <li><a id=color-ss href="#">Secondary Structure</a></li>
+              <li><a id=color-ss-succ href="#">Secondary Structure Succession</a></li>
+              <li><a id=color-rainbow href="#">Rainbow</a></li>
+              <li><a id="color-pro-red" href="#">Proline in Red</a></li>
+            </ul>
+          </li>
+          <li class="has-dropdown">
+            <a href="#">Display</a>
+            <ul class="dropdown">
+              <li id="display-widget">
+                <label for="opacity-slider">Opacity: <span id="opacity-value">1.00</span></label>
+                <input type="range" id="opacity-slider" min="0" max="1" step="0.01" value="1">
+                <label for="background-slider">Background</label>
+                <input type="range" id="background-slider" min="0" max="1" step="0.01" value="0">
+                <label for="ssao-radius-slider" title="SSAO Radius (Screen-Space Ambient Occlusion)">Ambient occlusion
+                  radius: <span id="ssao-radius-value">2.0</span></label>
+                <input type="range" id="ssao-radius-slider" min="0.1" max="10" step="0.1" value="2">
+                <label for="ssao-intensity-slider" title="SSAO Intensity (Screen-Space Ambient Occlusion)">Ambient
+                  occlusion intensity: <span id="ssao-intensity-value">1.0</span></label>
+                <input type="range" id="ssao-intensity-slider" min="0" max="3" step="0.1" value="1">
+                <div class="toggles">
+                  <label title="Ambient occlusion - SSAO (Screen-Space Ambient Occlusion)"><input type="checkbox"
+                      id="ssao-toggle">Ambient occlusion</label>
+                  <label><input type="checkbox" id="fog-toggle">Fog</label>
+                  <label><input type="checkbox" id="outline-toggle">Outline</label>
+                  <label><input type="checkbox" id="spin-toggle">Spin</label>
+                  <label><input type="checkbox" id="rock-toggle">Rock and roll</label>
+                  <label title="3D Symbol Nomenclature for Glycans"><input type="checkbox" id="snfg-toggle" checked>SNFG
+                    symbols</label>
+                  <label><input type="checkbox" id="rings-toggle">Filled rings</label>
+                </div>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+    </nav>
   </div>
-    </ul>
-    <ul class="right">
-      <li class="has-dropdown">
-        <a href="#">Load</a>
-        <ul class="dropdown">
-          <li><a id=4umt href="#"><span class="pdb-id">4UMT</span>MELK + Inhibitor (bond orders)</a></li>
-          <li><a id=4byh href="#"><span class="pdb-id">4BYH</span>IgG Fc + Glycans</a></li>
-          <li><a id=1bos href="#"><span class="pdb-id">1BOS</span>Shiga Toxin + Gb3 Receptor</a></li>
-          <li><a id=8yti href="#"><span class="pdb-id">8YTI</span>Nucleosomes + H1x Linker Histone</a></li>
-          <li><a id=beta-flower href="#"><span class="pdb-id"></span>Beta Flower (AlphaFold)</a></li>
-          <li><a id=2f8v href="#"><span class="pdb-id">2F8V</span>Titin&ndash;Telethonin (6 chains)</a></li>
-          <li><a id=1ake href="#"><span class="pdb-id">1AKE</span>Adenylate Kinase</a></li>
-          <li><a id=4ubb href="#"><span class="pdb-id">4UBB</span>DNA Polymerase</a></li>
-          <li><a id=1ehz href="#"><span class="pdb-id">1EHZ</span>tRNA-Phe (modified bases)</a></li>
-          <li><a id=2por href="#"><span class="pdb-id">2POR</span>Porin Trimer (symmetry assembly)</a></li>
-          <li><a id=1f8v href="#"><span class="pdb-id">1F8V</span>Pariacoto Virus + RNA Cage (60-mer)</a></li>
-          <li><a id=ensemble href="#"><span class="pdb-id">1NMR</span>NMR ensemble</a></li>
-          <li><a id=trajectory href="#"><span class="pdb-id"></span>Trajectory</a></li>
-          <li><a id=custom-mesh href="#"><span class="pdb-id"></span>Custom Mesh</a></li>
-        </ul>
-      </li>
-      <li class="has-dropdown">
-        <a href="#">Style</a>
-        <ul class="dropdown">
-          <li><a id=style-cartoon href="#">Cartoon</a></li>
-          <li><a id=style-tube href="#">Tube</a></li>
-          <li><a id=style-trace href="#">Trace</a></li>
-          <li><a id=style-line-trace href="#">Line Trace</a></li>
-          <li><a id=style-sline href="#">Smooth Line Trace</a></li>
-          <li><a id=style-lines href="#">Bonds (Lines)</a></li>
-          <li><a id=style-spheres href="#">Spheres</a></li>
-          <li><a id=style-balls-and-sticks href="#">Balls And Sticks</a></li>
-          <li><a id=style-licorice href="#">Licorice</a></li>
-          <li><a id=style-surface href="#">Surface</a></li>
-          <li><a id=style-points href="#">Points</a></li>
-        </ul>
-      </li>
-      <li class="has-dropdown">
-        <a href="#">Color</a>
-        <ul class="dropdown">
-          <li><a id=color-uniform href="#">Uniform</a></li>
-          <li><a id=color-chain href="#">Chain</a></li>
-          <li><a id=color-entity href="#">Entity</a></li>
-          <li><a id=color-element href="#">Element</a></li>
-          <li><a id=color-ss href="#">Secondary Structure</a></li>
-          <li><a id=color-ss-succ href="#">Secondary Structure Succession</a></li>
-          <li><a id=color-rainbow href="#">Rainbow</a></li>
-          <li><a id="color-pro-red" href="#">Proline in Red</a></li>
-        </ul>
-      </li>
-    </ul>
-  </section>
-</nav>
-</div>
-<div id=traj-widget>
+  <div id=traj-widget>
     <a id=traj-button href="#" class="alert button expand">Start</a>
-</div>
-<div id="display-widget">
-  <label for="opacity-slider">Opacity: <span id="opacity-value">1.00</span></label>
-  <input type="range" id="opacity-slider" min="0" max="1" step="0.01" value="1">
-  <label for="background-slider">Background</label>
-  <input type="range" id="background-slider" min="0" max="1" step="0.01" value="0">
-  <label for="ssao-radius-slider" title="SSAO Radius (Screen-Space Ambient Occlusion)">Ambient occlusion radius: <span id="ssao-radius-value">2.0</span></label>
-  <input type="range" id="ssao-radius-slider" min="0.1" max="10" step="0.1" value="2">
-  <label for="ssao-intensity-slider" title="SSAO Intensity (Screen-Space Ambient Occlusion)">Ambient occlusion intensity: <span id="ssao-intensity-value">1.0</span></label>
-  <input type="range" id="ssao-intensity-slider" min="0" max="3" step="0.1" value="1">
-  <div class="toggles">
-    <label title="Ambient occlusion - SSAO (Screen-Space Ambient Occlusion)"><input type="checkbox" id="ssao-toggle">Ambient occlusion</label>
-    <label><input type="checkbox" id="fog-toggle">Fog</label>
-    <label><input type="checkbox" id="outline-toggle">Outline</label>
-    <label><input type="checkbox" id="spin-toggle">Spin</label>
-    <label><input type="checkbox" id="rock-toggle">Rock and roll</label>
-    <label title="3D Symbol Nomenclature for Glycans"><input type="checkbox" id="snfg-toggle" checked>SNFG symbols</label>
-    <label><input type="checkbox" id="rings-toggle">Filled rings</label>
   </div>
-</div>
-<div id="pv_status"></div>
-<div id="pv_warning"></div>
+  <div id="pv_status"></div>
+  <div id="pv_warning"></div>
 </body>
-</html>
 
+</html>

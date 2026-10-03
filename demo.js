@@ -776,6 +776,33 @@ function initTopBar() {
     link.addEventListener('click', collapse);
   });
   narrow.addEventListener('change', collapse);
+  // pressing anywhere outside the bar closes its menus. A menu pinned open by
+  // clicking its title stays open while the title has focus, and the viewer
+  // prevents the default on mouse and touch down, so pressing it doesn't
+  // move focus; drop it from the bar ourselves. Touch also leaves the last
+  // tapped title in :hover, so the hover rule (keyed off not-click) is
+  // switched off until a pointer comes back over the bar.
+  var dropdowns = bar.querySelectorAll('.has-dropdown');
+  document.addEventListener('pointerdown', function(event) {
+    if (bar.contains(event.target)) {
+      return;
+    }
+    var focused = document.activeElement;
+    if (focused && bar.contains(focused)) {
+      focused.blur();
+    }
+    dropdowns.forEach(function(item) {
+      item.classList.remove('not-click');
+    });
+    if (bar.classList.contains('expanded')) {
+      collapse();
+    }
+  }, true);
+  bar.addEventListener('pointerover', function() {
+    dropdowns.forEach(function(item) {
+      item.classList.add('not-click');
+    });
+  });
 }
 
 function onClick(id, handler) {
@@ -822,13 +849,19 @@ onClick('color-pro-red', useColor(proInRed));
 // fetches and renders a structure by PDB id from RCSB in mmCIF format, used
 // by both pressing Enter/blurring the input (the 'change' event) and
 // clicking the "Get" button next to it.
+var fetchingPdbId = null;
 function getFromRcsb(pdbId) {
-  if (!pdbId) {
+  pdbId = (pdbId || '').trim().toUpperCase();
+  // clicking Get blurs an edited input first, so 'change' has already
+  // asked for the same id
+  if (!pdbId || pdbId === fetchingPdbId) {
     return;
   }
+  fetchingPdbId = pdbId;
   var url = 'https://files.rcsb.org/download/' + pdbId + '.cif';
   // on any failure the current structure stays on screen.
   var fail = function() {
+    fetchingPdbId = null;
     showWarning('Could not load PDB entry "' + pdbId + '"');
   };
   // RCSB's entry metadata says how big the structure is before downloading
@@ -842,7 +875,7 @@ function getFromRcsb(pdbId) {
                       entry.rcsb_entry_info.deposited_atom_count : 0;
       var traceOnly = atomCount > HUGE_ATOM_COUNT;
       if (traceOnly) {
-        showWarning(pdbId.toUpperCase() + ' has ' + atomCount.toLocaleString() +
+        showWarning(pdbId + ' has ' + atomCount.toLocaleString() +
                     ' atoms: loading CA/C3\' atoms only');
       }
       return io.fetchCif(url, undefined, { traceOnly : traceOnly });
@@ -851,8 +884,26 @@ function getFromRcsb(pdbId) {
       structure = s;
       showStructure();
       viewer.autoZoom();
+      fetchingPdbId = null;
+      showPdbId(pdbId);
     }, fail);
 }
+
+// the PDB id of what's on screen goes in the input, empty when there's none
+function showPdbId(pdbId) {
+  document.getElementById('load-from-pdb').value = pdbId.toUpperCase();
+}
+
+// a Load menu entry's id is the one it shows (empty for entries without one)
+function showMenuPdbId(entry) {
+  var label = entry.querySelector('.pdb-id');
+  showPdbId(label ? label.textContent : '');
+}
+document.querySelectorAll('.dropdown a').forEach(function(entry) {
+  if (entry.querySelector('.pdb-id')) {
+    entry.addEventListener('click', function() { showMenuPdbId(entry); });
+  }
+});
 
 // above this many atoms a structure is loaded trace-only (see getFromRcsb()):
 // about where a full-atom model would take more than a gigabyte of memory
@@ -866,6 +917,14 @@ function showWarning(text) {
   warningTimer = setTimeout(function() { el.textContent = ''; }, 4000);
 }
 
+// PDB ids never contain whitespace, so drop any that is typed or pasted
+document.getElementById('load-from-pdb').addEventListener('input', function() {
+  var cleaned = this.value.replace(/\s+/g, '');
+  if (cleaned !== this.value) {
+    this.value = cleaned;
+  }
+});
+
 document.getElementById('load-from-pdb').addEventListener('change', function() {
   var pdbId = this.value;
   this.blur();
@@ -876,7 +935,6 @@ document.getElementById('get-pdb-button').addEventListener('click', function(eve
   event.preventDefault();
   var input = document.getElementById('load-from-pdb');
   var pdbId = input.value;
-  input.value = '';
   input.blur();
   getFromRcsb(pdbId);
 });
@@ -961,7 +1019,10 @@ function initDisplayControls() {
 }
 initDisplayControls();
 
-viewer.addListener('viewerReady', melkInhibitor );
+viewer.addListener('viewerReady', function() {
+  melkInhibitor();
+  showMenuPdbId(document.getElementById('4umt'));
+});
 
 // A single click only selects; double-click moves the camera, onto the
 // residue and its surroundings, or out to the whole structure.
