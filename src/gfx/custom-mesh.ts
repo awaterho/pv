@@ -102,8 +102,13 @@ class DynamicIndexedVertexArray {
   private _shapeStarts: number[];
   private _shapeUserData: unknown[];
   private _shapeCopies: (number | null)[];
+  // the bounding box of the vertices
+  private _min: number[];
+  private _max: number[];
 
   constructor() {
+    this._min = [Infinity, Infinity, Infinity];
+    this._max = [-Infinity, -Infinity, -Infinity];
     this._vertData = [];
     this._indexData = [];
     this._numVerts = 0;
@@ -178,8 +183,40 @@ class DynamicIndexedVertexArray {
   numVerts(): number {
     return this._numVerts;
   }
+  // the squared distance from center to the farthest corner of the
+  // vertices' bounding box, at least radius: an upper bound for the slab
+  // that is cheap enough to take every frame (null with no vertices)
+  updateSquaredSphereRadius(center: vec3, radius: number | null): number | null {
+    if (this._numVerts === 0) {
+      return radius;
+    }
+    let d = 0;
+    for (let k = 0; k < 3; ++k) {
+      const far = Math.max(Math.abs(this._min[k]! - center[k]!),
+                           Math.abs(this._max[k]! - center[k]!));
+      d += far * far;
+    }
+    return Math.max(radius === null ? 0 : radius, d);
+  }
+  updateProjectionIntervals(
+    xAxis: vec3, yAxis: vec3, zAxis: vec3,
+    xInterval: { update(v: number): void }, yInterval: { update(v: number): void },
+    zInterval: { update(v: number): void },
+  ): void {
+    const p = vec3.create();
+    for (let i = 0; i < this._vertData.length; i += FLOATS_PER_VERT) {
+      vec3.set(p, this._vertData[i]!, this._vertData[i + 1]!, this._vertData[i + 2]!);
+      xInterval.update(vec3.dot(p, xAxis));
+      yInterval.update(vec3.dot(p, yAxis));
+      zInterval.update(vec3.dot(p, zAxis));
+    }
+  }
   addVertex(pos: ArrayLike<number>, normal: ArrayLike<number>, color: ArrayLike<number>, objId: number): void {
     this._numVerts += 1;
+    for (let k = 0; k < 3; ++k) {
+      this._min[k] = Math.min(this._min[k]!, pos[k]!);
+      this._max[k] = Math.max(this._max[k]!, pos[k]!);
+    }
     this._vertData.push(pos[0]!, pos[1]!, pos[2]!,
                         normal[0]!, normal[1]!, normal[2]!,
                         color[0]!, color[1]!, color[2]!, color[3]!,
@@ -241,7 +278,11 @@ export interface CustomMesh extends ISceneNode {
   pickVersion(): number;
   _currentRange: ContinuousIdRange<ObjectIdData> | null;
 
-  updateProjectionIntervals(): void;
+  updateProjectionIntervals(
+    xAxis: vec3, yAxis: vec3, zAxis: vec3,
+    xInterval: { update(v: number): void }, yInterval: { update(v: number): void },
+    zInterval: { update(v: number): void },
+  ): void;
   updateSquaredSphereRadius(center: vec3, radius: number | null): number | null;
   addTube(start: vec3, end: vec3, radius: number, options?: TubeOptions): void;
   _nextObjectId(data: ObjectIdData): number;
@@ -292,12 +333,21 @@ const CustomMesh = function(
 } as unknown as CustomMeshConstructor;
 
 utils.derive(CustomMesh, SceneNode, {
-  updateProjectionIntervals: function(this: CustomMesh) {},
+  // the extent of everything added, for autoZoom()/fitTo() and the slab
+  updateProjectionIntervals: function(
+    this: CustomMesh, xAxis: vec3, yAxis: vec3, zAxis: vec3,
+    xInterval: { update(v: number): void }, yInterval: { update(v: number): void },
+    zInterval: { update(v: number): void },
+  ) {
+    if (this._visible) {
+      this._data.updateProjectionIntervals(xAxis, yAxis, zAxis, xInterval, yInterval, zInterval);
+    }
+  },
   pickVersion: function(this: CustomMesh) {
     return this._pickVersion;
   },
   updateSquaredSphereRadius: function(this: CustomMesh, center: vec3, radius: number | null) {
-    return radius;
+    return this._visible ? this._data.updateSquaredSphereRadius(center, radius) : radius;
   },
 
   addTube: (function() {

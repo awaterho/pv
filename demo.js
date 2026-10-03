@@ -392,281 +392,501 @@ function pariacoto() {
 }
 
 
-// a gravel cyclist, side view (x forward, y up, z across), built from the
-// three shapes the customMesh API draws -- addTube, addSphere and
-// addTriangles (for any other solid: boxes, cones, hexagonal and toothed
-// prisms) -- none of it derived from a molecular structure. This is the
-// escape hatch for drawing arbitrary annotated geometry (markers,
-// measurement lines, ...) alongside whatever else is in the scene. Every
-// part carries a userData label, so hovering it names and highlights it.
+// two Kandinskys as reliefs, back to back on a free-standing wall: Swinging
+// (Schaukeln, 1925) on the front and Delicate Tension (Zarte Spannung,
+// 1923) on the back, for whoever turns it round. The paintings' circles
+// become spheres, their triangles slabs and cones, their lines tubes,
+// stacked at different depths in front of the canvas, so turning it shows
+// the compositions in 3D. None of it is derived from a molecular structure:
+// customMesh is the escape hatch for drawing arbitrary annotated geometry
+// (markers, measurement lines, ...) alongside whatever else is in the scene.
+// addSphere and addTube tessellate coarsely (they are meant for small
+// markers), so the large curved shapes here are addTriangles with per-vertex
+// normals for smooth shading. Every part carries a userData label, so
+// hovering it names and highlights it.
 function customMeshDemo() {
   viewer.clear();
   var go = viewer.customMesh('custom');
-  var vec3 = pv.vec3;
+  // setOpacity() applies to a whole mesh, so the translucent pink fan gets
+  // one of its own
+  var glass = viewer.customMesh('custom.glass');
 
   function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
   function scale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
-  function at(x, y, z) { return [x, y, z || 0]; }
-  function onCircle(center, radius, angle, z) {
-    return [center[0] + radius * Math.cos(angle),
-            center[1] + radius * Math.sin(angle), center[2] + (z || 0)];
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function cross(a, b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  }
+  function norm(a) { return scale(a, 1 / (Math.sqrt(dot(a, a)) || 1)); }
+  // a point given in pixels of the painting's reproduction (y down), at
+  // depth z in front of its canvas, which is 68 units wide: see painting()
+  var pixel = 0.2, imageWidth = 340, imageHeight = 485;
+  function P(px, py, z) {
+    return [(px - imageWidth / 2) * pixel, (imageHeight - py) * pixel, z || 0];
+  }
+  // where solid() puts what is built: turned by angle about the y axis,
+  // after moving it up by lift and out of the wall by out
+  var place = { cos : 1, sin : 0, lift : 0, out : 0 };
+  function placed(p, isNormal) {
+    var x = p[0], y = p[1] + (isNormal ? 0 : place.lift), z = p[2] + (isNormal ? 0 : place.out);
+    return [place.cos * x + place.sin * z, y, place.cos * z - place.sin * x];
+  }
+  // draws a painting reproduced at width x height pixels on one side of
+  // the wall
+  function painting(width, height, angle, out, draw) {
+    imageWidth = width;
+    imageHeight = height;
+    pixel = 68 / width;
+    place = { cos : Math.cos(angle), sin : Math.sin(angle), lift : 6, out : out };
+    draw();
+  }
+  // two unit vectors perpendicular to axis, and the axis itself
+  function frame(axis) {
+    var w = norm(axis);
+    var u = norm(cross(w, Math.abs(w[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+    return [u, cross(w, u), w];
+  }
+  function local(f, x, y, z) {
+    return add(add(scale(f[0], x), scale(f[1], y)), scale(f[2], z));
   }
 
-  // a flat polygon (points in the xy plane around center, counter-
-  // clockwise) extruded along z to thickness: a prism made of triangles
-  function prism(center, points, thickness, color, label) {
-    var h = thickness / 2, tris = [];
-    function p(i, z) {
-      var q = points[(i + points.length) % points.length];
-      return [center[0] + q[0], center[1] + q[1], center[2] + z];
-    }
-    for (var i = 0; i < points.length; ++i) {
-      tris.push(at(center[0], center[1], center[2] + h), p(i, h), p(i + 1, h));
-      tris.push(at(center[0], center[1], center[2] - h), p(i + 1, -h), p(i, -h));
-      tris.push(p(i, -h), p(i + 1, -h), p(i + 1, h));
-      tris.push(p(i, -h), p(i + 1, h), p(i, h));
-    }
-    go.addTriangles([].concat.apply([], tris), { color : color, userData : label });
-  }
-  function regular(n, radius, start) {
-    var pts = [];
-    for (var i = 0; i < n; ++i) {
-      var a = (start || 0) + i * 2 * Math.PI / n;
-      pts.push([radius * Math.cos(a), radius * Math.sin(a)]);
-    }
-    return pts;
-  }
-  // a gear: teeth alternating between two radii
-  function toothed(teeth, outer, inner) {
-    var pts = [];
-    for (var i = 0; i < teeth * 2; ++i) {
-      var r = i % 2 === 0 ? outer : inner;
-      pts.push([r * Math.cos(i * Math.PI / teeth), r * Math.sin(i * Math.PI / teeth)]);
-    }
-    return pts;
-  }
-  // an axis-aligned box
-  function box(center, size, color, label) {
-    prism(center, [[-size[0] / 2, -size[1] / 2], [size[0] / 2, -size[1] / 2],
-                   [size[0] / 2, size[1] / 2], [-size[0] / 2, size[1] / 2]],
-          size[2], color, label);
-  }
-  // a cone from the center of its base to its tip
-  function cone(base, tip, radius, color, label) {
-    var axis = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), tip, base));
-    var u = vec3.normalize(vec3.create(),
-      vec3.cross(vec3.create(), axis, Math.abs(axis[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
-    var v = vec3.cross(vec3.create(), axis, u);
-    var n = 20, tris = [];
-    for (var i = 0; i < n; ++i) {
-      var a0 = i * 2 * Math.PI / n, a1 = (i + 1) * 2 * Math.PI / n;
-      var p0 = add(base, add(scale(u, radius * Math.cos(a0)), scale(v, radius * Math.sin(a0))));
-      var p1 = add(base, add(scale(u, radius * Math.cos(a1)), scale(v, radius * Math.sin(a1))));
-      tris.push(Array.from(tip), p0, p1, Array.from(base), p1, p0);
-    }
-    go.addTriangles([].concat.apply([], tris), { color : color, userData : label });
-  }
-  // a circle of tube segments around center, in the xy plane
-  function ring(center, radius, tubeRadius, color, label) {
-    var n = 48;
-    for (var i = 0; i < n; ++i) {
-      go.addTube(onCircle(center, radius, i * 2 * Math.PI / n),
-                 onCircle(center, radius, (i + 1) * 2 * Math.PI / n),
-                 tubeRadius, { color : color, userData : label });
-      go.addSphere(onCircle(center, radius, i * 2 * Math.PI / n), tubeRadius,
-                   { color : color, userData : label });
-    }
-  }
-  // a limb: tube with round joints
-  function limb(from, to, radius, color, label) {
-    go.addTube(from, to, radius, { color : color, userData : label });
-    go.addSphere(to, radius, { color : color, userData : label });
-  }
-  // the knee (or elbow) of a two-segment limb from hip to ankle, bending
-  // towards forward
-  function joint(hip, ankle, upper, lower, forward) {
-    var d = vec3.distance(hip, ankle);
-    var reach = Math.min(d, upper + lower - 0.01);
-    var along = (upper * upper - lower * lower + reach * reach) / (2 * reach);
-    var out = Math.sqrt(Math.max(0, upper * upper - along * along));
-    var dir = vec3.normalize(vec3.create(), vec3.sub(vec3.create(), ankle, hip));
-    var side = vec3.normalize(vec3.create(), [-dir[1], dir[0], 0]);
-    if (vec3.dot(side, forward) < 0) vec3.scale(side, side, -1);
-    return add(add(hip, scale(dir, along)), scale(side, out));
-  }
-
-  var frameColor = [0.42, 0.52, 0.38], tyre = [0.13, 0.12, 0.11];
-  var gumwall = [0.66, 0.5, 0.32], rimColor = [0.16, 0.16, 0.17];
-  var metal = [0.78, 0.8, 0.84], jersey = [0.85, 0.42, 0.12];
-  var shorts = [0.1, 0.1, 0.12], skin = [0.93, 0.74, 0.6];
-
-  // a dirt road, strewn with pebbles (a fixed pseudo-random scatter, so
-  // the scene is the same every time)
-  box(at(1, -0.6, 0), [80, 1.2, 16], [0.58, 0.48, 0.35], 'gravel road');
-  var seed = 7;
-  function random() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
-  for (var n = 0; n < 140; ++n) {
-    var grey = 0.45 + 0.3 * random();
-    go.addSphere(at(-38 + 78 * random(), 0, -7.5 + 15 * random()), 0.15 + 0.35 * random(),
-                 { color : [grey, grey * 0.95, grey * 0.88], userData : 'pebble' });
-  }
-
-  // grass verges either side of the road, and pine trees along the way:
-  // a trunk with four stacked cones narrowing towards the top
-  box(at(1, -0.65, -17), [80, 1.2, 18], [0.36, 0.52, 0.26], 'grass');
-  box(at(1, -0.65, 13), [80, 1.2, 10], [0.36, 0.52, 0.26], 'grass');
-  function pine(x, z, height, shade) {
-    var foot = at(x, 0, z);
-    go.addTube(foot, add(foot, [0, height * 0.3, 0]), height * 0.035,
-               { color : [0.4, 0.27, 0.16], userData : 'pine tree' });
-    for (var t = 0; t < 4; ++t) {
-      var base = height * (0.2 + t * 0.17), top = base + height * (0.38 - t * 0.04);
-      cone(add(foot, [0, base, 0]), add(foot, [0, top, 0]), height * (0.24 - t * 0.045),
-           [0.1 * shade, 0.36 * shade, 0.18 * shade], 'pine tree');
-    }
-  }
-  pine(-28, -14, 30, 1.0);
-  pine(-17, -20, 24, 0.85);
-  pine(19, -16, 34, 0.95);
-  pine(31, -22, 26, 0.8);
-  pine(-36, 11, 16, 1.1);
-
-  // wheels: fat knobbly tyres with tan sidewalls on black rims, 24 spokes
-  // laced to either side of the hub, a hexagonal nut on the axle, and a
-  // disc brake rotor on the left
-  var wheelRadius = 7.0, tyreRadius = 0.7;
-  var rear = at(-10.5, wheelRadius + tyreRadius), front = at(14.6, wheelRadius + tyreRadius);
-  [[rear, 'rear wheel'], [front, 'front wheel']].forEach(function(w) {
-    var c = w[0], label = w[1];
-    ring(c, wheelRadius, tyreRadius, tyre, label + ' tyre');
-    ring(c, wheelRadius - 0.5, 0.38, gumwall, label + ' tyre');
-    for (var i = 0; i < 56; ++i) {
-      var a = i * 2 * Math.PI / 56;
-      go.addSphere(onCircle(c, wheelRadius + tyreRadius - 0.05, a, i % 2 ? 0.32 : -0.32), 0.16,
-                   { color : tyre, userData : label + ' tyre' });
-    }
-    ring(c, wheelRadius - 1.0, 0.3, rimColor, label + ' rim');
-    for (var i2 = 0; i2 < 24; ++i2) {
-      go.addTube(at(c[0], c[1], i2 % 2 ? 1.1 : -1.1),
-                 onCircle(c, wheelRadius - 1.05, i2 * 2 * Math.PI / 24), 0.07,
-                 { color : metal, userData : label + ' spokes' });
-    }
-    prism(c, regular(6, 0.9), 2.8, [0.3, 0.3, 0.32], label + ' hub');
-    prism(add(c, [0, 0, -1.9]), regular(28, 2.4), 0.12, metal, label + ' disc brake');
-  });
-
-  // the frame: a sloping top tube and tall head tube, the stays and a wide
-  // fork in pairs either side of the fat tyres, with the brake calipers
-  var bb = at(0, 6.7), seat = at(-2.9, 17.4);
-  var headTop = at(8.75, 18.9), headBottom = at(9.7, 15.0);
-  var frame = function(a, b, r) { go.addTube(a, b, r || 0.6, { color : frameColor, userData : 'frame' }); };
-  frame(bb, seat, 0.65);
-  frame(seat, headTop);
-  frame(bb, headBottom, 0.75);
-  frame(headBottom, headTop, 0.75);
-  [-1.6, 1.6].forEach(function(z) {
-    frame(add(bb, [0, 0, z * 0.5]), add(rear, [0, 0, z]), 0.42);
-    frame(add(seat, [0, -1, z * 0.4]), add(rear, [0, 0, z]), 0.36);
-    go.addTube(add(headBottom, [0, 0, z * 0.5]), add(front, [0, 0, z]), 0.45,
-               { color : frameColor, userData : 'fork' });
-  });
-  go.addSphere(bb, 1.0, { color : metal, userData : 'bottom bracket' });
-  box(add(rear, [-1.2, 1.8, -1.9]), [1.6, 1.0, 0.6], [0.2, 0.2, 0.22], 'brake caliper');
-  box(add(front, [-1.0, 2.0, -1.9]), [1.6, 1.0, 0.6], [0.2, 0.2, 0.22], 'brake caliper');
-
-  // seatpost and saddle (a flat wedge, wide at the back)
-  var saddleAt = at(-4.6, 23.0);
-  go.addTube(seat, saddleAt, 0.35, { color : metal, userData : 'seatpost' });
-  prism(add(saddleAt, [0.4, 0.4, 0]),
-        [[-2.6, -0.3], [3.2, -0.15], [3.4, 0.2], [-2.8, 0.4]], 2.2,
-        [0.1, 0.1, 0.1], 'saddle');
-
-  // stem and flared drop handlebars: the drops splay outwards as they
-  // come down
-  // a small frame: the bars stay where the rider's hands are, on a stack
-  // of spacers above the head tube
-  var stemEnd = at(11.8, 22.4), barColor = [0.15, 0.15, 0.15];
-  var steererTop = at(8.4, 20.4);
-  go.addTube(headTop, steererTop, 0.55, { color : [0.15, 0.15, 0.15], userData : 'spacers' });
-  go.addTube(steererTop, stemEnd, 0.4, { color : metal, userData : 'stem' });
-  go.addTube(add(stemEnd, [0, 0, -2.1]), add(stemEnd, [0, 0, 2.1]), 0.35,
-             { color : barColor, userData : 'handlebar' });
-  [-1, 1].forEach(function(side) {
-    var p0 = add(stemEnd, [0, 0, side * 2.1]), p1 = add(stemEnd, [1.5, -1.0, side * 2.25]);
-    var p2 = add(stemEnd, [1.0, -2.8, side * 2.6]), p3 = add(stemEnd, [-0.6, -3.0, side * 2.75]);
-    [[p0, p1], [p1, p2], [p2, p3]].forEach(function(s) {
-      limb(s[0], s[1], 0.35, barColor, 'handlebar');
+  // one pickable shape: build() emits its triangles through tri(a, b, c,
+  // na, nb, nc), in either winding -- each one is turned to face the way
+  // its normals point
+  function solid(label, color, build, mesh) {
+    var pos = [], nrm = [];
+    build(function(a, b, c, na, nb, nc) {
+      if (dot(cross(sub(b, a), sub(c, a)), add(add(na, nb), nc)) < 0) {
+        var t = b; b = c; c = t;
+        t = nb; nb = nc; nc = t;
+      }
+      pos.push.apply(pos, placed(a).concat(placed(b), placed(c)));
+      nrm.push.apply(nrm, placed(na, true).concat(placed(nb, true), placed(nc, true)));
     });
-  });
-
-  // drivetrain: one toothed chainring and a wide-range rear cassette, the
-  // chain between them, and the cranks with their pedals at opposite angles
-  var chainZ = 1.9;
-  prism(add(bb, [0, 0, chainZ]), toothed(40, 3.9, 3.6), 0.3, [0.25, 0.25, 0.27], 'chainring');
-  prism(add(rear, [0, 0, chainZ]), toothed(36, 2.5, 2.25), 0.3, [0.25, 0.25, 0.27], 'cassette');
-  var chain = { color : [0.4, 0.4, 0.42], userData : 'chain' };
-  go.addTube(add(bb, [0, 3.75, chainZ]), add(rear, [0, 2.4, chainZ]), 0.15, chain);
-  go.addTube(add(bb, [0, -3.75, chainZ]), add(rear, [0, -2.4, chainZ]), 0.15, chain);
-  var crankAngle = -0.2;
-  var pedals = [];
-  [[2.6, crankAngle, 'right'], [-2.6, crankAngle + Math.PI, 'left']].forEach(function(c) {
-    var pedal = onCircle(bb, 3.6, c[1], c[0]);
-    go.addTube(add(bb, [0, 0, c[0] * 0.8]), pedal, 0.4, { color : metal, userData : c[2] + ' crank' });
-    box(add(pedal, [0, 0, c[0] * 0.25]), [2.2, 0.5, 1.4], [0.2, 0.2, 0.2], c[2] + ' pedal');
-    pedals.push({ at : pedal, z : c[0], side : c[2] });
-  });
-
-  // a water bottle in its cage on top of the down tube: a tube with a cone
-  // top
-  var bottleBottom = at(1.1, 9.4, 0), bottleTop = at(4.3, 12.1, 0);
-  go.addTube(bottleBottom, bottleTop, 1.0, { color : [0.2, 0.6, 0.85], userData : 'bottle' });
-  cone(bottleTop, add(bottleTop, [0.76, 0.65, 0]), 0.95, [0.95, 0.95, 0.95], 'bottle');
-
-  // the rider, on the hoods: torso, head with a helmet (a sphere and a
-  // short cone at the back), arms to the brake hoods, legs to the pedals
-  // with the knees and elbows solved for, and shoes
-  var hip = at(-4.3, 25.0), shoulder = at(6.6, 30.6), head = at(10.3, 33.0);
-  limb(hip, shoulder, 2.4, jersey, 'rider');
-  go.addSphere(hip, 2.5, { color : shorts, userData : 'rider' });
-  go.addSphere(shoulder, 2.2, { color : jersey, userData : 'rider' });
-  go.addTube(shoulder, head, 0.9, { color : skin, userData : 'rider' });
-  go.addSphere(head, 2.0, { color : skin, userData : 'rider' });
-  go.addSphere(add(head, [-0.3, 0.6, 0]), 2.25, { color : [0.95, 0.95, 0.95], userData : 'helmet' });
-  cone(add(head, [-1.2, 0.7, 0]), add(head, [-3.4, 0.2, 0]), 1.8, [0.95, 0.95, 0.95], 'helmet');
-  // sunglasses: a dark bar across the front of the face (sitting on the
-  // head's surface, so the head doesn't show through), and a faint smile
-  // below them -- a thin, dark curve on the head's surface, just turned up
-  // at the corners
-  function onHead(r, y, z) {
-    return add(head, [Math.sqrt(Math.max(0, r * r - y * y - z * z)), y, z]);
+    (mesh || go).addTriangles(pos, { color : color, normals : nrm, userData : label });
   }
-  box(add(head, [1.9, 0.0, 0]), [0.5, 0.8, 3.4], [0.1, 0.1, 0.1], 'sunglasses');
-  var smile = { color : [0.42, 0.18, 0.15], userData : 'smile' };
-  for (var k2 = 0; k2 < 8; ++k2) {
-    var z0 = -0.55 + k2 * 0.1375, z1 = z0 + 0.1375;
-    var curve = function(z) { return -1.15 + 0.22 * (z / 0.55) * (z / 0.55); };
-    go.addTube(onHead(2.03, curve(z0), z0), onHead(2.03, curve(z1), z1), 0.07, smile);
+  // a smooth surface f(u, v) -> [point, normal] over the unit square
+  function grid(tri, f, nu, nv) {
+    for (var i = 0; i < nu; ++i) {
+      for (var j = 0; j < nv; ++j) {
+        var a = f(i / nu, j / nv), b = f((i + 1) / nu, j / nv);
+        var c = f((i + 1) / nu, (j + 1) / nv), d = f(i / nu, (j + 1) / nv);
+        tri(a[0], b[0], c[0], a[1], b[1], c[1]);
+        tri(a[0], c[0], d[0], a[1], c[1], d[1]);
+      }
+    }
   }
-  [-2.2, 2.2].forEach(function(z) {
-    var s = add(shoulder, [0, -0.5, z]), hand = add(stemEnd, [1.3, -0.9, z * 1.05]);
-    var elbow = joint(s, hand, 6.2, 5.8, [0, -1, 0]);
-    limb(s, elbow, 0.85, skin, 'rider');
-    limb(elbow, hand, 0.75, skin, 'rider');
-    go.addSphere(hand, 0.85, { color : [0.1, 0.1, 0.12], userData : 'gloves' });
-  });
-  pedals.forEach(function(p) {
-    var h = add(hip, [0, 0, p.z * 0.75]), ankle = add(p.at, [-0.3, 1.2, p.z * 0.9]);
-    var knee = joint(h, ankle, 10.6, 10.0, [1, 0, 0]);
-    limb(h, knee, 1.45, shorts, 'rider');
-    limb(knee, ankle, 1.05, skin, 'rider');
-    box(add(ankle, [0.6, -0.7, 0]), [3.4, 1.0, 1.3], [0.95, 0.95, 0.95], p.side + ' shoe');
+  // a flat fan from center to a closed loop of points
+  function fan(tri, center, n, loop) {
+    for (var i = 0; i < loop.length; ++i) {
+      tri(center, loop[i], loop[(i + 1) % loop.length], n, n, n);
+    }
+  }
+  function circle(center, f, r, n) {
+    var pts = [];
+    for (var i = 0; i < n; ++i) {
+      var a = i * 2 * Math.PI / n;
+      pts.push(add(center, local(f, r * Math.cos(a), r * Math.sin(a), 0)));
+    }
+    return pts;
+  }
+
+  // a sphere, an ellipsoid (r as [rx, ry, rz]) or, with half, a dome on a
+  // flat base, bulging along axis
+  function ball(c, r, color, label, opts) {
+    opts = opts || {};
+    var rr = typeof r === 'number' ? [r, r, r] : r;
+    var f = frame(opts.axis || [0, 1, 0]);
+    var top = opts.half ? Math.PI / 2 : Math.PI;
+    solid(label, color, function(tri) {
+      grid(tri, function(u, v) {
+        var phi = u * 2 * Math.PI, theta = v * top;
+        var d = local(f, Math.sin(theta) * Math.cos(phi), Math.sin(theta) * Math.sin(phi),
+                      Math.cos(theta));
+        return [add(c, [d[0] * rr[0], d[1] * rr[1], d[2] * rr[2]]),
+                norm([d[0] / rr[0], d[1] / rr[1], d[2] / rr[2]])];
+      }, 64, opts.half ? 16 : 32);
+      if (opts.half) {
+        fan(tri, c, scale(f[2], -1), circle(c, f, rr[0], 64));
+      }
+    }, opts.mesh);
+  }
+  function cylinder(a, b, r, color, label) {
+    var f = frame(sub(b, a)), axis = sub(b, a);
+    solid(label, color, function(tri) {
+      grid(tri, function(u, v) {
+        var d = local(f, Math.cos(u * 2 * Math.PI), Math.sin(u * 2 * Math.PI), 0);
+        return [add(add(a, scale(axis, v)), scale(d, r)), d];
+      }, 64, 1);
+      fan(tri, a, scale(f[2], -1), circle(a, f, r, 64));
+      fan(tri, b, f[2], circle(b, f, r, 64));
+    });
+  }
+  function cone(base, tip, r, color, label) {
+    var f = frame(sub(tip, base)), axis = sub(tip, base);
+    var h = Math.sqrt(dot(axis, axis));
+    solid(label, color, function(tri) {
+      grid(tri, function(u, v) {
+        var d = local(f, Math.cos(u * 2 * Math.PI), Math.sin(u * 2 * Math.PI), 0);
+        return [add(add(base, scale(axis, v)), scale(d, r * (1 - v))),
+                norm(add(scale(d, h), scale(f[2], r)))];
+      }, 64, 1);
+      fan(tri, base, scale(f[2], -1), circle(base, f, r, 64));
+    });
+  }
+  // a ring of radius R around axis, its tube of radius r
+  function torus(c, axis, R, r, color, label) {
+    var f = frame(axis);
+    solid(label, color, function(tri) {
+      grid(tri, function(u, v) {
+        var d = local(f, Math.cos(u * 2 * Math.PI), Math.sin(u * 2 * Math.PI), 0);
+        var n = add(scale(d, Math.cos(v * 2 * Math.PI)), scale(f[2], Math.sin(v * 2 * Math.PI)));
+        return [add(add(c, scale(d, R)), scale(n, r)), n];
+      }, 96, 12);
+    });
+  }
+  // a tube of radius r along a polyline, its cross-sections carried along
+  // without twisting (parallel transport)
+  function tube(pts, r, color, label) {
+    var last = pts.length - 1, t = [], n = [], b = [];
+    for (var i = 0; i <= last; ++i) {
+      t[i] = norm(sub(pts[Math.min(i + 1, last)], pts[Math.max(i - 1, 0)]));
+      var prev = i === 0 ? frame(t[0])[0] : n[i - 1];
+      n[i] = norm(sub(prev, scale(t[i], dot(prev, t[i]))));
+      b[i] = cross(t[i], n[i]);
+    }
+    var m = 20;
+    function around(i, k) {
+      var a = k * 2 * Math.PI / m;
+      var d = add(scale(n[i], Math.cos(a)), scale(b[i], Math.sin(a)));
+      return [add(pts[i], scale(d, r)), d];
+    }
+    solid(label, color, function(tri) {
+      for (var i = 0; i < last; ++i) {
+        for (var k = 0; k < m; ++k) {
+          var p = around(i, k), q = around(i + 1, k);
+          var s = around(i + 1, k + 1), o = around(i, k + 1);
+          tri(p[0], q[0], s[0], p[1], q[1], s[1]);
+          tri(p[0], s[0], o[0], p[1], s[1], o[1]);
+        }
+      }
+      var ends = [[0, scale(t[0], -1)], [last, t[last]]];
+      ends.forEach(function(e) {
+        var loop = [];
+        for (var k = 0; k < m; ++k) loop.push(around(e[0], k)[0]);
+        fan(tri, pts[e[0]], e[1], loop);
+      });
+    });
+  }
+  // a flat, convex outline (points in the xy plane) extruded from depth z0
+  // to z1
+  function slab(pts, z0, z1, color, label, mesh) {
+    var c = [0, 0];
+    pts.forEach(function(p) { c[0] += p[0] / pts.length; c[1] += p[1] / pts.length; });
+    solid(label, color, function(tri) {
+      var front = [], back = [];
+      pts.forEach(function(p) { back.push([p[0], p[1], z0]); front.push([p[0], p[1], z1]); });
+      fan(tri, [c[0], c[1], z0], [0, 0, -1], back);
+      fan(tri, [c[0], c[1], z1], [0, 0, 1], front);
+      for (var i = 0; i < pts.length; ++i) {
+        var j = (i + 1) % pts.length;
+        var side = norm([pts[j][1] - pts[i][1], pts[i][0] - pts[j][0], 0]);
+        if (dot(side, [pts[i][0] - c[0], pts[i][1] - c[1], 0]) < 0) side = scale(side, -1);
+        tri(back[i], back[j], front[j], side, side, side);
+        tri(back[i], front[j], front[i], side, side, side);
+      }
+    }, mesh);
+  }
+  // a rectangle between two corners given in pixels
+  function block(px0, py0, px1, py1, z0, z1, color, label) {
+    slab([P(px0, py0), P(px1, py0), P(px1, py1), P(px0, py1)], z0, z1, color, label);
+  }
+  // a quadratic Bezier curve through n + 1 points
+  function curve(p0, p1, p2, n) {
+    var pts = [];
+    for (var i = 0; i <= n; ++i) {
+      var s = i / n;
+      pts.push(add(add(scale(p0, (1 - s) * (1 - s)), scale(p1, 2 * s * (1 - s))),
+                   scale(p2, s * s)));
+    }
+    return pts;
+  }
+
+  var cream = [0.93, 0.91, 0.85], black = [0.07, 0.07, 0.08];
+  var yellow = [0.95, 0.77, 0.18], ochre = [0.86, 0.6, 0.22];
+  var orange = [0.94, 0.47, 0.1], red = [0.78, 0.13, 0.11];
+  var blue = [0.13, 0.3, 0.64], slate = [0.4, 0.49, 0.63];
+  var green = [0.27, 0.58, 0.3], pink = [0.95, 0.66, 0.72];
+  var grey = [0.56, 0.58, 0.62], white = [0.96, 0.95, 0.92];
+  var seed = 11;
+  function random() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  // a thin line between two points given in pixels, at depths z0 and z1
+  function line(px0, py0, px1, py1, z0, z1, color, r) {
+    tube([P(px0, py0, z0), P(px1, py1, z1)], r || 0.13, color || black, 'line');
+  }
+
+  // the wall: Swinging on its front (+z), Delicate Tension on its back
+  place = { cos : 1, sin : 0, lift : 0, out : 0 };
+  slab([[-40, 0], [40, 0], [40, 112], [-40, 112]], -12, -10, [0.24, 0.24, 0.26], 'wall');
+  cylinder([0, -1.5, -11], [0, 0, -11], 75, [0.8, 0.79, 0.77], 'floor');
+
+  painting(340, 485, 0, 0, function() {
+    // the canvas, and the soft washes of color the forms float in front of
+    slab([P(0, 0), P(340, 0), P(340, 485), P(0, 485)], -10, -9, cream, 'canvas');
+    [[250, 255, [9, 7], [0.62, 0.76, 0.87]], [312, 400, [6, 10], [0.6, 0.73, 0.84]],
+     [28, 385, [5, 8], [0.33, 0.6, 0.55]], [205, 172, [6.5, 5.5], [0.84, 0.27, 0.2]],
+     [240, 35, [11, 5], [0.72, 0.77, 0.82]], [235, 432, [9, 3.5], [0.28, 0.22, 0.34]],
+     [95, 235, [7, 6], [0.9, 0.74, 0.45]]].forEach(function(w) {
+      ball(P(w[0], w[1], -8.6), [w[2][0], w[2][1], 0.4], w[3], 'wash');
+    });
+
+    // top left: three wavy lines on a black panel
+    block(18, 0, 78, 165, -8, -7, black, 'black panel');
+    [[32, yellow], [50, orange], [66, ochre]].forEach(function(l, k) {
+      var pts = [];
+      for (var py = 6; py <= 158; py += 2) {
+        pts.push(P(l[0] + 5 * Math.sin(py / 40 * 2 * Math.PI + k * 0.6), py, -6.4));
+      }
+      tube(pts, 0.55, l[1], 'wavy line');
+    });
+    tube(curve(P(40, 138, -5), P(55, 185, -4), P(118, 192, -3), 24), 0.5, pink, 'pink arc');
+
+    // the big yellow triangle, a grey one over its foot, and the blue-grey
+    // ray from the top right corner: a long cone narrowing to a point
+    slab([P(115, 38), P(55, 197), P(186, 176)], -5, -3.5, yellow, 'yellow triangle');
+    slab([P(140, 96), P(92, 197), P(186, 190)], -3.5, -2.5, grey, 'grey triangle');
+    cone(P(336, 4, -3), P(178, 140, -3), 4, slate, 'ray');
+
+    // the black, orange and green circles of the top half
+    ball(P(190, 75, 1), 4.4, black, 'black circle');
+    ball(P(293, 97, 0), 5, orange, 'orange circle');
+    ball(P(215, 170, 1.5), 4, green, 'green circle');
+    torus(P(215, 170, 1.5), [0, 0, 1], 5.3, 0.16, black, 'green circle');
+
+    // top right: red and yellow stripes, stepping in and out
+    [red, yellow, red, orange, red].forEach(function(c, k) {
+      block(266, 168 + k * 7.5, 340, 175 + k * 7.5, -6, k % 2 ? -3 : -4.5, c, 'stripes');
+    });
+
+    // the dark plane under the triangles with its little squares, a ball
+    // half red and half blue, and two black spikes pointing down
+    slab([P(55, 197), P(135, 190), P(150, 312), P(70, 330)], -6, -5, black, 'dark plane');
+    block(118, 196, 138, 214, -5, -4, yellow, 'square');
+    block(124, 222, 140, 238, -5, -3.6, blue, 'square');
+    block(112, 246, 128, 262, -5, -4.4, red, 'square');
+    ball(P(158, 228, 2), 1.7, red, 'red and blue ball', { axis : [1, 0, 0], half : true });
+    ball(P(158, 228, 2), 1.7, blue, 'red and blue ball', { axis : [-1, 0, 0], half : true });
+    cone(P(180, 224, 2), P(186, 270, 2), 1.4, black, 'spike');
+    cone(P(201, 232, 1), P(197, 274, 1), 1.1, black, 'spike');
+
+    // the left column: a pale pillar topped with a dome, carrying a red,
+    // a black and a pale orange circle and a yellow half circle
+    block(18, 252, 62, 440, -7, -5, white, 'pillar');
+    ball(P(40, 250, -3), 5, [0.88, 0.88, 0.9], 'dome', { half : true });
+    cylinder(P(40, 254, -3), P(40, 250, -3), 5.8, [0.3, 0.3, 0.33], 'dome');
+    ball(P(40, 286, -2), 2.8, red, 'red circle');
+    torus(P(40, 286, -2), [0, 0, 1], 3.4, 0.18, black, 'red circle');
+    ball(P(40, 352, -2), 4.3, black, 'black disc');
+    ball(P(40, 403, -2), 3, [0.96, 0.7, 0.4], 'pale orange circle');
+    var half = [];
+    for (var a = 0; a <= 24; ++a) {
+      half.push(add(P(40, 440), [3.6 * Math.cos(a * Math.PI / 24), 3.6 * Math.sin(a * Math.PI / 24), 0]));
+    }
+    slab(half, -4, -2.5, yellow, 'yellow half circle');
+
+    // the checkerboard: colored blocks of different heights (a fixed pseudo-
+    // random choice, so the scene is the same every time)
+    var tiles = [yellow, blue, red, white, green, pink, slate, orange, black, ochre];
+    for (var row = 0; row < 5; ++row) {
+      for (var col = 0; col < 6; ++col) {
+        var x0 = 84 + col * 14, y0 = 312 + row * 14.5;
+        block(x0 + 0.5, y0 + 0.5, x0 + 13.5, y0 + 14, -5, -4 + 3.5 * random(),
+              tiles[Math.floor(random() * tiles.length)], 'checkerboard');
+      }
+    }
+    block(76, 385, 170, 391, -5, -3, white, 'white bar');
+
+    // the pink fan, translucent, over the blocks and bars below it
+    var fanPts = [P(146, 335)];
+    for (var a2 = 0; a2 <= 32; ++a2) {
+      var ang = -Math.PI / 2 + a2 * Math.PI / 64;
+      fanPts.push(add(P(146, 335), [21 * Math.cos(ang), 21 * Math.sin(ang), 0]));
+    }
+    slab(fanPts, 1.5, 2.3, pink, 'pink fan', glass);
+    glass.setOpacity(0.7);
+
+    // bottom right: two blue arcs swinging out of the picture plane, little
+    // domes at their feet, a black post and the bars it crosses
+    tube(curve(P(216, 322, -1), P(222, 212, 9), P(302, 208, 2), 32), 0.55, blue, 'blue arc');
+    tube(curve(P(258, 322, -1), P(266, 232, 7), P(336, 232, 2), 32), 0.55, blue, 'blue arc');
+    ball(P(226, 324, -2), 2.4, pink, 'pink dome', { half : true });
+    ball(P(268, 324, -2), 2.4, [0.66, 0.8, 0.9], 'blue dome', { half : true });
+    block(160, 324, 332, 328, -4, -1.5, black, 'bar');
+    block(165, 343, 336, 348, -4, 0, black, 'bar');
+    block(172, 351, 300, 354, -4, -1, red, 'red bar');
+    cylinder(P(300, 445, -1), P(300, 210, -1), 0.75, black, 'post');
+
+    // the black base everything stands on
+    block(18, 440, 312, 452, -7, 1.5, black, 'base');
   });
 
-  // custom meshes report no extent to autoZoom(), so frame it by hand:
-  // side on, the whole bike and rider in view
-  viewer.setRotation(pv.mat4.create(), 0);
-  viewer.setCenter([2, 16, 0], 0);
-  viewer.setZoom(66, 0);
+  // Delicate Tension, turned half way round so it faces -z, its canvas on
+  // the back of the wall
+  painting(1024, 1463, Math.PI, 22, function() {
+    function px(n) { return n * pixel; }
+    var paper = [0.94, 0.93, 0.89], olive = [0.66, 0.6, 0.34];
+    var crimson = [0.74, 0.1, 0.33], rose = [0.86, 0.25, 0.42];
+    slab([P(0, 0), P(1024, 0), P(1024, 1463), P(0, 1463)], -10, -9, paper, 'paper');
+
+    // the lance: black from its point at the bottom, olive through the
+    // middle, black again with a red stretch near the top, and a blue bead
+    // where the pink lines cross it. It leans out of the picture towards
+    // the bottom.
+    cone(P(500, 1075, 2), P(400, 1340, 5), px(26), black, 'lance');
+    cylinder(P(500, 1075, 2), P(648, 595, -2), px(20), olive, 'lance');
+    cone(P(648, 595, -2), P(792, 42, -5), px(19), black, 'lance');
+    cylinder(P(716, 318, -3.7), P(762, 172, -4.6), px(9), red, 'lance');
+    ball(P(695, 355, -3.5), px(17), blue, 'blue bead');
+    [[1030, 1050], [1060, 1080]].forEach(function(b) {
+      var s0 = (b[0] - 1075) / 265, s1 = (b[1] - 1075) / 265;
+      cylinder(P(500 + 100 * s0, b[0], 2), P(500 + 100 * s1, b[1], 2), px(22), white, 'lance');
+    });
+
+    // the pink lines: a tall V through the lance, and rays fanning out
+    // from the bowl to the left edge
+    tube([P(285, 425, -6), P(585, 65, -4), P(778, 585, -1)], 0.16, rose, 'pink lines');
+    [[80, 995, 590, 870], [100, 1130, 560, 905], [160, 1255, 590, 880],
+     [565, 1210, 600, 900]].forEach(function(l) {
+      line(l[0], l[1], l[2], l[3], -1, -3, rose, 0.12);
+    });
+
+    // top left: the grey triangle with its black and red cap, the yellow
+    // disc over it and a small olive one, and the blue circle further down
+    slab([P(240, 385), P(318, 165), P(350, 165), P(598, 452)], -8, -7, [0.68, 0.66, 0.63], 'grey triangle');
+    slab([P(310, 178), P(352, 178), P(347, 192), P(305, 192)], -7, -6.5, black, 'grey triangle');
+    slab([P(318, 160), P(350, 160), P(351, 166), P(316, 166)], -7, -6.5, red, 'grey triangle');
+    ball(P(415, 315, -6), [px(72), px(72), px(24)], [0.95, 0.74, 0.14], 'yellow disc');
+    for (var arc = 0; arc < 3; ++arc) {
+      var cx = 375 + arc * 30, arcPts = [];
+      for (var a = 0; a <= 16; ++a) {
+        var t = Math.PI * a / 16;
+        arcPts.push(P(cx + 32 * Math.cos(t), 345 - 32 * Math.sin(t), -6 + px(24) + 0.1));
+      }
+      tube(arcPts, 0.1, [0.4, 0.3, 0.1], 'yellow disc');
+    }
+    ball(P(470, 268, -4), px(24), [0.5, 0.52, 0.24], 'olive circle');
+    ball(P(203, 430, -3), px(35), [0.13, 0.28, 0.68], 'blue circle');
+    line(150, 348, 245, 512, -4, -2);
+    line(155, 378, 330, 545, -4, -2);
+    line(235, 130, 400, 435, -5, -6);
+    line(310, 445, 570, 238, -6, -4);
+    line(325, 110, 340, 230, -5, -5);
+    [140, 150, 160].forEach(function(y) { line(312, y, 352, y - 6, -5, -5, black, 0.08); });
+
+    // the black-ringed crimson target on the right, and the black bar on
+    // the left
+    torus(P(862, 595, -2), [0, 0, 1], px(34), px(12), black, 'target');
+    ball(P(862, 595, -2), px(22), crimson, 'target');
+    tube([P(48, 635, -4), P(153, 577, -3)], px(10), black, 'black bar');
+
+    // the yellow A and its striped crossbar, and the pink stripes under it
+    line(130, 620, 305, 915, -6, -4, yellow, 0.12);
+    line(130, 620, 130, 980, -6, -5, yellow, 0.12);
+    line(310, 650, 395, 940, -5, -3, yellow, 0.1);
+    [0, 9, 18].forEach(function(d) {
+      line(120, 742 - d, 272, 662 - d, -5, -5, ochre, 0.18);
+      line(85, 788 + d, 215, 826 + d, -6, -6, rose, 0.1);
+    });
+
+    // the bowl: a yellow half disc with a ribbed rim, an orange and a blue
+    // triangle in it, and a small green ring with an orange centre
+    var bowl = [];
+    for (var b = 0; b <= 32; ++b) {
+      var ang = Math.PI + b * Math.PI / 32;
+      bowl.push(add(P(540, 880), [px(232) * Math.cos(ang), px(232) * Math.sin(ang), 0]));
+    }
+    slab(bowl, -8, -7, [0.97, 0.8, 0.32], 'bowl');
+    [238, 250, 262].forEach(function(r, k) {
+      var rim = [];
+      for (var b2 = 0; b2 <= 48; ++b2) {
+        var ang2 = Math.PI + b2 * Math.PI / 48;
+        rim.push(add(P(540, 880, -6.6 + k * 0.4), [px(r) * Math.cos(ang2), px(r) * Math.sin(ang2), 0]));
+      }
+      tube(rim, k === 1 ? 0.22 : 0.12, k === 1 ? [0.85, 0.6, 0.1] : black, 'bowl rim');
+    });
+    slab([P(305, 832), P(470, 895), P(305, 895)], -7, -6, orange, 'orange triangle');
+    slab([P(412, 1050), P(510, 958), P(500, 1085)], -7, -5.8, [0.33, 0.55, 0.85], 'blue triangle');
+    torus(P(392, 972, -4), [0, 0, 1], px(24), px(5), [0.2, 0.35, 0.2], 'green ring');
+    ball(P(392, 972, -4), px(9), orange, 'green ring');
+
+    // the chequered band slanting down to the right across the lance, and
+    // the chequered block beside it: tiles of different heights
+    var dtTiles = [white, white, black, [0.7, 0.7, 0.7], crimson, [0.12, 0.5, 0.6],
+                   yellow, olive, pink, orange, [0.75, 0.75, 0.68]];
+    var u = [0.87, 0.49], v = [-0.49, 0.87], size = 62;
+    for (var i = 0; i < 9; ++i) {
+      for (var j = 0; j < 3; ++j) {
+        var o = [355 + (i * u[0] + j * v[0]) * size, 650 + (i * u[1] + j * v[1]) * size];
+        var corner = function(du, dv) {
+          return P(o[0] + (du * u[0] + dv * v[0]) * (size - 4),
+                   o[1] + (du * u[1] + dv * v[1]) * (size - 4));
+        };
+        slab([corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)], -7, -6 + 2.5 * random(),
+             dtTiles[Math.floor(random() * dtTiles.length)], 'chequered band');
+      }
+    }
+    for (var r2 = 0; r2 < 5; ++r2) {
+      for (var c2 = 0; c2 < 4; ++c2) {
+        var x0 = 650 + c2 * 55 + r2 * 4, y0 = 665 + r2 * 58;
+        block(x0, y0, x0 + 51, y0 + 54, -7.5, -6.5 + 2 * random(),
+              dtTiles[Math.floor(random() * dtTiles.length)], 'chequered block');
+      }
+    }
+    var arch = [];
+    for (var h = 0; h <= 16; ++h) {
+      arch.push(P(740 + 32 * Math.cos(Math.PI * h / 16), 720 - 32 * Math.sin(Math.PI * h / 16), -3));
+    }
+    tube(arch, 0.25, red, 'arch');
+
+    // long thin lines running off to the right and across the picture
+    line(80, 985, 862, 185, -7, -4);
+    line(600, 735, 965, 945, -5, -5);
+    line(575, 780, 985, 1000, -5, -5);
+    line(560, 830, 1015, 1120, -5, -4);
+    line(400, 1240, 455, 505, -3, -6);
+    line(330, 735, 810, 1180, -6, -2);
+
+    // top right: a pale green and an olive plane, and a red spike
+    slab([P(698, 145), P(752, 125), P(778, 130), P(762, 156)], -6, -5, [0.82, 0.88, 0.78], 'pale green plane');
+    slab([P(806, 142), P(842, 150), P(850, 170), P(810, 168)], -6, -5, olive, 'olive plane');
+    cone(P(862, 172, -4), P(935, 190, -4), px(9), [0.92, 0.27, 0.15], 'red spike');
+    line(715, 335, 885, 160, -4, -5);
+    [0, 9, 18].forEach(function(d) { line(760 + d, 255, 815 + d, 300, -5, -5, black, 0.08); });
+
+    // bottom right: crossings of thin lines with an orange, a red and a
+    // green ring at them
+    ball(P(790, 1188, -2), px(20), orange, 'orange dot');
+    ball(P(748, 1255, -2), px(11), crimson, 'red dot');
+    torus(P(828, 1312, -2), [0, 0, 1], px(10), px(3), [0.45, 0.6, 0.4], 'green dot');
+    [0, 10, 20].forEach(function(d) {
+      line(690, 1215 + d, 860, 1168 + d, -2.5, -2.5, black, 0.08);
+      line(850 + d * 1.5, 1420, 1000 + d * 1.5, 1195, -3, -3, black, 0.08);
+    });
+    line(740, 1170, 740, 1368, -2, -2);
+    line(760, 1112, 848, 1342, -2, -2);
+    line(670, 1258, 790, 1262, -2, -2);
+    line(795, 1305, 935, 1345, -2, -2);
+  });
+
+  // frame the front of the wall, turned a little to show the relief's
+  // depth; the back is for whoever turns it round
+  var rotation = pv.mat4.create();
+  pv.mat4.rotateX(rotation, rotation, 0.08);
+  pv.mat4.rotateY(rotation, rotation, -0.35);
+  viewer.setRotation(rotation, 0);
+  viewer.setCenter([0, 54, -8], 0);
+  viewer.setZoom(150, 0);
 }
 
 function ensemble() {
