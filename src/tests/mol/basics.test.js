@@ -256,7 +256,9 @@ test('residue select on structure', function(assert) {
       assert.ok(r.isAminoacid());
       count ++;
   });
-  assert.strictEqual(count, 10);
+  // the 9 residues of the peptide; the SAH ligand, a methionine on an
+  // adenosine, is a nucleotide and not an amino acid as well
+  assert.strictEqual(count, 9);
   assert.strictEqual(view.chains().length, 1);
 });
 

@@ -38,6 +38,8 @@ Behaviour changes that may need changes in code using `PV`:
     nucleotides of DNA/RNA chains, but now free amino acids. Code that picked DNA/RNA out of
     the ligands, e.g. `select('ligand').select({ rnames : ['A', 'C', 'G', 'U'] })`, should
     start from `select('polymer')` instead.
+  - a residue with the atoms of both a nucleotide and an amino acid (SAM, SAH, hypermodified
+    tRNA bases such as 12A) is a nucleotide only, so `select('protein')` no longer returns it.
 
 Trying it out
 -----------------------------------------

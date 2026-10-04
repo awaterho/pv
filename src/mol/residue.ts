@@ -149,7 +149,14 @@ class Residue extends ResidueBase<Atom> {
     // nucleotides.
     this._isNucleotide = this.atom('C1\'') !== null && this.atom('C3\'') !== null &&
                          this.atom('C4\'') !== null && this.atom('O3\'') !== null;
-    this._isAminoacid = this.atom('N') !== null && this.atom('CA') !== null &&
+    // a residue with both sets of atoms is a nucleotide carrying an amino
+    // acid: hypermodified tRNA bases such as 12A (with a threonine), or
+    // SAM/SAH (methionine on adenosine). Classing it as an amino acid too
+    // would put the nucleic-acid trace through the amino acid's CA. A
+    // protein residue carrying a nucleotide would lose its place in the
+    // protein trace instead, but those are deposited as two residues.
+    this._isAminoacid = !this._isNucleotide &&
+                        this.atom('N') !== null && this.atom('CA') !== null &&
                         this.atom('C') !== null && this.atom('O') !== null;
     // trace-only residues (io.cif's traceOnly option, or CA-only models):
     // the central atom alone, CA for an amino acid, C3' for a nucleotide.

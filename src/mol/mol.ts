@@ -67,6 +67,18 @@ AT : 1.50, RN : 1.50, FR : 2.60, RA : 2.21, AC : 2.15, TH : 2.06, PA : 2.00,
  U : 1.96, NP : 1.90, PU : 1.87, AM : 1.80, CM : 1.69
 };
 
+// the non-metals (and metalloids). Two atoms that are both something else
+// are never bonded by distance: the irons of an iron-sulfur cluster sit
+// within bonding distance of each other but are only bonded to the sulfurs.
+const NON_METALS = new Set([
+  'H', 'D', 'HE', 'B', 'C', 'N', 'O', 'F', 'NE', 'SI', 'P', 'S', 'CL', 'AR',
+  'GE', 'AS', 'SE', 'BR', 'KR', 'SB', 'TE', 'I', 'XE', 'AT', 'RN',
+]);
+
+function isMetal(ele: string): boolean {
+  return ele !== '' && !NON_METALS.has(ele.toUpperCase());
+}
+
 function covalentRadius(ele: string): number {
   const r = ELEMENT_COVALENT_RADII[ele.toUpperCase()];
   if (r !== undefined) {
@@ -493,8 +505,12 @@ class Mol extends MolBase<Chain> {
           const atomI = atoms[i]!;
           const posI = atomI.pos();
           const covalentI = covalentRadius(atomI.element());
+          const metalI = isMetal(atomI.element());
           for (let j = 0; j < i; j+=1) {
             const atomJ = atoms[j]!;
+            if (metalI && isMetal(atomJ.element())) {
+              continue;
+            }
             const covalentJ = covalentRadius(atomJ.element());
             sqrDist = vec3.sqrDist(posI, atomJ.pos());
             const lower = covalentI+covalentJ-0.30;
