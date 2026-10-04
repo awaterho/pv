@@ -49,6 +49,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:browser": "playwright test",
+    "survey:sample": "node scripts/pdb-survey/sample.mjs",
+    "survey": "vite-node scripts/pdb-survey/survey.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

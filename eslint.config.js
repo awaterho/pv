@@ -29,6 +29,18 @@ export default tseslint.config(
     },
   },
   {
+    // the Node scripts (pages build, PDB survey)
+    files: ['scripts/**'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        Buffer: 'readonly',
+        fetch: 'readonly',
+        performance: 'readonly',
+      },
+    },
+  },
+  {
     // *.test.js and tests/browser/fixtures/** are mechanically-ported QUnit
     // test bodies (kept byte-for-byte identical to the originals apart from
     // the module wrapper); their pre-existing quality issues are left for a

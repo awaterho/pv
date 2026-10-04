@@ -1428,9 +1428,23 @@ function initDisplayControls() {
 }
 initDisplayControls();
 
+// a link to index.html#<id> (e.g. from the PDB survey's report) opens that
+// entry instead of the default example
+function linkedId() {
+  return decodeURIComponent(window.location.hash.slice(1)).trim();
+}
+
 viewer.addListener('viewerReady', function() {
+  if (linkedId()) {
+    getById(linkedId());
+    return;
+  }
   melkInhibitor();
   showMenuPdbId(document.getElementById('4umt'));
+});
+
+window.addEventListener('hashchange', function() {
+  if (linkedId()) getById(linkedId());
 });
 
 // A single click only selects; double-click moves the camera, onto the
