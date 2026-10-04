@@ -158,7 +158,7 @@ Mol (and MolView)
 
   * *water*: selects residues with names HOH and DOD (deuteriated water).
   * *protein*: returns all amino-acids found in the structure. Note that this might return amino acid ligands as well.
-  * *ligand*: selects all residues which are not water nor protein.
+  * *ligand*: selects all residues which are neither water nor part of a polymer, i.e. everything but water that the trace-based render styles (cartoon, tube, trace) don't draw: small molecules and ions, but also single amino acids and nucleotides (a free isoleucine, ATP) and polymer residues left on their own between chain breaks. The nucleotides of DNA and RNA chains are not ligands; select them with *polymer*. Together, *ligand*, *polymer* and *water* cover the whole structure. Before version 2.0, *ligand* selected everything but water and amino acids, including the nucleotides of DNA and RNA chains.
   * *polymer*: selects all residues which are part of polymers. At the moment, this only returns nucleotides and peptides. Residues are considered to be part of polymers if they have a bond to at least one other residue of the same type. Note that the behavior of *polymer* is not identical *protein*. The latter also returns single amino acids.
 
   Matching by predicate dictionary provides a flexible way to specify selections without having to write custom callbacks. A predicate is a condition which has to be fullfilled in order to include a chain, residue or atom in the results. Some of the predicates match against chain ,e.g. *cname*, others against residues, e.g. *rname*, and others against atoms, e.g. *ele*. When multiple predicates are specified in the dictionary, all of them have to match for an item to be included in the results.

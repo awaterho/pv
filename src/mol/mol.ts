@@ -223,10 +223,32 @@ abstract class MolBase<C extends MolChain> {
     if (what === 'water') {
       return this.residueSelect(function(r) { return (r as { isWater(): boolean }).isWater(); });
     }
+    // everything but water outside the polymers, i.e. what the trace based
+    // styles (cartoon, tube, trace) don't draw: ligands including single
+    // amino acids and nucleotides (a free Ile, ATP), and residues left on
+    // their own between chain breaks, but not the nucleotides of DNA/RNA.
+    // The traces are the full chain's, so in a view a residue is judged by
+    // its place in the structure, not in the view.
     if (what === 'ligand') {
+      type LigandResidue = { isWater(): boolean; chain(): { backboneTraces(): {
+        length(): number; residueAt(i: number): unknown }[] } };
+      const traced = new Set<unknown>();
+      const seenChains = new Set<unknown>();
       return this.residueSelect(function(r) {
-        const res = r as { isAminoacid(): boolean; isWater(): boolean };
-        return !res.isAminoacid() && !res.isWater();
+        const res = (r as { full(): LigandResidue }).full();
+        if (res.isWater()) {
+          return false;
+        }
+        const chain = res.chain();
+        if (!seenChains.has(chain)) {
+          seenChains.add(chain);
+          for (const trace of chain.backboneTraces()) {
+            for (let i = 0; i < trace.length(); ++i) {
+              traced.add(trace.residueAt(i));
+            }
+          }
+        }
+        return !traced.has(res);
       });
     }
     // sugars, as the mmCIF reader marks them from chem_comp.type; empty

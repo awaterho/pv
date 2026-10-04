@@ -173,20 +173,11 @@ function useColor(scheme) {
   };
 }
 
-// the ligands: everything but amino acids, water and the nucleotides of
-// DNA/RNA chains (which pv's 'ligand' selection includes), so a free
-// nucleotide such as ATP or SAH counts but a chain's bases don't.
+// the ligands: everything but water that the cartoon doesn't draw, so a
+// free nucleotide such as ATP or a free amino acid counts but a chain's
+// bases don't.
 function ligands() {
-  const nucleicChains = new Map();
-  return structure.residueSelect(function(r) {
-    if (r.isAminoacid() || r.isWater()) return false;
-    if (!r.isNucleotide()) return true;
-    const chain = r.chain();
-    if (!nucleicChains.has(chain)) {
-      nucleicChains.set(chain, chain.residues().filter((x) => x.isNucleotide()).length > 1);
-    }
-    return !nucleicChains.get(chain);
-  });
+  return structure.select('ligand');
 }
 
 // ligands (sugars included) as balls and sticks, plus the add-ons' overlays

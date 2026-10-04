@@ -32,6 +32,13 @@ Since forking, the project has been substantially modernized:
   - migrated the test suite from QUnit to [Vitest](https://vitest.dev) (unit) and
     [Playwright](https://playwright.dev) (browser/visual regression)
 
+Behaviour changes that may need changes in code using `PV`:
+
+  - `select('ligand')` now selects everything but water outside the polymers: no longer the
+    nucleotides of DNA/RNA chains, but now free amino acids. Code that picked DNA/RNA out of
+    the ligands, e.g. `select('ligand').select({ rnames : ['A', 'C', 'G', 'U'] })`, should
+    start from `select('polymer')` instead.
+
 Trying it out
 -----------------------------------------
 
