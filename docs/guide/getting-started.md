@@ -12,15 +12,15 @@ PV shows protein and nucleic-acid structures in a web page with WebGL2. You give
 
 ## Adding PV to a page
 
-PV is built as one file in three formats, in `dist/` of the [repository](https://github.com/awaterho/pv):
+PV is built as one file in three formats, so that it fits however you load scripts. Clone the [repository](https://github.com/awaterho/pv) and run `npm install` and `npm run build` — once it finishes, you'll find all three in `dist/`, alongside `dist/pv.d.ts` with the TypeScript declarations:
 
-| File | Use it with |
+| File | Use it when |
 |---|---|
-| `pv.iife.js` | A plain `<script>` tag. Defines the global `pv`. |
-| `pv.js` | `import pv from './pv.js'` (ES module). |
-| `pv.cjs` | `require('pv')` (CommonJS). |
+| `dist/pv.iife.js` | You just want a plain `<script src="pv.iife.js">` tag, no `import` or `require` at all. It defines the global `pv`. |
+| `dist/pv.js` | Your code uses `import`, either in a browser `<script type="module">` tag or in a project built with a bundler (Vite, webpack, Rollup, esbuild, …): `import pv from './pv.js'`. |
+| `dist/pv.cjs` | Your code uses `require()` instead — typically Node.js: `require('./pv.cjs')`. |
 
-Build them with `npm install` and `npm run build` in a clone of the repository. `dist/pv.d.ts` has the TypeScript declarations.
+Each is minified, with a matching `.map` file (e.g. `pv.iife.js.map`) next to it — optional, but keep it alongside the script so browser devtools can show you original source locations instead of minified code when debugging. For the unminified files themselves, run `npm run build:debug` instead; it writes the same three formats to `dist-debug/`.
 
 A complete page:
 
