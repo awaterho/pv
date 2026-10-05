@@ -46,7 +46,7 @@
     "build:debug": "vite build --mode debug",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "build:pages": "vite build && node scripts/build-pages.mjs && vitepress build docs",
+    "build:pages": "vite build && vitepress build docs && node scripts/build-pages.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

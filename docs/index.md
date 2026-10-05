@@ -6,14 +6,20 @@ hero:
   text: The Protein Viewer
   actions:
     - theme: brand
+      text: Live demo
+      link: https://awaterho.github.io/pv/demo/
+    - theme: alt
       text: Get started
       link: /guide/getting-started
     - theme: alt
       text: API reference
       link: /api/viewer
     - theme: alt
-      text: Live demo
-      link: https://awaterho.github.io/pv/demo/
+      text: Samples
+      link: /samples/
+    - theme: alt
+      text: Source code
+      link: https://github.com/awaterho/pv
 
 features:
   - title: Fast and small

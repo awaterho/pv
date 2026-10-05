@@ -1,8 +1,12 @@
-// Assembles the static site published to GitHub Pages: a landing page at the
-// root (site/index.html) and the interactive demo under /demo/. Run after
-// `npm run build` has produced dist/, since the demo page loads
-// dist/pv.iife.js rather than transpiling TypeScript on the fly (which only
-// works through the Vite dev server).
+// Assembles the static site published to GitHub Pages: the VitePress docs
+// build (run separately, right before this script, see package.json
+// "build:pages") already occupies pages-dist/ as its root, and this script
+// adds the interactive demo under /demo/. It must run after the docs build,
+// not before: vitepress always empties its outDir, which would otherwise
+// wipe out the demo folder. It must also run after `npm run build` has
+// produced dist/, since the demo page loads dist/pv.iife.js rather than
+// transpiling TypeScript on the fly (which only works through the Vite dev
+// server).
 import { cpSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -10,13 +14,8 @@ const root = resolve(import.meta.dirname, '..');
 const outDir = resolve(root, 'pages-dist');
 const demoDir = resolve(outDir, 'demo');
 
-rmSync(outDir, { recursive: true, force: true });
+rmSync(demoDir, { recursive: true, force: true });
 mkdirSync(demoDir, { recursive: true });
-
-// Landing page.
-cpSync(resolve(root, 'site/index.html'), resolve(outDir, 'index.html'));
-cpSync(resolve(root, 'favicon.ico'), resolve(outDir, 'favicon.ico'));
-cpSync(resolve(root, 'pv-icon.png'), resolve(outDir, 'pv-icon.png'));
 
 // Demo page: same index.html used by `npm run dev`, but with dist/pv.iife.js
 // loaded up front so demo.js's "import TypeScript source" fallback never

@@ -1,3 +1,38 @@
+/* The default theme leaves a lot of air above the hero title; tighten it.
+   !important because these override same-specificity scoped rules from the
+   default theme, whose cascade order (ours wins or not) differs between
+   `vitepress dev` and `vitepress build`. */
+.VPHero {
+  padding-top: calc(var(--vp-nav-height) + var(--vp-layout-top-height, 0px) + 8px) !important;
+}
+
+/* Put the hero name and text on one line, with the text smaller, instead of
+   the default theme's two stacked lines of the same size. */
+.VPHero .heading {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.35em;
+}
+
+.VPHero .text {
+  max-width: none !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+}
+
+@media (min-width: 640px) {
+  .VPHero .text {
+    font-size: 26px !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHero .text {
+    font-size: 30px !important;
+  }
+}
+
 .pv-sample {
   margin: 16px 0;
   border: 1px solid var(--vp-c-divider);

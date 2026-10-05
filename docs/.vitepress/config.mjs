@@ -1,25 +1,26 @@
 import { defineConfig } from 'vitepress';
 
-// Published with the demo on GitHub Pages, at <site>/pv/docs/ (see
-// scripts/build-pages.mjs), so the base is /pv/docs/ in development too.
+// Published with the demo on GitHub Pages, at <site>/pv/ (see
+// scripts/build-pages.mjs), so the base is /pv/ in development too. The docs
+// home page (index.md) is the site root; the demo is a separate static
+// build placed under /pv/demo/ by build-pages.mjs, outside this app.
 export default defineConfig({
   title: 'PV',
   description: 'Documentation of PV, a WebGL2 protein viewer',
-  base: '/pv/docs/',
-  outDir: '../pages-dist/docs',
+  base: '/pv/',
+  outDir: '../pages-dist',
   cleanUrls: false,
   lastUpdated: false,
-  head: [['link', { rel: 'icon', href: '/pv/docs/pv-icon.png' }]],
+  head: [['link', { rel: 'icon', href: '/pv/pv-icon.png' }]],
   themeConfig: {
     logo: '/pv-icon.png',
     siteTitle: false,
-    logoLink: { link: 'https://awaterho.github.io/pv/', target: '_self' },
     nav: [
-      { text: 'Home', link: 'https://awaterho.github.io/pv/', target: '_self', noIcon: true },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API', link: '/api/viewer' },
       { text: 'Samples', link: '/samples/' },
       { text: 'Demo', link: 'https://awaterho.github.io/pv/demo/', target: '_self', noIcon: true },
+
     ],
     sidebar: [
       {
