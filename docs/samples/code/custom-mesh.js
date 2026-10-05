@@ -25,11 +25,14 @@ pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (struct
       if (!(i & bit)) box.addTube(corner(i), corner(i | bit), 0.2, { color: 'grey' });
     });
   }
-  // two triangles make the plane; the color's alpha makes it transparent
+  // two triangles make the plane, each added in both winding orders so the
+  // plane is visible from both sides; the color's alpha makes it transparent
   const z = (min[2] + max[2]) / 2;
   viewer.customMesh('plane').addTriangles([
     min[0], min[1], z, max[0], min[1], z, max[0], max[1], z,
     min[0], min[1], z, max[0], max[1], z, min[0], max[1], z,
+    max[0], min[1], z, min[0], min[1], z, max[0], max[1], z,
+    max[0], max[1], z, min[0], min[1], z, min[0], max[1], z,
   ], { color: [0.3, 0.5, 0.9, 0.4] });
 
   // clicking a corner selects it
