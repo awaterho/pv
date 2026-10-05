@@ -8,6 +8,7 @@ hero:
     - theme: brand
       text: Live demo
       link: https://awaterho.github.io/pv/demo/
+      target: _self
     - theme: alt
       text: Get started
       link: /guide/getting-started
