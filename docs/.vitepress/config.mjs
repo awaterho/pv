@@ -12,11 +12,13 @@ export default defineConfig({
   head: [['link', { rel: 'icon', href: '/pv/docs/pv-icon.png' }]],
   themeConfig: {
     logo: '/pv-icon.png',
+    logoLink: 'https://awaterho.github.io/pv/',
     nav: [
+      { text: 'Home', link: 'https://awaterho.github.io/pv/', target: '_self', noIcon: true },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API', link: '/api/viewer' },
       { text: 'Samples', link: '/samples/' },
-      { text: 'Demo', link: 'https://awaterho.github.io/pv/demo/' },
+      { text: 'Demo', link: 'https://awaterho.github.io/pv/demo/', target: '_self', noIcon: true },
     ],
     sidebar: [
       {
