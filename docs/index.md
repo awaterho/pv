@@ -4,9 +4,6 @@ layout: home
 hero:
   name: PV
   text: A WebGL2 protein viewers
-  image:
-    src: /pv-icon.png
-    alt: PV
   actions:
     - theme: brand
       text: Get started
