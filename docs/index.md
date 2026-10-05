@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: PV
-  text: A WebGL2 protein viewers
+  text: The Protein Viewer
   actions:
     - theme: brand
       text: Get started
