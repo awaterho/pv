@@ -21,6 +21,7 @@ hero:
     - theme: alt
       text: Source code
       link: https://github.com/awaterho/pv
+      target: _self
 
 features:
   - title: Fast and small
