@@ -13,7 +13,7 @@ hero:
       link: /api/viewer
     - theme: alt
       text: Live demo
-      link: /pv/demo/
+      link: https://awaterho.github.io/pv/demo/
 
 features:
   - title: Fast and small
