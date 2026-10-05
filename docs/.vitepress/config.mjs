@@ -12,7 +12,8 @@ export default defineConfig({
   head: [['link', { rel: 'icon', href: '/pv/docs/pv-icon.png' }]],
   themeConfig: {
     logo: '/pv-icon.png',
-    logoLink: 'https://awaterho.github.io/pv/',
+    siteTitle: false,
+    logoLink: { link: 'https://awaterho.github.io/pv/', target: '_self' },
     nav: [
       { text: 'Home', link: 'https://awaterho.github.io/pv/', target: '_self', noIcon: true },
       { text: 'Guide', link: '/guide/getting-started' },
