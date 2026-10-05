@@ -22,11 +22,18 @@ export default tseslint.config(
         WebGL2RenderingContext: 'readonly',
         DecompressionStream: 'readonly',
         Response: 'readonly',
+        Blob: 'readonly',
+        TextDecoder: 'readonly',
       },
     },
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
     },
+  },
+  {
+    // the docs' samples run in the page, with PV loaded as the global pv
+    files: ['docs/samples/code/**'],
+    languageOptions: { globals: { pv: 'readonly' } },
   },
   {
     // the Node scripts (pages build, PDB survey)
@@ -49,8 +56,8 @@ export default tseslint.config(
       'dist/**',
       'dist-debug/**',
       'pages-dist/**',
+      'docs/.vitepress/cache/**',
       'node_modules/**',
-      'doc/**',
       'snippets/**',
       'src/tests/**/*.test.js',
       'tests/browser/fixtures/**',

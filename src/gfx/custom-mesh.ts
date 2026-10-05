@@ -374,22 +374,23 @@ utils.derive(CustomMesh, SceneNode, {
       vec3.add(midPoint, start, end);
       vec3.scale(midPoint, midPoint, 0.5);
       geom.buildRotation(rotation, dir, left, up, false);
-      if (cap) {
-        const startIndex = this._data.numVerts();
-        this._data.addVertex(start, [-dir[0], -dir[1], -dir[2]], color, 0);
-        capTubeStart(this._data, startIndex, 8);
-      }
+      // the caps carry the tube's object id too, so they can be picked
       const objectId = this._nextObjectId({
         center : midPoint,
         userData : userData,
         geom : this,
         copy : copy,
       });
+      if (cap) {
+        const startIndex = this._data.numVerts();
+        this._data.addVertex(start, [-dir[0], -dir[1], -dir[2]], color, objectId);
+        capTubeStart(this._data, startIndex, 8);
+      }
       this._protoCyl.addTransformed(this._data, midPoint, length, radius,
                                     rotation, color, color, objectId, objectId);
       if (cap) {
         const baseIndex = this._data.numVerts();
-        this._data.addVertex(end, dir, color, 0);
+        this._data.addVertex(end, dir, color, objectId);
         capTubeEnd(this._data, baseIndex - 8, 8);
       }
       this._ready = false;

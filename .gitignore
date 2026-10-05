@@ -4,11 +4,8 @@
 /js/bio-pv.rel.js
 js/bio-pv.rel.bro.js
 js/bio-pv.browserify.js
-/doc/_static/*.pdb
 /bio-pv.js
 /node_modules
-/doc/_build
-/doc/_static/bio-pv.min.js
 build
 *.csf
 *.tgz
@@ -23,3 +20,4 @@ test-results
 playwright-report
 *.tsbuildinfo
 /survey
+docs/.vitepress/cache

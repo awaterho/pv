@@ -39,7 +39,7 @@ import {
 import TextLabel, { type TextLabel as ITextLabel, type TextLabelOptions } from './gfx/label';
 import CustomMeshCtor, { type CustomMesh } from './gfx/custom-mesh';
 import anim from './gfx/animation';
-import SceneNodeCtor, { type SceneNode as ISceneNode } from './gfx/scene-node';
+import { type SceneNode as ISceneNode } from './gfx/scene-node';
 import type { BaseGeom } from './gfx/base-geom';
 import geom from './geom';
 import slab from './slab';
@@ -340,8 +340,9 @@ function getDoubleClickHandler(opts: Record<string, unknown>): ClickHandler {
                  'use doubleClick instead');
     return opts.atomDoubleClicked as ClickHandler;
   }
-  if (opts.doubleClick) {
-    return opts.doubleClick as ClickHandler;
+  // null or false: no double-click handler at all
+  if (opts.doubleClick !== undefined) {
+    return (opts.doubleClick || null) as ClickHandler;
   }
   return 'center';
 }
@@ -577,7 +578,9 @@ class Viewer {
   }
 
   options(optName: string, value?: unknown): unknown {
-    if (value !== undefined) {
+    if (value !== undefined && optName === 'slabMode') {
+      this.slabMode(value as string);
+    } else if (value !== undefined) {
       this._options[optName] = value;
       if (optName === 'fog') {
         this._cam.fog(value as boolean);
@@ -597,11 +600,8 @@ class Viewer {
       } else if (optName === 'hoverColor') {
         this._cam.setHoverColor(color.forceRGB(value as string | RGBA, 0.7));
       } else if (optName === 'outlineColor') {
-        // NOTE: setOutlineColorColor is not a typo we introduced -- this
-        // pre-existing call site never matched Cam's actual setOutlineColor
-        // method name, so this option silently never took effect at runtime.
-        (this._cam as unknown as { setOutlineColorColor(color: RGBA): void })
-            .setOutlineColorColor(color.forceRGB(value as string | RGBA));
+        this._cam.setOutlineColor(color.forceRGB(value as string | RGBA) as unknown as vec3);
+        this.requestRedraw();
       } else if (optName === 'outlineWidth') {
         this._cam.setOutlineWidth((value as number) + 0.0 /* force to float*/);
       } else if (optName === 'ssao' || optName === 'ssaoRadius' || optName === 'ssaoIntensity') {
@@ -1435,9 +1435,7 @@ class Viewer {
   // identical to the cartoon render mode, but without special treatment for
   // helices and strands.
   tube(name: string, structure: RenderStructure, opts?: Record<string, unknown>): BaseGeom {
-    opts = opts || {};
-    opts.forceTube = true;
-    return this.cartoon(name, structure, opts);
+    return this.cartoon(name, structure, { ...opts, forceTube: true });
   }
 
   ballsAndSticks(name: string, structure: RenderStructure, opts?: Record<string, unknown>): BaseGeom {
@@ -1523,7 +1521,10 @@ class Viewer {
     const axes = this._cam.mainAxes();
     const intervals: [Range, Range, Range] =
         [ new Range(), new Range(), new Range() ];
-    if (what instanceof SceneNodeCtor) {
+    // render objects, custom meshes included. Not instanceof SceneNode:
+    // utils.derive copies the base prototype's methods without chaining the
+    // prototypes, so instanceof is false for every derived object.
+    if (typeof (what as Partial<ViewerObject>).updateProjectionIntervals === 'function') {
       (what as unknown as ViewerObject).updateProjectionIntervals(axes[0], axes[1], axes[2], intervals[0],
                                      intervals[1], intervals[2]);
     } else if ((what as { eachAtom?: unknown }).eachAtom !== undefined) {
@@ -1589,12 +1590,11 @@ class Viewer {
   slabInterval(): void {
   }
 
+  // sets near and far once by the current slab mode, also when it isn't
+  // applied every frame
   autoSlab(): void {
-    // NOTE: this pre-existing typo (_slabMode instead of slabMode) means
-    // this method has always been dead code -- this._options never had a
-    // _slabMode field, so .update below always threw at runtime.
-    const strategy = (this._options as unknown as { _slabMode?: SlabStrategy })._slabMode;
-    const newSlab = strategy!.update(this._objects as never, this._cam as never);
+    const strategy = this._options.slabMode as SlabStrategy;
+    const newSlab = strategy ? strategy.update(this._objects as never, this._cam as never) : null;
     if (newSlab !== null) {
       this._cam.setNearFar(newSlab.near, newSlab.far);
     }

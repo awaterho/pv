@@ -97,12 +97,18 @@ interface ConnectableStructure {
   connect(a: unknown, b: unknown): unknown;
 }
 
+// bonds read from the file (PDB CONECT records) come before the
+// distance-based ones, which mustn't add them a second time
+function isBonded(a: unknown, b: unknown): boolean {
+  return (a as { isConnectedTo(o: unknown): boolean }).isConnectedTo(b);
+}
+
 function connectPeptides(structure: ConnectableStructure, left: ConnectableResidue, right: ConnectableResidue): void {
   const cAtom = left.atom('C');
   const nAtom = right.atom('N');
   if (cAtom && nAtom) {
     const sqrDist = vec3.sqrDist(cAtom.pos(), nAtom.pos());
-    if (sqrDist < 1.6*1.6) {
+    if (sqrDist < 1.6*1.6 && !isBonded(nAtom, cAtom)) {
       structure.connect(nAtom, cAtom);
     }
   }
@@ -114,7 +120,7 @@ function connectNucleotides(structure: ConnectableStructure, left: ConnectableRe
   if (o3Prime && pAtom) {
     const sqrDist = vec3.sqrDist(o3Prime.pos(), pAtom.pos());
     // FIXME: make sure 1.7 is a good threshold here...
-    if (sqrDist < 1.7*1.7) {
+    if (sqrDist < 1.7*1.7 && !isBonded(o3Prime, pAtom)) {
       structure.connect(o3Prime, pAtom);
     }
   }
@@ -515,7 +521,7 @@ class Mol extends MolBase<Chain> {
             sqrDist = vec3.sqrDist(posI, atomJ.pos());
             const lower = covalentI+covalentJ-0.30;
             const upper = covalentI+covalentJ+0.30;
-            if (sqrDist < upper*upper && sqrDist > lower*lower) {
+            if (sqrDist < upper*upper && sqrDist > lower*lower && !isBonded(atomI, atomJ)) {
               this.connect(atomI as never, atomJ as never);
             }
           }

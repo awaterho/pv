@@ -539,8 +539,9 @@ class SDFReader {
       const element = line.substr(31, 3).trim();
       this._currentResidue!.addAtom(element, pos, element, false);
       this._atomCount++;
+      // a molecule without bonds (a single ion) has no bond block to read
       if (this._atomCount === this._expectedAtomCount) {
-        this._state++;
+        this._state += this._expectedBondCount === 0 ? 2 : 1;
       }
     }
     if (state === 5) {

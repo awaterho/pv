@@ -1,0 +1,19 @@
+.pv-sample {
+  margin: 16px 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.pv-sample #viewer {
+  width: 100%;
+  position: relative;
+}
+
+.pv-sample-error {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--vp-c-danger-1);
+  background: var(--vp-c-danger-soft);
+}

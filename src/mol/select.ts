@@ -181,8 +181,12 @@ function _filterResidues(chain: SelectChain, dict: SelectDict): SelectResidue[] 
   if (dict.rindices) {
     if (dict.rindices.length !== undefined) {
       selResidues = [];
+      // positions past the end of the chain select nothing
       for (i = 0; i < dict.rindices.length; ++i) {
-        selResidues.push(residues[dict.rindices[i]!]!);
+        const residue = residues[dict.rindices[i]!];
+        if (residue !== undefined) {
+          selResidues.push(residue);
+        }
       }
       return selResidues;
     }
@@ -198,7 +202,8 @@ function dictSelect<V extends StructureView>(
   const atomPredicates = _atomPredicates(dict);
   const chainPredicates = _chainPredicates(dict);
 
-  if (dict.rindex) {
+  // rindex 0 is the first residue, not "no rindex"
+  if (dict.rindex !== undefined) {
     dict.rindices = [dict.rindex];
   }
   for (let ci = 0; ci < structure._chains.length; ++ci) {

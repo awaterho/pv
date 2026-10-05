@@ -1066,9 +1066,9 @@ onClick('color-rainbow', useColor(rainbow));
 onClick('color-pro-red', useColor(proInRed));
 // fetches and renders a structure by id in mmCIF format, used by both
 // pressing Enter/blurring the input (the 'change' event) and clicking the
-// "Get" button next to it. Ids starting "ma-" come from ModelArchive, ids
-// starting "AF-" from the AlphaFold DB, all others are PDB ids fetched from
-// RCSB.
+// "Get" button next to it. A URL loads that PDB or mmCIF file, ids starting
+// "ma-" come from ModelArchive, ids starting "AF-" from the AlphaFold DB,
+// all others are PDB ids fetched from RCSB.
 var fetchingPdbId = null;
 function getById(id) {
   id = (id || '').trim();
@@ -1077,7 +1077,9 @@ function getById(id) {
   if (!id || id === fetchingPdbId) {
     return;
   }
-  if (/^ma-/i.test(id)) {
+  if (/^https?:\/\//i.test(id)) {
+    getFromUrl(id);
+  } else if (/^ma-/i.test(id)) {
     getFromModelArchive(id.toLowerCase());
   } else if (/^af-/i.test(id)) {
     getFromAlphaFold(id);
@@ -1197,6 +1199,72 @@ function assignMissingSS(s) {
   }
 }
 
+// shows a structure from the text of a PDB or mmCIF file. The format comes
+// from the file name (without any .gz), falling back to sniffing for
+// mmCIF's leading "data_" block header; label names the file in messages.
+function loadText(data, name, label) {
+  var isCif = /\.(cif|mmcif)$/.test(name) ||
+              (!/\.(pdb|ent)$/.test(name) && /^\s*data_/.test(data));
+  var s;
+  if (isCif) {
+    var atomCount = (data.match(/^(ATOM|HETATM)/gm) || []).length;
+    var traceOnly = atomCount > HUGE_ATOM_COUNT;
+    if (traceOnly) {
+      showWarning(label + ' has ' + atomCount.toLocaleString() +
+                  ' atoms: loading CA/C3\' atoms only');
+    }
+    s = io.cif(data, { traceOnly : traceOnly });
+  } else {
+    s = io.pdb(data);
+  }
+  if (!s || s.atomCount() === 0) {
+    throw new Error('no atoms found');
+  }
+  assignMissingSS(s);
+  structure = s;
+  showStructure();
+  viewer.autoZoom();
+}
+
+// the text of a downloaded file, unpacked if it is gzipped. That goes by
+// the gzip header's first two bytes, not the name or the Content-Type:
+// some servers (SWISS-MODEL's, for one) send .cif files gzipped without a
+// Content-Encoding header, which would have had the browser unpack them.
+function textOf(buffer) {
+  var bytes = new Uint8Array(buffer);
+  if (bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    var stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+  }
+  return Promise.resolve(new TextDecoder().decode(bytes));
+}
+
+// any URL of a PDB or mmCIF file, plain or gzipped, e.g. a SWISS-MODEL
+// model. The server has to allow cross-origin requests, as the PDB, the
+// AlphaFold DB, ModelArchive and SWISS-MODEL do.
+function getFromUrl(url) {
+  fetchingPdbId = url;
+  var name = (url.split(/[?#]/)[0].split('/').pop() || '').toLowerCase().replace(/\.gz$/, '');
+  window.fetch(url).catch(function() {
+    // a failed fetch() (no network, or a server without CORS headers) only
+    // says "Failed to fetch"
+    throw new Error('the server could not be reached, or does not allow ' +
+                    'loading from other sites');
+  }).then(function(response) {
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+    return response.arrayBuffer();
+  }).then(textOf).then(function(data) {
+    fetchingPdbId = null;
+    loadText(data, name, url);
+    showPdbId(url);
+  }).catch(function(error) {
+    fetchingPdbId = null;
+    showWarning('Could not load "' + url + '": ' + error.message);
+  });
+}
+
 // dropping a PDB or mmCIF file (optionally gzipped) anywhere on the page
 // loads it. The format comes from the file name, falling back to sniffing
 // for mmCIF's leading "data_" block header.
@@ -1212,27 +1280,7 @@ function loadDroppedFile(file) {
     text = file.text();
   }
   text.then(function(data) {
-    var isCif = /\.(cif|mmcif)$/.test(name) ||
-                (!/\.(pdb|ent)$/.test(name) && /^\s*data_/.test(data));
-    var s;
-    if (isCif) {
-      var atomCount = (data.match(/^(ATOM|HETATM)/gm) || []).length;
-      var traceOnly = atomCount > HUGE_ATOM_COUNT;
-      if (traceOnly) {
-        showWarning(file.name + ' has ' + atomCount.toLocaleString() +
-                    ' atoms: loading CA/C3\' atoms only');
-      }
-      s = io.cif(data, { traceOnly : traceOnly });
-    } else {
-      s = io.pdb(data);
-    }
-    if (!s || s.atomCount() === 0) {
-      throw new Error('no atoms found');
-    }
-    assignMissingSS(s);
-    structure = s;
-    showStructure();
-    viewer.autoZoom();
+    loadText(data, name, file.name);
     showFileName(file.name);
   }).catch(function(error) {
     showWarning('Could not load "' + file.name + '": ' + error.message);
