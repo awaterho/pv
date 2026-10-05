@@ -36,6 +36,23 @@ With `showRelated`, the surface is computed over all copies of the assembly toge
 
 The surface supports `colorBy`, `setOpacity`, `setSelection` and `setHover` like other render objects. Since it arrives later, do these in the promise's `then`.
 
+`colorBy` and `setOpacity` take a view as an optional second argument, and then change only that part of the surface.
+
+## Pockets
+
+A pocket found by a cavity finder, such as KVFinder or fpocket, is usually a set of points or spheres filling the empty space. A surface around them shows the pocket's shape. Put them into a structure of their own, as atoms of one element, and compute its surface; `radiusOffset` makes the atoms about as large as the spacing of the points:
+
+```js
+pv.io.fetchPdb('pocket.pdb').then(function (cavity) {
+  const pocket = new pv.mol.Mol();
+  const points = pocket.addChain('P').addResidue('POC', 1);
+  cavity.eachAtom(function (atom) { points.addAtom('C', atom.pos(), 'C'); });
+  viewer.surface('pocket', pocket, { color: pv.color.uniform('orange'), radiusOffset: -1 });
+});
+```
+
+Copying the points matters when the file names them as hydrogens, as KVFinder's does, since surfaces leave hydrogens out. The [Surface sample](/samples/surface) shows a pocket inside a faint surface of the protein.
+
 ## Coarse surfaces
 
 On a structure loaded with only its CA and C3' atoms (see [Large structures](./large-structures)), `radiusOffset: 2` gives a closed, smooth outline of the molecule:
