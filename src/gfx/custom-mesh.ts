@@ -319,7 +319,12 @@ const CustomMesh = function(
   this._float32Allocator = float32Allocator;
   this._uint16Allocator = uint16Allocator;
   this._data = new DynamicIndexedVertexArray();
-  this._protoSphere = new gb.ProtoSphere(8, 8);
+  // 16x16, the library's "high quality" sphereDetail (see viewer.ts's
+  // QUALITY_DETAIL) -- a custom mesh usually holds only a handful of
+  // spheres, so there's no reason to tessellate them any coarser than that,
+  // and unlike the raycast billboarded spheres used for ballsAndSticks
+  // etc., a mesh sphere's facets show as a visible silhouette.
+  this._protoSphere = new gb.ProtoSphere(16, 16);
   this._protoCyl = new gb.ProtoCylinder(8);
   this._vas = [];
   this._selectionTest = null;

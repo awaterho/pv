@@ -177,6 +177,7 @@ utils.derive(TextLabel, SceneNode, {
     this._setupTextParameters(ctx);
     ctx.globalAlpha = 1.0;
     ctx.lineWidth = 0.5;
+    ctx.strokeStyle = this._options.fontColor;
     ctx.fillText(text, 0, canvas.height);
     ctx.strokeText(text, 0, canvas.height);
     /*

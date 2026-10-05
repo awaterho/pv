@@ -4,7 +4,7 @@ import code from './code/measure-distance.js?raw'
 
 # Measure a distance
 
-Click an atom, then another: a line joins them, labelled with the distance. A third click starts again.
+Click an atom, then another: each is marked with a translucent sphere, and a line joins them, labelled with the distance. A third click starts again.
 
 <PvSample :code="code" />
 
