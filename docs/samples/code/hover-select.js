@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {
   const cartoon = viewer.cartoon('protein', structure);

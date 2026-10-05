@@ -11,16 +11,16 @@ Creates a viewer in `element`: a canvas of the given size, with mouse, touch and
 | Option | Default | |
 |---|---|---|
 | `width`, `height` | 500 | Size in CSS pixels, or `'auto'` for the size of `element` |
-| `antialias` | `false` | Draw at twice the size and scale down, for smooth edges |
+| `antialias` | `true` | Draw at twice the size and scale down, for smooth edges. Only when the viewer is created. |
 | `quality` | `'auto'` | Detail of curved geometry: `'high'`, `'medium'`, `'low'`, or `'auto'` (high, and low above 50,000 residues) |
 | `background` | `'white'` | Background color, also the color of the fog |
 | `fog` | `true` | Fade things further back into the background |
 | `outline` | `true` | Outline silhouettes |
 | `outlineColor` | `'black'` | |
 | `outlineWidth` | 1.5 | In pixels |
-| `ssao` | `false` | Screen-space ambient occlusion |
-| `ssaoRadius` | 2 | In Å |
-| `ssaoIntensity` | 1 | |
+| `ssao` | `true` | Screen-space ambient occlusion |
+| `ssaoRadius` | 3 | In Å |
+| `ssaoIntensity` | 0.7 | |
 | `selectionColor` | `'#3f3'` | Tint of selections; the alpha is its strength, 0.7 for a color without alpha |
 | `hoverColor` | `'#f93'` | Tint of hovered parts, likewise |
 | `fov` | 45 | Vertical field of view, in degrees |

@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // the Kyte-Doolittle hydrophobicity of the amino acids
 const HYDROPHOBICITY = {

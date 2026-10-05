@@ -35,10 +35,10 @@ Things further back fade into the background color, on by default. Turn it off w
 
 ## Ambient occlusion
 
-Screen-space ambient occlusion darkens creases and pockets, for a more solid look. Off by default.
+Screen-space ambient occlusion darkens creases and pockets, for a more solid look. On by default, with a radius of 3 Å and an intensity of 0.7.
 
 ```js
-const viewer = pv.Viewer(element, { ssao: true, ssaoRadius: 2, ssaoIntensity: 1 });
+const viewer = pv.Viewer(element, { ssaoRadius: 2, ssaoIntensity: 1 });
 viewer.options('ssao', false);
 ```
 
@@ -46,7 +46,7 @@ viewer.options('ssao', false);
 
 ## Antialiasing
 
-With `antialias: true`, PV draws the scene at twice the size and scales it down, which smooths edges at a cost in speed. Leave it off for very large structures on slow devices.
+By default, PV draws the scene at twice the size and scales it down, which smooths edges. Turn it off with `antialias: false` when creating the viewer; it can't be changed afterwards. See [Large structures](./large-structures#other-tips) for what it costs.
 
 ## Background
 
@@ -54,7 +54,7 @@ The `background` option sets the background color (default white), which the fog
 
 ## Screenshots
 
-`viewer.imageData()` returns the current image as a PNG data URL, for a download link or an `<img>`. With `antialias` it is twice the canvas size.
+`viewer.imageData()` returns the current image as a PNG data URL, for a download link or an `<img>`. With `antialias`, the default, it is twice the canvas size.
 
 ```js
 const link = document.createElement('a');

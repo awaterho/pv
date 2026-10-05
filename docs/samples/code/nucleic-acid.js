@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // yeast tRNA-Phe: the backbone as a tube, the bases as filled rings
 pv.io.fetchCif('https://files.rcsb.org/download/1EHZ.cif').then(function (structure) {

@@ -1404,7 +1404,6 @@ document.getElementById('opacity-slider').addEventListener('input', function() {
 
 viewer = pv.Viewer(document.getElementById('viewer'), {
     width : 'auto', height: 'auto', 
-    antialias : true, 
     fog : true,
     outline : true, 
     selectionColor : 'white',

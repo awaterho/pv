@@ -13,6 +13,7 @@ async function renderOverlappingSpheres(page, order) {
     const pv = await import('/src/viewer.ts');
     const viewer = pv.default.Viewer(document.getElementById('viewer'), {
       width: 200, height: 200, background: '#000', outline: false, fog: false,
+      antialias: false, ssao: false,
     });
     window.__viewer = viewer;
     const addRed = () => {

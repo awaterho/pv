@@ -368,7 +368,7 @@ interface ResolvedViewerOptions {
   width: number;
   height: number;
   animateTime: number;
-  antialias?: boolean;
+  antialias: boolean;
   forceManualAntialiasing: boolean;
   quality: string;
   style: string;
@@ -509,7 +509,7 @@ class Viewer {
       width : (opts.width as number || 500),
       height : (opts.height as number || 500),
       animateTime : (opts.animateTime as number || 0),
-      antialias : opts.antialias as boolean | undefined,
+      antialias : optValue(opts, 'antialias', true),
       forceManualAntialiasing: optValue(opts, 'forceManualAntialiasing', true),
       quality : optValue(opts, 'quality', 'auto'),
       style : optValue(opts, 'style', 'hemilight'),
@@ -518,9 +518,9 @@ class Viewer {
       outline : optValue(opts, 'outline', true),
       outlineColor : color.forceRGB(optValue(opts, 'outlineColor', 'black')),
       outlineWidth: optValue(opts, 'outlineWidth', 1.5),
-      ssao : optValue(opts, 'ssao', false),
-      ssaoRadius : optValue(opts, 'ssaoRadius', 2.0),
-      ssaoIntensity : optValue(opts, 'ssaoIntensity', 1.0),
+      ssao : optValue(opts, 'ssao', true),
+      ssaoRadius : optValue(opts, 'ssaoRadius', 3.0),
+      ssaoIntensity : optValue(opts, 'ssaoIntensity', 0.7),
       selectionColor : color.forceRGB(optValue<string | RGBA>(opts, 'selectionColor', '#3f3'),
                                       0.7),
       hoverColor : color.forceRGB(optValue<string | RGBA>(opts, 'hoverColor', '#f93'), 0.7),

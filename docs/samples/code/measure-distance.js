@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, fog: true, antialias: true
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400, fog: true });
 
 // click two atoms to measure the distance between them
 pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {

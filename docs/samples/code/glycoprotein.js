@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // the Fc of human IgG1 with its two N-glycans
 pv.io.fetchCif('https://files.rcsb.org/download/4BYH.cif').then(function (structure) {

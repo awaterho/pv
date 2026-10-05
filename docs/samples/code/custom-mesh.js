@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // the bounding box of a protein, with clickable corners and a
 // half-transparent plane through its middle

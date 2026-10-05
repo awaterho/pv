@@ -38,6 +38,5 @@ Copies drawn with `showRelated` share the geometry of the original, so a virus c
 
 ## Other tips
 
-- `antialias: true` draws at twice the size; leave it off on slow devices.
 - `lines` and `points` are the cheapest styles for all atoms.
-- Ambient occlusion (`ssao`) costs two extra passes per frame.
+- Antialiasing and ambient occlusion are on by default. They cost per pixel of the canvas, not per atom: on a laptop's integrated GPU, the two together add 1–2 ms per frame at 1100×800 and 6–8 ms at full screen, whatever is drawn. That matters only when drawing is slow already, such as all atoms of a large assembly as spheres. Then `antialias: false` (only when creating the viewer) and `viewer.options('ssao', false)` (any time) win back that time.

@@ -37,7 +37,7 @@ PV 2 is a rewrite of [Marco Biasini's PV](https://github.com/biasmv/pv) in TypeS
 - `setOpacity(alpha, selection)` and `setHover(selection, symIndex)` take a selection, so they can apply to part of an object. Transparency is order-independent.
 - `setSelection` tints and outlines the selection instead of drawing a halo.
 - The `quality` default is `'auto'`: high detail, and low for structures with more than 50,000 residues.
-- `antialias: true` draws the scene at twice the size and scales it down.
+- Antialiasing is on by default (`antialias: false` turns it off), and draws the scene at twice the size and scales it down. Ambient occlusion is on by default too.
 - `autoZoom()` re-centers the camera as well as zooming.
 
 ## New

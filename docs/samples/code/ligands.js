@@ -1,6 +1,4 @@
-const viewer = pv.Viewer(document.getElementById('viewer'), {
-  width: 'auto', height: 400, antialias: true,
-});
+const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // dengue virus methyltransferase with S-adenosyl homocysteine (SAH) and
 // the inhibitor ribavirin 5'-triphosphate (RVP)

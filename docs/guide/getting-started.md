@@ -36,7 +36,7 @@ A complete page:
   <script src="pv.iife.js"></script>
   <script>
     const viewer = pv.Viewer(document.getElementById('viewer'),
-                             { width: 600, height: 400, antialias: true });
+                             { width: 600, height: 400 });
     pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {
       viewer.cartoon('protein', structure);
       viewer.licorice('ligands', structure.select('ligand'));
