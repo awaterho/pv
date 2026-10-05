@@ -3,8 +3,7 @@ layout: home
 
 hero:
   name: PV
-  text: A WebGL2 protein viewer
-  tagline: Cartoons, sticks, surfaces, glycans and nucleic acids in the browser, from PDB and mmCIF files, at interactive frame rates.
+  text: A WebGL2 protein viewers
   image:
     src: /pv-icon.png
     alt: PV
@@ -17,7 +16,7 @@ hero:
       link: /api/viewer
     - theme: alt
       text: Live demo
-      link: https://awaterho.github.io/pv/demo/
+      link: /pv/demo/
 
 features:
   - title: Fast and small
