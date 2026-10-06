@@ -24,7 +24,7 @@ Creates a viewer in `element`: a canvas of the given size, with mouse, touch and
 | `selectionColor` | `'#3f3'` | Tint of selections; the alpha is its strength, 0.7 for a color without alpha |
 | `hoverColor` | `'#f93'` | Tint of hovered parts, likewise |
 | `fov` | 45 | Vertical field of view, in degrees |
-| `animateTime` | 0 | Duration of `fitTo` and `autoZoom`, and of double-click centering, in ms |
+| `animateTime` | 500 | Duration of `fitTo` and `autoZoom`, and of double-click centering, in ms |
 | `slabMode` | `'auto'` | Near and far clipping: `'auto'` keeps everything visible in between, `'fixed'` uses 0.1 and 400 |
 | `click` | | A `click` listener |
 | `doubleClick` | `'center'` | A `doubleClick` listener; the default centers on the picked atom, `null` turns it off |

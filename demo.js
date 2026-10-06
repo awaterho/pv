@@ -1409,7 +1409,6 @@ viewer = pv.Viewer(document.getElementById('viewer'), {
     selectionColor : 'white',
     hoverColor: 'yellow',
     background : '#ccc', 
-    animateTime: 500,
     doubleClick : null
 });
 window.viewer = viewer;

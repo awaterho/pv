@@ -51,7 +51,7 @@ export default defineConfig({
           { text: 'Molecules', link: '/api/mol' },
           { text: 'Selections', link: '/api/select' },
           { text: 'pv.color', link: '/api/color' },
-          { text: 'pv.rings and pv.snfg', link: '/api/addons' },
+          { text: 'Add-ons', link: '/api/addons' },
         ],
       },
       {
@@ -69,6 +69,7 @@ export default defineConfig({
           { text: 'Measure a distance', link: '/samples/measure-distance' },
           { text: 'Labels', link: '/samples/labels' },
           { text: 'Custom mesh', link: '/samples/custom-mesh' },
+          { text: 'Membrane', link: '/samples/membrane' },
         ],
       },
       {

@@ -23,7 +23,7 @@ test('fitTo centers on a render object', async ({ page }) => {
     const viewer = ${newViewer()};
     const mesh = viewer.customMesh('mesh');
     mesh.addSphere([40, 50, 60], 2);
-    viewer.fitTo(mesh);
+    viewer.fitTo(mesh, 0);
     return Array.from(viewer.center());
   })()`));
   center.forEach((v, i) => expect(v).toBeCloseTo([40, 50, 60][i], 0));
@@ -70,6 +70,23 @@ test('tube leaves the options it is given alone', async ({ page }) => {
     return options;
   })()`));
   expect(options).toEqual({ radius: 0.5 });
+});
+
+test('one addTriangles() call can hold more vertices than 16 bit indices reach', async ({ page }) => {
+  const picked = await run(page, new Function(`return (async () => {
+    const viewer = ${newViewer()};
+    // 30000 tiny triangles far off screen (90000 vertices), then one in the
+    // middle of the view, all one shape
+    const positions = [];
+    for (let i = 0; i < 30000; ++i) positions.push(500, 0, 0, 500.1, 0, 0, 500, 0.1, 0);
+    positions.push(-10, -10, 0, 10, -10, 0, 0, 10, 0);
+    viewer.customMesh('mesh').addTriangles(positions, { userData: 'big' });
+    viewer.setCamera([1, 0, 0, 0, 1, 0, 0, 0, 1], [0, 0, 0], 40);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const hit = viewer.pick({ x: 150, y: 150 });
+    return hit === null ? null : hit.target();
+  })()`));
+  expect(picked).toBe('big');
 });
 
 test('the end caps of custom-mesh tubes can be picked', async ({ page }) => {

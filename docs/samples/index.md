@@ -13,5 +13,6 @@ Each sample is a page with a live viewer and the code that makes it. The code is
 - [Measure a distance](./measure-distance)
 - [Labels](./labels)
 - [Custom mesh](./custom-mesh)
+- [Membrane](./membrane)
 
 The [demo](https://awaterho.github.io/pv/demo/) shows much more: every style and color scheme, structures from the PDB, the AlphaFold DB and ModelArchive, and dropping your own files.

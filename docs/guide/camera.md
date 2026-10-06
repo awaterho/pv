@@ -12,7 +12,7 @@ viewer.centerOn(structure.select('ligand'));  // keeps the zoom
 
 `autoZoom()` and `fitTo(what)` set the center and the zoom so that everything visible, or `what` (a render object, a structure, a selection, or an array of structures and selections), is in view. `centerOn` only moves the center.
 
-All camera calls take a duration in milliseconds as their last argument and then move smoothly: `viewer.fitTo(selection, 500)`. Without it, `fitTo` and `autoZoom` use the viewer's `animateTime` option (default 0) and the others are immediate.
+All camera calls take a duration in milliseconds as their last argument and then move smoothly: `viewer.fitTo(selection, 500)`. Without it, `fitTo` and `autoZoom` use the viewer's `animateTime` option (default 500) and the others are immediate.
 
 ## Setting it directly
 

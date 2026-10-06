@@ -52,3 +52,32 @@
   color: var(--vp-c-danger-1);
   background: var(--vp-c-danger-soft);
 }
+
+/* The style buttons some samples put above their viewer. */
+.pv-sample-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+}
+
+.pv-sample-buttons button {
+  padding: 2px 12px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 14px;
+  font-size: 13px;
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg);
+}
+
+.pv-sample-buttons button:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
+.pv-sample-buttons button.active {
+  border-color: var(--vp-c-brand-1);
+  color: #fff;
+  background: var(--vp-c-brand-1);
+}

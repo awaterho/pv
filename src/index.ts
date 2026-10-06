@@ -26,6 +26,7 @@ import color from './color';
 import viewpoint from './viewpoint';
 import snfg from './snfg';
 import rings from './rings';
+import membrane from './membrane';
 
 // export
 export default {
@@ -36,6 +37,7 @@ export default {
     mol : mol,
     snfg : snfg,
     rings : rings,
+    membrane : membrane,
     // for backward compatibility prior to version 1.4
     rgb : {
       setColorPalette : color.setColorPalette,

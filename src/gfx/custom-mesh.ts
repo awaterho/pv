@@ -175,6 +175,19 @@ class DynamicIndexedVertexArray {
       if (starts[i]! - chunkVert > MAX_CHUNK_VERTS) {
         flush(starts[i - 2]!, starts[i - 1]!);
       }
+      // a shape too large for a chunk of its own, i.e. a big
+      // addTriangles(): its triangles have vertices of their own, added in
+      // order, so it splits between two triangles
+      if (starts[i]! - chunkVert > MAX_CHUNK_VERTS) {
+        for (let t = chunkIndex; t < starts[i + 1]!; t += 3) {
+          const last = Math.max(this._indexData[t]!, this._indexData[t + 1]!,
+                                this._indexData[t + 2]!);
+          if (last - chunkVert >= MAX_CHUNK_VERTS) {
+            flush(Math.min(this._indexData[t]!, this._indexData[t + 1]!,
+                           this._indexData[t + 2]!), t);
+          }
+        }
+      }
     }
     flush(this._numVerts, this._indexData.length);
     return result;

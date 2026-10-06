@@ -508,7 +508,7 @@ class Viewer {
     const options: ResolvedViewerOptions = {
       width : (opts.width as number || 500),
       height : (opts.height as number || 500),
-      animateTime : (opts.animateTime as number || 0),
+      animateTime : optValue(opts, 'animateTime', 500),
       antialias : optValue(opts, 'antialias', true),
       forceManualAntialiasing: optValue(opts, 'forceManualAntialiasing', true),
       quality : optValue(opts, 'quality', 'auto'),
