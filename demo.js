@@ -1226,42 +1226,25 @@ function loadText(data, name, label) {
   viewer.autoZoom();
 }
 
-// the text of a downloaded file, unpacked if it is gzipped. That goes by
-// the gzip header's first two bytes, not the name or the Content-Type:
-// some servers (SWISS-MODEL's, for one) send .cif files gzipped without a
-// Content-Encoding header, which would have had the browser unpack them.
-function textOf(buffer) {
-  var bytes = new Uint8Array(buffer);
-  if (bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-    var stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
-    return new Response(stream).text();
-  }
-  return Promise.resolve(new TextDecoder().decode(bytes));
-}
-
-// any URL of a PDB or mmCIF file, plain or gzipped, e.g. a SWISS-MODEL
-// model. The server has to allow cross-origin requests, as the PDB, the
-// AlphaFold DB, ModelArchive and SWISS-MODEL do.
+// any URL of a PDB or mmCIF file, plain or gzipped (pv.io.fetchText unpacks
+// it, see io.ts), e.g. a SWISS-MODEL model. The server has to allow
+// cross-origin requests, as the PDB, the AlphaFold DB, ModelArchive and
+// SWISS-MODEL do.
 function getFromUrl(url) {
   fetchingPdbId = url;
   var name = (url.split(/[?#]/)[0].split('/').pop() || '').toLowerCase().replace(/\.gz$/, '');
-  window.fetch(url).catch(function() {
-    // a failed fetch() (no network, or a server without CORS headers) only
-    // says "Failed to fetch"
-    throw new Error('the server could not be reached, or does not allow ' +
-                    'loading from other sites');
-  }).then(function(response) {
-    if (!response.ok) {
-      throw new Error('HTTP ' + response.status);
-    }
-    return response.arrayBuffer();
-  }).then(textOf).then(function(data) {
+  io.fetchText(url).then(function(data) {
     fetchingPdbId = null;
     loadText(data, name, url);
     showPdbId(url);
   }).catch(function(error) {
     fetchingPdbId = null;
-    showWarning('Could not load "' + url + '": ' + error.message);
+    // a network error (no network, or a server without CORS headers) only
+    // ever gives a generic "network error fetching ..." message
+    var message = /network error/.test(error.message)
+      ? 'the server could not be reached, or does not allow loading from other sites'
+      : error.message;
+    showWarning('Could not load "' + url + '": ' + message);
   });
 }
 

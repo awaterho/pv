@@ -1275,19 +1275,35 @@ function cif(text: string, options?: CifOptions): Mol | (Mol | null)[] | undefin
 }
 
 
-// GETs url as text. Rejects on a network error or an HTTP error status (e.g.
-// 404 for an unknown PDB id), so a failed request never reaches a parser.
+// the text of a downloaded file, unpacked if it is gzipped. That goes by the
+// gzip header's first two bytes, not the name or the Content-Type: some
+// servers (SWISS-MODEL's, for one) send .pdb/.cif files gzipped without a
+// Content-Encoding header, which would have had the browser unpack them.
+function textOf(buffer: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+  }
+  return Promise.resolve(new TextDecoder().decode(bytes));
+}
+
+// GETs url as text, unpacking it first if it turns out to be gzipped (see
+// textOf). Rejects on a network error or an HTTP error status (e.g. 404 for
+// an unknown PDB id), so a failed request never reaches a parser.
 function fetch(url: string): Promise<string> {
   return new Promise(function(resolve, reject) {
     const oReq = new XMLHttpRequest();
     oReq.open("GET", url, true);
+    oReq.responseType = 'arraybuffer';
     oReq.onload = function() {
+      const buffer = oReq.response as ArrayBuffer | null;
       if (oReq.status >= 400) {
         reject(new Error(`HTTP ${oReq.status} fetching ${url}`));
-      } else if (!oReq.response) {
+      } else if (!buffer || buffer.byteLength === 0) {
         reject(new Error(`empty response fetching ${url}`));
       } else {
-        resolve(oReq.response);
+        textOf(buffer).then(resolve, reject);
       }
     };
     oReq.onerror = function() {
@@ -1354,5 +1370,6 @@ export default {
   fetchSdf : fetchSdf,
   fetchCrd : fetchCrd,
   fetchCif : fetchCif,
+  fetchText : fetch,
   guessAtomElementFromName : guessAtomElementFromName
 };
