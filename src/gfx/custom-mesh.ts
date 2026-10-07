@@ -241,10 +241,25 @@ class DynamicIndexedVertexArray {
   numIndices(): number {
     return this._indexData.length;
   }
-  // sets the alpha of every vertex added so far
-  setAlpha(alpha: number): void {
-    for (let i = ALPHA_OFFSET; i < this._vertData.length; i += FLOATS_PER_VERT) {
-      this._vertData[i] = alpha;
+  // sets the alpha of every vertex added so far, with test only those of the
+  // shapes whose userData passes it
+  setAlpha(alpha: number, test?: (userData: unknown) => boolean): void {
+    if (test === undefined) {
+      for (let i = ALPHA_OFFSET; i < this._vertData.length; i += FLOATS_PER_VERT) {
+        this._vertData[i] = alpha;
+      }
+      return;
+    }
+    const n = this._shapeUserData.length;
+    for (let shape = 0; shape < n; ++shape) {
+      if (!test(this._shapeUserData[shape])) {
+        continue;
+      }
+      const start = this._shapeStarts[shape * 2]!;
+      const end = shape + 1 < n ? this._shapeStarts[shape * 2 + 2]! : this._numVerts;
+      for (let v = start; v < end; ++v) {
+        this._vertData[v * FLOATS_PER_VERT + ALPHA_OFFSET] = alpha;
+      }
     }
   }
   indexData(): number[] {
@@ -301,7 +316,7 @@ export interface CustomMesh extends ISceneNode {
   _nextObjectId(data: ObjectIdData): number;
   addSphere(center: vec3, radius: number, options?: SphereOptions): void;
   addTriangles(positions: ArrayLike<number>, options?: TrianglesOptions): void;
-  setOpacity(val: number): void;
+  setOpacity(val: number, test?: (userData: unknown) => boolean): void;
   setSelection(test: ((userData: unknown) => boolean) | null): void;
   setHover(test: ((userData: unknown) => boolean) | null, copy?: number | null): void;
   _selectionTest: ((userData: unknown) => boolean) | null;
@@ -522,9 +537,11 @@ utils.derive(CustomMesh, SceneNode, {
   })(),
   // the opacity of everything added so far (0 transparent - 1 opaque),
   // drawn through the viewer's order-independent transparency like the
-  // other render objects' setOpacity()
-  setOpacity: function(this: CustomMesh, val: number) {
-    this._data.setAlpha(val);
+  // other render objects' setOpacity(). With test, only the shapes whose
+  // userData passes it, as in setSelection()
+  setOpacity: function(this: CustomMesh, val: number,
+                       test?: (userData: unknown) => boolean) {
+    this._data.setAlpha(val, test);
     this._ready = false;
     this._pickVersion += 1;
   },

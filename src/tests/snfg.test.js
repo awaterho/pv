@@ -4,6 +4,8 @@ import io from '../io';
 import snfg from '../snfg';
 import { shapeGeometry } from '../snfg/shapes';
 import { vec3 } from 'gl-matrix';
+import CustomMesh from '../gfx/custom-mesh';
+import UniqueObjectIdPool from '../unique-object-id-pool';
 
 // sialylated IgG1 Fc (the demo's glycan example): two N-glycans of ten
 // sugars each, label chains C and D, on Asn297 of chains A and B.
@@ -134,4 +136,32 @@ test('colors sugar atoms by SNFG and the rest by the fallback', function() {
   op.colorFor(fc.chain('A').residues()[0].atom('N'), out, 0);    // by element
   ok(out[2] > out[0]);
   op.end();
+});
+
+test('links carry their sugar, so they fade with its symbol', function() {
+  const fc = loadFc();
+  const pool = new UniqueObjectIdPool();
+  const viewer = {
+    customMesh: (name) => new CustomMesh(name, null, null, null, pool),
+    requestRedraw: function() {},
+  };
+  const mesh = snfg.draw(viewer, 'glycans', fc);
+  const data = mesh._data;
+  const shapes = data._shapeUserData;
+  strictEqual(shapes.length, 20 + 2 * (9 + 1));
+  ok(shapes.every((atom) => atom !== null && snfg.isSugar(atom.residue())));
+  // fade everything, then make glycan C opaque again
+  mesh.setOpacity(0.2);
+  mesh.setOpacity(1.0, (atom) => atom.residue().chain().name() === 'C');
+  const alphas = new Map();
+  for (let shape = 0; shape < shapes.length; ++shape) {
+    const start = data._shapeStarts[shape * 2];
+    const end = shape + 1 < shapes.length ? data._shapeStarts[shape * 2 + 2] : data.numVerts();
+    const chain = shapes[shape].residue().chain().name();
+    for (let v = start; v < end; ++v) {
+      alphas.set(chain, (alphas.get(chain) || new Set()).add(data.vertData()[v * 12 + 9]));
+    }
+  }
+  deepEqual([...alphas.get('C')], [1.0]);
+  deepEqual([...alphas.get('D')].map((a) => Math.round(a * 10) / 10), [0.2]);
 });

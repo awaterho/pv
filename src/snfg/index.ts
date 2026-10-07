@@ -306,7 +306,9 @@ function addSymbols(mesh: SMesh, frames: Map<SResidue, RingFrame>,
 
 // the sticks: between the centers of two linked sugars, and from a sugar's
 // center to the atom of whatever else it's bonded to (the Asn ND2 of an
-// N-glycan, the Ser/Thr OG of an O-glycan)
+// N-glycan, the Ser/Thr OG of an O-glycan). Their userData is the sugar's
+// atom like its symbol's, so a test on the sugar picks, selects and fades
+// them with it
 function addLinks(mesh: SMesh, frames: Map<SResidue, RingFrame>,
                   order: Map<SResidue, number>, inCopy: (residue: SResidue) => boolean,
                   linkRadius: number, linkColor: string | number[]): void {
@@ -326,10 +328,12 @@ function addLinks(mesh: SMesh, frames: Map<SResidue, RingFrame>,
         if (otherFrame !== undefined) {
           // once per pair of sugars
           if (order.get(residue)! < order.get(otherResidue)!) {
-            mesh.addTube(frame.center, otherFrame.center, linkRadius, { color: linkColor });
+            mesh.addTube(frame.center, otherFrame.center, linkRadius,
+                         { color: linkColor, userData: frame.atom });
           }
         } else {
-          mesh.addTube(frame.center, other.pos(), linkRadius, { color: linkColor });
+          mesh.addTube(frame.center, other.pos(), linkRadius,
+               { color: linkColor, userData: frame.atom });
         }
       }
     }
