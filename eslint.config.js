@@ -48,6 +48,16 @@ export default tseslint.config(
     },
   },
   {
+    // Vitest Node-environment test helpers (not the tests themselves, which
+    // run in jsdom)
+    files: ['src/tests/xhr-node-shim.js'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+      },
+    },
+  },
+  {
     // *.test.js and tests/browser/fixtures/** are mechanically-ported QUnit
     // test bodies (kept byte-for-byte identical to the originals apart from
     // the module wrapper); their pre-existing quality issues are left for a
