@@ -115,6 +115,33 @@ abstract class ResidueBase<A extends ResidueAtom> {
   abstract isNucleotide(): boolean;
 }
 
+// Collapses a secondary structure code onto the 3-state alphabet used
+// throughout pv: coil ('C'), helix ('H') and strand ('E'). DSSP and friends
+// emit an 8-state alphabet, but the cartoon renderer only knows these 3
+// states. An unknown code is drawn with the coil profile while *skipping*
+// the parallel-transported frame that keeps a tube from twisting, so it
+// renders as a twisted tube; it also defeats the coil->helix/strand
+// transition fix-up, the arrow heads and the strand smoothing, all of which
+// test for 'C'. Collapsing on assignment keeps every consumer - renderer,
+// color ops and selections - on a code it understands.
+//
+// 3-10 ('G') and pi ('I') helices become helices, isolated beta bridges
+// ('B') become strands, turns ('T'), bends ('S') and unassigned residues
+// become coil. This is the same mapping NGL and Mol* apply.
+function ssType(ss: string | null | undefined): string {
+  switch (typeof ss === 'string' ? ss.toUpperCase() : '') {
+    case 'H':
+    case 'G':
+    case 'I':
+      return 'H';
+    case 'E':
+    case 'B':
+      return 'E';
+    default:
+      return 'C';
+  }
+}
+
 class Residue extends ResidueBase<Atom> {
   _name: string;
   _num: number;
@@ -191,7 +218,7 @@ class Residue extends ResidueBase<Atom> {
   }
 
   ss(): string { return this._ss; }
-  setSS(ss: string): void { this._ss = ss; }
+  setSS(ss: string): void { this._ss = ssType(ss); }
   index(): number { return this._index; }
 
   atoms(): Atom[] { return this._atoms; }
@@ -288,7 +315,10 @@ class ResidueView extends ResidueBase<AtomView> {
   }
 }
 
+export { ssType };
+
 export default {
   ResidueView : ResidueView,
-  Residue : Residue
+  Residue : Residue,
+  ssType : ssType
 };
