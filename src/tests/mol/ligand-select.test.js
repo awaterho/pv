@@ -55,7 +55,7 @@ test('ligand selects a free amino acid', function() {
     'HETATM 4 O O   ILE C . 1.251 2.390 0.000',
   ].join('\n');
   const s = io.cif(cif);
-  strictEqual(s.chain('C').residues()[0].isAminoacid(), true);
+  strictEqual(s.chainByName('C').residues()[0].isAminoacid(), true);
   deepEqual(names(s.select('ligand')), ['ILE1']);
 });
 

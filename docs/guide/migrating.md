@@ -27,8 +27,14 @@ PV 2 is a rewrite of [Marco Biasini's PV](https://github.com/biasmv/pv) in TypeS
 
 ## Events
 
-- The `atomClicked` and `atomDoubleClicked` events are `click` and `doubleClick`. The constructor options `atomClick`, `atomClicked`, `atomDoubleClick` and `atomDoubleClicked` still work, with a warning; use `click` and `doubleClick`.
+- The `atomClicked` and `atomDoubleClicked` events are `click` and `doubleClick`. The constructor options `atomClick`, `atomClicked`, `atomDoubleClick` and `atomDoubleClicked` are gone; use `click` and `doubleClick`.
 - `click`, `doubleClick` and the new `longPress` also come from touch.
+- The picked object no longer has `object()`. Use `target()` for the atom or custom-mesh data and `node()` for the object that was picked.
+
+## Removed names
+
+- `structure.chain(name)` is `structure.chainByName(name)`. `residue.chain()` is unchanged.
+- `pv.rgb.setColorPalette` and `pv.rgb.hex2rgb` are `pv.color.setColorPalette` and `pv.color.hex2rgb`.
 
 ## Rendering
 

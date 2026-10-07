@@ -9,7 +9,7 @@ A structure is a `Mol`, made of chains, residues and atoms. A [selection](./sele
 | Method | |
 |---|---|
 | `chains()` | |
-| `chain(name)` | The chain of that name, or `null` |
+| `chainByName(name)` | The chain of that name, or `null` |
 | `eachChain(callback)`, `eachResidue(callback)`, `eachAtom(callback)` | Return `false` from `callback` to stop |
 | `residueCount()`, `atomCount()` | |
 | `atoms()` | All atoms, as an array |

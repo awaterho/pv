@@ -276,7 +276,7 @@ class PDBReader {
     if (updateChain) {
       // residues of one chain might appear interspersed with residues from
       // other chains.
-      this._currChain = this._structure.chain(chainName) ||
+      this._currChain = this._structure.chainByName(chainName) ||
                         this._structure.addChain(chainName);
     }
     if (updateResidue) {
@@ -382,14 +382,14 @@ class PDBReader {
     let i;
     for (i = 0; i < this._sheets.length; ++i) {
       const sheet = this._sheets[i]!;
-      chain = this._structure.chain(sheet.chainName);
+      chain = this._structure.chainByName(sheet.chainName);
       if (chain) {
         chain.assignSS(sheet.first, sheet.last, 'E');
       }
     }
     for (i = 0; i < this._helices.length; ++i) {
       const helix = this._helices[i]!;
-      chain = this._structure.chain(helix.chainName);
+      chain = this._structure.chainByName(helix.chainName);
       if (chain) {
         chain.assignSS(helix.first, helix.last, 'H');
       }
@@ -626,7 +626,7 @@ class CRDReader {
     const cName =  line[51]!;
     if (this._currentChain === null || this._currentChain.name() !== cName) {
       this._currentResidue = null;
-      this._currentChain = this._structure.chain(cName);
+      this._currentChain = this._structure.chainByName(cName);
       if (this._currentChain === null) {
         this._currentChain = this._structure.addChain(cName);
       }
@@ -1012,7 +1012,7 @@ class CIFReader {
 
       const updateChain = currChainName !== chainName;
       if (updateChain) {
-        let chain = structure.chain(chainName);
+        let chain = structure.chainByName(chainName);
         if (chain === null) {
           chain = structure.addChain(chainName);
           const entityId = row.get('label_entity_id');
@@ -1161,7 +1161,7 @@ class CIFReader {
   // ligands) have none and are numbered by auth_seq_id, see _buildModel.
   private _structConnAtom(structure: Mol, row: CIFRow, ptnr: string): AtomT | null {
     const chainName = row.get('ptnr' + ptnr + '_label_asym_id');
-    const chain = chainName !== undefined ? structure.chain(chainName) : null;
+    const chain = chainName !== undefined ? structure.chainByName(chainName) : null;
     if (chain === null) {
       return null;
     }
@@ -1217,7 +1217,7 @@ class CIFReader {
     if (chainName === undefined || begNum === undefined || endNum === undefined) {
       return;
     }
-    const chain = structure.chain(chainName);
+    const chain = structure.chainByName(chainName);
     if (chain === null) {
       return;
     }

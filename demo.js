@@ -1617,7 +1617,7 @@ function residueInfo(picked, atom) {
   const res = atom.residue();
   const insCode = res.insCode() !== '\0' ? res.insCode() : '';
   return {
-    strucId: picked.object().geom.name(),
+    strucId: picked.node().name(),
     chain: res.chain().name(),
     resno: res.num(),
     insCode,

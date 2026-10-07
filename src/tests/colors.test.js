@@ -44,7 +44,7 @@ function loadTitin() {
 
 function colorOfChain(op, structure, chainName) {
   var out = [0, 0, 0, 0];
-  op.colorFor(structure.chain(chainName).residues()[0].atoms()[0], out, 0);
+  op.colorFor(structure.chainByName(chainName).residues()[0].atoms()[0], out, 0);
   return out;
 }
 
@@ -60,7 +60,7 @@ function mixTowards(c, target, w) {
 
 // the polymer chain a water/ligand chain is assigned to by author chain name
 function partnerOf(structure, chainName) {
-  var auth = structure.chain(chainName).residues()[0].prop('authAsymId');
+  var auth = structure.chainByName(chainName).residues()[0].prop('authAsymId');
   return structure.chains().find(function(c) {
     return c.backboneTraces().length > 0 &&
       (c.residues()[0].prop('authAsymId') || c.name()) === auth;

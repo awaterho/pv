@@ -183,7 +183,7 @@ test('get atom by name', function(assert) {
 });
 
 test('get atom by index (out of bounds)', function(assert) {
-  var r = FRAGMENT.chain('A').residueByRnum(905);
+  var r = FRAGMENT.chainByName('A').residueByRnum(905);
   assert.strictEqual(r.atom(r.atoms().length), null);
   assert.strictEqual(r.atom(-1), null);
 });
@@ -196,7 +196,7 @@ test('get atom by name that does not exists', function(assert) {
 
   
 test('convert chain to view', function(assert) {
-  var view = FRAGMENT.chain('A').asView();
+  var view = FRAGMENT.chainByName('A').asView();
   assert.strictEqual(FRAGMENT.atomCount(), view.atomCount());
 });
 
@@ -287,10 +287,10 @@ test('select polymer on view', function(assert) {
 test('add residues', function(assert) {
   var rnums = [268,903,904,905];
   var firstView = FRAGMENT.select({rnums : rnums });
-  assert.ok(firstView.chain('A')._rnumsOrdered === true);
+  assert.ok(firstView.chainByName('A')._rnumsOrdered === true);
   var i, res, res2;
   for (i = 0; i < rnums.length; ++i) {
-    res = firstView.chain('A').residueByRnum(rnums[i]);
+    res = firstView.chainByName('A').residueByRnum(rnums[i]);
     assert.strictEqual(res.num(), rnums[i]);
   }
   var secondView = FRAGMENT.createEmptyView();
@@ -300,8 +300,8 @@ test('add residues', function(assert) {
   var other = [];
   secondView.eachResidue(function(x) { other.push(x); });
   for (i = 0; i < rnums.length; ++i) {
-    res = firstView.chain('A').residueByRnum(rnums[i]);
-    res2 = secondView.chain('A').residueByRnum(rnums[i]);
+    res = firstView.chainByName('A').residueByRnum(rnums[i]);
+    res2 = secondView.chainByName('A').residueByRnum(rnums[i]);
     assert.strictEqual(res.num(), res2.num());
   }
 });
@@ -347,30 +347,30 @@ test('atom select on view', function(assert) {
 test('residue by rnum on structure', function(assert) {
   var rnums = [268,903,904,905];
   for (var i = 0; i < rnums.length; ++i) {
-    var res = FRAGMENT.chain('A').residueByRnum(rnums[i]);
+    var res = FRAGMENT.chainByName('A').residueByRnum(rnums[i]);
     assert.strictEqual(res.num(), rnums[i]);
   }
-  assert.strictEqual(FRAGMENT.chain('A').residueByRnum(100), null);
-  assert.strictEqual(FRAGMENT.chain('A').residueByRnum(900), null);
-  assert.strictEqual(FRAGMENT.chain('A').residueByRnum(1000), null);
+  assert.strictEqual(FRAGMENT.chainByName('A').residueByRnum(100), null);
+  assert.strictEqual(FRAGMENT.chainByName('A').residueByRnum(900), null);
+  assert.strictEqual(FRAGMENT.chainByName('A').residueByRnum(1000), null);
 });
 
 test('residue by rnum on view', function(assert) {
   var rnums = [268,903,904,905];
   var firstView = FRAGMENT.select({rnums : rnums });
-  assert.ok(firstView.chain('A')._rnumsOrdered === true);
+  assert.ok(firstView.chainByName('A')._rnumsOrdered === true);
   for (var i = 0; i < rnums.length; ++i) {
-    var res = firstView.chain('A').residueByRnum(rnums[i]);
+    var res = firstView.chainByName('A').residueByRnum(rnums[i]);
     assert.strictEqual(res.num(), rnums[i]);
   }
-  assert.strictEqual(firstView.chain('A').residueByRnum(100), null);
-  assert.strictEqual(firstView.chain('A').residueByRnum(902), null);
-  assert.strictEqual(firstView.chain('A').residueByRnum(1000), null);
+  assert.strictEqual(firstView.chainByName('A').residueByRnum(100), null);
+  assert.strictEqual(firstView.chainByName('A').residueByRnum(902), null);
+  assert.strictEqual(firstView.chainByName('A').residueByRnum(1000), null);
 });
 
 test('residues in rnum range on structure', function(assert) {
-  assert.ok(FRAGMENT.chain('A')._rnumsOrdered === false);
-  var residues = FRAGMENT.chain('A').residuesInRnumRange(902, 906);
+  assert.ok(FRAGMENT.chainByName('A')._rnumsOrdered === false);
+  var residues = FRAGMENT.chainByName('A').residuesInRnumRange(902, 906);
   assert.strictEqual(residues.length, 5);
   assert.strictEqual(residues[0].num(), 902);
   assert.strictEqual(residues[1].num(), 903);
@@ -382,8 +382,8 @@ test('residues in rnum range on structure', function(assert) {
 test('residues in rnum range on view', function(assert) {
   var rnums = [268,903,904,905];
   var firstView = FRAGMENT.select({rnums : rnums });
-  assert.ok(firstView.chain('A')._rnumsOrdered === true);
-  var residues = firstView.chain('A').residuesInRnumRange(902, 906);
+  assert.ok(firstView.chainByName('A')._rnumsOrdered === true);
+  var residues = firstView.chainByName('A').residuesInRnumRange(902, 906);
   assert.strictEqual(residues.length, 3);
   assert.strictEqual(residues[0].num(), 903);
   assert.strictEqual(residues[1].num(), 904);

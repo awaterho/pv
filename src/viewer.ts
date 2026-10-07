@@ -250,20 +250,18 @@ class PickedObject {
   private _target: unknown;
   private _node: BaseGeom;
   private _symIndex: number | null;
-  private _legacyObject: PickedData;
-  private _legacyTransform: mat4 | null;
+  private _transform: mat4 | null;
   private _connectivity: string;
 
   constructor(
-    target: unknown, node: BaseGeom, symIndex: number | null, pos: vec3, object: PickedData,
+    target: unknown, node: BaseGeom, symIndex: number | null, pos: vec3,
     transform: mat4 | null, connectivity: string,
   ) {
     this._pos = pos;
     this._target = target;
     this._node = node;
     this._symIndex = symIndex;
-    this._legacyObject = object;
-    this._legacyTransform = transform;
+    this._transform = transform;
     this._connectivity = connectivity;
   }
 
@@ -284,14 +282,9 @@ class PickedObject {
   node(): BaseGeom {
     return this._node;
   }
-  // the following functions are here for supporting the old pick interface.
-  // It's use is discouraged as it's much more complicated to use.
+  // the symmetry operator of the picked copy, or null for the asymmetric unit
   transform(): mat4 | null {
-    return this._legacyTransform;
-  }
-
-  object(): PickedData {
-    return this._legacyObject;
+    return this._transform;
   }
 }
 
@@ -330,16 +323,6 @@ function makeSsaoKernel(): Float32Array {
 
 
 function getDoubleClickHandler(opts: Record<string, unknown>): ClickHandler {
-  if (opts.atomDoubleClick) {
-    console.warn('use of atomDoubleClick is deprecated. ',
-                 'use doubleClick instead');
-    return opts.atomDoubleClick as ClickHandler;
-  }
-  if (opts.atomDoubleClicked) {
-    console.warn('use of atomDoubleClicked is deprecated. ',
-                 'use doubleClick instead');
-    return opts.atomDoubleClicked as ClickHandler;
-  }
   // null or false: no double-click handler at all
   if (opts.doubleClick !== undefined) {
     return (opts.doubleClick || null) as ClickHandler;
@@ -348,16 +331,6 @@ function getDoubleClickHandler(opts: Record<string, unknown>): ClickHandler {
 }
 
 function getClickHandler(opts: Record<string, unknown>): ClickHandler {
-  if (opts.atomClick) {
-    console.warn('use of atomClick is deprecated. ',
-                 'use click instead');
-    return opts.atomClick as ClickHandler;
-  }
-  if (opts.atomClicked) {
-    console.warn('use of atomClicked is deprecated. ',
-                 'use click instead');
-    return opts.atomClicked as ClickHandler;
-  }
   if (opts.click) {
     return opts.click as ClickHandler;
   }
@@ -1764,7 +1737,7 @@ class Viewer {
     const copy = (picked as { copy?: number | null }).copy;
     return new PickedObject(target, picked.geom,
                             symIndex < 255 ? symIndex : (copy ?? null),
-                            transformedPos, picked, transform,
+                            transformedPos, transform,
                             connectivity);
   }
 

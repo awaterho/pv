@@ -42,7 +42,7 @@ test('parses atoms using label_* identifiers', function(assert) {
   var structure = io.cif(BASIC_CIF);
   assert.ok(!!structure);
   strictEqual(structure.chains().length, 2);
-  var chainA = structure.chain('A');
+  var chainA = structure.chainByName('A');
   assert.ok(!!chainA);
   strictEqual(chainA.residues().length, 4);
   strictEqual(chainA.residueByRnum(1).atoms().length, 4);
@@ -54,7 +54,7 @@ test('parses atoms using label_* identifiers', function(assert) {
 
 test('filters alternate conformers to "." and "A"', function(assert) {
   var structure = io.cif(BASIC_CIF);
-  var res3 = structure.chain('A').residueByRnum(3);
+  var res3 = structure.chainByName('A').residueByRnum(3);
   // only the altloc-A and altloc-"." atoms should have been kept: N (alt A)
   // and CA (alt "."), not the altloc-B duplicate of N.
   strictEqual(res3.atoms().length, 2);
@@ -62,13 +62,13 @@ test('filters alternate conformers to "." and "A"', function(assert) {
 
 test('gives each atom the exact element from type_symbol, no guessing', function(assert) {
   var structure = io.cif(BASIC_CIF);
-  var n = structure.chain('A').residueByRnum(1).atom('N');
+  var n = structure.chainByName('A').residueByRnum(1).atom('N');
   strictEqual(n.element(), 'N');
 });
 
 test('without auth_seq_id, groups a heteroatom group (label_seq_id ".") into one residue per asym id', function(assert) {
   var structure = io.cif(BASIC_CIF);
-  var chainD = structure.chain('D');
+  var chainD = structure.chainByName('D');
   assert.ok(!!chainD);
   strictEqual(chainD.residues().length, 1);
   strictEqual(chainD.residues()[0].name(), 'GOL');
@@ -95,14 +95,14 @@ test('keeps auth_asym_id/auth_seq_id (plus insertion code) as residue props only
     'ATOM   C CA GLY A 3 ? 2.0 0.0 0.0 3 A',
     'HETATM C C1 GOL C . ? 9.0 9.0 9.0 1335 A',
   ].join('\n'));
-  var chainA = structure.chain('A');
+  var chainA = structure.chainByName('A');
   strictEqual(chainA.residueByRnum(1).prop('authSeqId'), '6');
   strictEqual(chainA.residueByRnum(2).prop('authSeqId'), '6B');
   // same as the label ids: nothing stored, so prop() gives its default 0
   strictEqual(chainA.residueByRnum(1).prop('authAsymId'), 0);
   strictEqual(chainA.residueByRnum(3).prop('authSeqId'), 0);
   // a ligand takes its number from auth_seq_id, so only the chain differs
-  var gol = structure.chain('C').residues()[0];
+  var gol = structure.chainByName('C').residues()[0];
   strictEqual(gol.num(), 1335);
   strictEqual(gol.prop('authSeqId'), 0);
   strictEqual(gol.prop('authAsymId'), 'A');
@@ -139,14 +139,14 @@ test('names chains by _entity.pdbx_description and ligands by chem_comp.name', f
     'HETATM S S  SO4 B 2 . 5.0 0.0 0.0 901',
     'HETATM O O  HOH C 3 . 9.0 0.0 0.0 2001',
   ].join('\n'));
-  var chainA = structure.chain('A');
+  var chainA = structure.chainByName('A');
   strictEqual(chainA.prop('entityDescription'), 'Glycine N-methyltransferase');
   // polymer residues aren't given their component name
   strictEqual(chainA.residues()[0].prop('compName'), 0);
-  strictEqual(structure.chain('B').residues()[0].prop('compName'), 'SULFATE ION');
+  strictEqual(structure.chainByName('B').residues()[0].prop('compName'), 'SULFATE ION');
   // the water entity's description is '?', so nothing is stored
-  strictEqual(structure.chain('C').prop('entityDescription'), 0);
-  strictEqual(structure.chain('C').residues()[0].prop('compName'), 'WATER');
+  strictEqual(structure.chainByName('C').prop('entityDescription'), 0);
+  strictEqual(structure.chainByName('C').residues()[0].prop('compName'), 'WATER');
 });
 
 test('numbers non-polymer residues by auth_seq_id, one residue per water', function(assert) {
@@ -170,11 +170,11 @@ test('numbers non-polymer residues by auth_seq_id, one residue per water', funct
     'HETATM O O  HOH D . ? 6.0 0.0 0.0 2002 A',
     'HETATM O O  HOH D . A 7.0 0.0 0.0 2002 A',
   ].join('\n'));
-  var so4 = structure.chain('B').residues();
+  var so4 = structure.chainByName('B').residues();
   strictEqual(so4.length, 1);
   strictEqual(so4[0].num(), 901);
   strictEqual(so4[0].atoms().length, 2);
-  var waters = structure.chain('D').residues();
+  var waters = structure.chainByName('D').residues();
   strictEqual(waters.length, 3);
   deepEqual(waters.map(function(r) { return r.num(); }), [2001, 2002, 2002]);
   strictEqual(waters[2].insCode(), 'A');
@@ -219,7 +219,7 @@ var SS_CIF = [
 
 test('wires _struct_conf into helix secondary structure assignment', function(assert) {
   var structure = io.cif(SS_CIF);
-  var chainA = structure.chain('A');
+  var chainA = structure.chainByName('A');
   strictEqual(chainA.residueByRnum(1).ss(), 'C');
   strictEqual(chainA.residueByRnum(2).ss(), 'H');
   strictEqual(chainA.residueByRnum(3).ss(), 'C');
@@ -228,7 +228,7 @@ test('wires _struct_conf into helix secondary structure assignment', function(as
 
 test('wires _struct_sheet_range into strand secondary structure assignment', function(assert) {
   var structure = io.cif(SS_CIF);
-  var chainB = structure.chain('B');
+  var chainB = structure.chainByName('B');
   strictEqual(chainB.residueByRnum(1).ss(), 'C');
   strictEqual(chainB.residueByRnum(2).ss(), 'E');
   strictEqual(chainB.residueByRnum(3).ss(), 'C');
@@ -237,11 +237,11 @@ test('wires _struct_sheet_range into strand secondary structure assignment', fun
 test('takes strands from STRN rows of _struct_conf, as AlphaFold DB files list them', function(assert) {
   var structure = io.cif(SS_CIF.replace('HELX_P A 1 A 3', 'HELX_P A 1 A 3\nSTRN B 1 B 3')
                                .replace('S1 B 1 B 3', 'S1 A 9 A 9'));
-  var chainB = structure.chain('B');
+  var chainB = structure.chainByName('B');
   strictEqual(chainB.residueByRnum(1).ss(), 'C');
   strictEqual(chainB.residueByRnum(2).ss(), 'E');
   strictEqual(chainB.residueByRnum(3).ss(), 'C');
-  strictEqual(structure.chain('A').residueByRnum(2).ss(), 'H');
+  strictEqual(structure.chainByName('A').residueByRnum(2).ss(), 'H');
 });
 
 var ASSEMBLY_CIF = [
@@ -351,7 +351,7 @@ var KEY_VALUE_CIF = [
 
 test('reads categories written as key-value pairs as single row tables', function(assert) {
   var structure = io.cif(KEY_VALUE_CIF);
-  strictEqual(structure.chain('A').residueByRnum(2).ss(), 'H');
+  strictEqual(structure.chainByName('A').residueByRnum(2).ss(), 'H');
   var assembly = structure.assembly('1');
   assert.ok(!!assembly);
   deepEqual(assembly.generator(0).chains(), ['A']);
@@ -398,7 +398,7 @@ var CHEM_COMP_BOND_CIF = [
 
 test('derives bond order from chem_comp_bond instead of guessing from distance', function(assert) {
   var structure = io.cif(CHEM_COMP_BOND_CIF);
-  var lig = structure.chain('X').residues()[0];
+  var lig = structure.chainByName('X').residues()[0];
   var c1 = lig.atom('C1'), c2 = lig.atom('C2'), c3 = lig.atom('C3');
 
   // exactly the 2 bonds from chem_comp_bond, not doubled up by the

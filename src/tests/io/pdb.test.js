@@ -228,7 +228,7 @@ test('load multi-model PDB file', function(assert) {
       assert.strictEqual(structures[i].atoms().length, 1290);
       assert.strictEqual(structures[i].assembly(), null);
       // check secondary structure assignment
-      assert.strictEqual(structures[i].chain('A').residueByRnum(19).ss(),  'H');
+      assert.strictEqual(structures[i].chainByName('A').residueByRnum(19).ss(),  'H');
 
     }
     done();
@@ -240,7 +240,7 @@ test('only load first model when loadAllModels option is not set', function(asse
   io.fetchPdb('/tests/data/1nmr.pdb', function(structure) {
     assert.strictEqual(structure.atoms().length, 1290);
     assert.strictEqual(structure.assembly(), null);
-    assert.strictEqual(structure.chain('A').residueByRnum(19).ss(),  'H');
+    assert.strictEqual(structure.chainByName('A').residueByRnum(19).ss(),  'H');
     done();
   });
 });

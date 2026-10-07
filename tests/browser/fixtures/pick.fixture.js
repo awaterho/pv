@@ -45,8 +45,6 @@ test('pick atom', function(assert) {
     assert.strictEqual(picked.target(), firstAtom);
     assert.strictEqual(picked.symIndex(), 0);
     assert.strictEqual(picked.node(), go);
-    // the following lines test for the deprecated interface
-    assert.strictEqual(picked.object().atom, firstAtom);
     assert.mat4Equal(picked.transform(), mat4.create());
     done();
   });

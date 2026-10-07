@@ -9,7 +9,7 @@ function load(id) {
 }
 
 test('finds the one pyranose ring of a sugar, in ring order', function() {
-  const nag = load('4byh').chain('C').residues()[0];
+  const nag = load('4byh').chainByName('C').residues()[0];
   const found = rings.findRings(nag);
   strictEqual(found.length, 1);
   deepEqual(found[0].map((a) => a.name()).sort(), ['C1', 'C2', 'C3', 'C4', 'C5', 'O5']);
@@ -23,7 +23,7 @@ test('finds the one pyranose ring of a sugar, in ring order', function() {
 test('finds fused rings as their small rings', function() {
   // the MELK inhibitor 47W: isoquinoline (two fused 6-rings), a benzene
   // ring and a piperazine
-  const inhibitor = load('4umt').chain('C').residues()[0];
+  const inhibitor = load('4umt').chainByName('C').residues()[0];
   const found = rings.findRings(inhibitor);
   deepEqual(found.map((r) => r.length), [6, 6, 6, 6]);
 });
@@ -139,7 +139,7 @@ const FREE_NUCLEOTIDE_CIF = [
 
 test('leaves out free nucleotides, which have no tube to stand on', function() {
   const s = io.cif(FREE_NUCLEOTIDE_CIF);
-  const ligand = s.chain('C').residues()[0];
+  const ligand = s.chainByName('C').residues()[0];
   ok(ligand.isNucleotide());
   const viewer = stubViewer();
   rings.drawBases(viewer, 'bases', s, { sticks: true });

@@ -16,7 +16,7 @@ test('a nucleotide carrying an amino acid is a nucleotide only', function() {
                  'N', 'CA', 'C', 'O', 'CB'];
   const lines = names.map((n, i) => pdbLine(i + 1, n, '12A', 'W', 37, i * 5, 0, 0, n[0]));
   const s = io.pdb(lines.join('\n') + '\nEND\n');
-  const residue = s.chain('W').residues()[0];
+  const residue = s.chainByName('W').residues()[0];
   strictEqual(residue.isNucleotide(), true);
   strictEqual(residue.isAminoacid(), false);
   // so the nucleic-acid trace runs through C3', not the threonine's CA
@@ -33,7 +33,7 @@ test('the irons of an iron-sulfur cluster are bonded to the sulfurs only', funct
   ];
   const lines = atoms.map(([n, x, y, z, e], i) => pdbLine(i + 1, n, 'SF4', 'Q', 801, x, y, z, e));
   const s = io.pdb(lines.join('\n') + '\nEND\n');
-  const residue = s.chain('Q').residues()[0];
+  const residue = s.chainByName('Q').residues()[0];
   const bonds = new Set();
   for (const atom of residue.atoms()) {
     for (const bond of atom.bonds()) {

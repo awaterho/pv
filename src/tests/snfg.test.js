@@ -30,23 +30,23 @@ function stubViewer() {
 
 test('reads the SNFG symbol names of the sugars from the mmCIF file', function() {
   const fc = loadFc();
-  const glycan = fc.chain('C').residues();
+  const glycan = fc.chainByName('C').residues();
   deepEqual(glycan.map((r) => snfg.snfgName(r)),
             ['GlcNAc', 'GlcNAc', 'Man', 'Man', 'GlcNAc', 'Gal', 'Neu5Ac', 'Man', 'GlcNAc', 'Fuc']);
   strictEqual(snfg.symbol(glycan[0]).shape, 'cube');
   strictEqual(snfg.symbol(glycan[6]).shape, 'diamond');
   strictEqual(snfg.symbol(glycan[9]).shape, 'cone');
-  strictEqual(snfg.symbol(fc.chain('A').residues()[0]), null);
+  strictEqual(snfg.symbol(fc.chainByName('A').residues()[0]), null);
   strictEqual(fc.select('carbohydrate').residueCount(), 20);
 });
 
 test('links the glycans to each other and to Asn297 through _struct_conn', function() {
   const fc = loadFc();
-  const nag = fc.chain('C').residues()[0];
-  const asn = fc.chain('A').residues().find((r) => r.name() === 'ASN' && r.prop('authSeqId') === '297');
+  const nag = fc.chainByName('C').residues()[0];
+  const asn = fc.chainByName('A').residues().find((r) => r.name() === 'ASN' && r.prop('authSeqId') === '297');
   ok(!!asn);
   ok(nag.atom('C1').isConnectedTo(asn.atom('ND2')));
-  ok(nag.atom('O4').isConnectedTo(fc.chain('C').residues()[1].atom('C1')));
+  ok(nag.atom('O4').isConnectedTo(fc.chainByName('C').residues()[1].atom('C1')));
 });
 
 test('draws one symbol per sugar, a stick per link and one to each Asn', function() {
@@ -61,7 +61,7 @@ test('draws one symbol per sugar, a stick per link and one to each Asn', functio
   strictEqual(tubes.length, 2 * (9 + 1));
   // each symbol sits on its ring: within half an Angstrom of the residue's
   // C1-O5 midpoint region, i.e. close to the ring atoms' center
-  const nag = fc.chain('C').residues()[0];
+  const nag = fc.chainByName('C').residues()[0];
   const ring = ['C1', 'C2', 'C3', 'C4', 'C5', 'O5'].map((n) => nag.atom(n).pos());
   const center = ring.reduce((c, p) => vec3.add(c, c, p), vec3.create());
   vec3.scale(center, center, 1 / 6);
@@ -93,7 +93,7 @@ test('turns each cone base to its parent sugar, the tip away from it', function(
   const fc = loadFc();
   const viewer = stubViewer();
   snfg.draw(viewer, 'glycans', fc);
-  const glycan = fc.chain('C').residues();
+  const glycan = fc.chainByName('C').residues();
   const pyranose = ['C1', 'C2', 'C3', 'C4', 'C5', 'O5'];
   // core Fuc 10 hangs off the O6 of the first GlcNAc
   const fuc = glycan[9], nag = glycan[0];
@@ -131,9 +131,9 @@ test('colors sugar atoms by SNFG and the rest by the fallback', function() {
   const op = snfg.color();
   op.begin(fc);
   const out = [0, 0, 0, 0];
-  op.colorFor(fc.chain('C').residues()[9].atom('C1'), out, 0);   // Fuc: red
+  op.colorFor(fc.chainByName('C').residues()[9].atom('C1'), out, 0);   // Fuc: red
   deepEqual(out.map((v) => Math.round(v * 255)), [237, 28, 36, 255]);
-  op.colorFor(fc.chain('A').residues()[0].atom('N'), out, 0);    // by element
+  op.colorFor(fc.chainByName('A').residues()[0].atom('N'), out, 0);    // by element
   ok(out[2] > out[0]);
   op.end();
 });

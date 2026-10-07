@@ -11,7 +11,7 @@ function load(id) {
 test('survey: bonds are compared with the CCD both ways', function() {
   const trna = load('1ehz');
   // the CCD's guanosine minus its glycosidic bond, plus one it doesn't have
-  const g = trna.chain('A').residues()[0];
+  const g = trna.chainByName('A').residues()[0];
   const ccd = new Map([['G', new Set()]]);
   for (const atom of g.atoms()) {
     for (const bond of atom.bonds()) {

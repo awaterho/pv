@@ -38,11 +38,6 @@ export default {
     snfg : snfg,
     rings : rings,
     membrane : membrane,
-    // for backward compatibility prior to version 1.4
-    rgb : {
-      setColorPalette : color.setColorPalette,
-      hex2rgb : color.hex2rgb
-    },
     vec3 : glMatrix.vec3,
     vec4 : glMatrix.vec4,
     mat3 : glMatrix.mat3,

@@ -186,7 +186,7 @@ abstract class MolBase<C extends MolChain> {
 
   atom(name: string): unknown {
     const parts = name.split('.');
-    const chain = (this as unknown as { chain(n: string): { residueByRnum(n: number): { atom(n: string): unknown } | null } | null }).chain(parts[0]!);
+    const chain = (this as unknown as { chainByName(n: string): { residueByRnum(n: number): { atom(n: string): unknown } | null } | null }).chainByName(parts[0]!);
     if (chain === null) {
       return null;
     }
@@ -462,11 +462,6 @@ class Mol extends MolBase<Chain> {
     return null;
   }
 
-  // for backwards compatibility
-  chain(name: string): Chain | null {
-    return this.chainByName(name);
-  }
-
   nextAtomIndex(): number {
     const nextIndex = this._nextAtomIndex;
     this._nextAtomIndex+=1;
@@ -568,7 +563,7 @@ class MolView extends MolBase<ChainView> {
   }
 
   addAtom(atom: { residue(): { chain(): { name(): string; full(): Chain; residues(): unknown[] } } }): unknown {
-    let chain = this.chain(atom.residue().chain().name());
+    let chain = this.chainByName(atom.residue().chain().name());
     if (chain === null) {
       chain = this.addChain(atom.residue().chain());
     }
@@ -582,7 +577,7 @@ class MolView extends MolBase<ChainView> {
     if (atom === null) {
       return false;
     }
-    const chain = this.chain(atom.residue().chain().name());
+    const chain = this.chainByName(atom.residue().chain().name());
     if (chain === null) {
       return false;
     }
@@ -601,7 +596,7 @@ class MolView extends MolBase<ChainView> {
     if (!residue) {
       return false;
     }
-    const chain = this.chain(residue.chain().name());
+    const chain = this.chainByName(residue.chain().name());
     if (!chain) {
       return false;
     }
@@ -625,7 +620,7 @@ class MolView extends MolBase<ChainView> {
 
   chains(): ChainView[] { return this._chains; }
 
-  chain(name: string): ChainView | null {
+  chainByName(name: string): ChainView | null {
     for (let i = 0; i < this._chains.length; ++i) {
       if (this._chains[i]!.name() === name) {
         return this._chains[i]!;
