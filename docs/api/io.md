@@ -31,7 +31,7 @@ Each of the first four returns a promise of what the parser returns. It is rejec
 |---|---|---|---|
 | `loadAllModels` | `cif`, `pdb` | `false` | Read every model, and return an array |
 | `traceOnly` | `cif` | `false` | Keep only CA and C3' atoms of polymers |
-| `conectRecords` | `pdb` | `false` | Read `CONECT` records as bonds |
+| `conectRecords` | `pdb` | `true` | Read `CONECT` records as bonds |
 
 ## Helpers
 

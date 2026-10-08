@@ -57,7 +57,7 @@ See the [NMR ensemble sample](/samples/ensemble).
 |---|---|---|---|
 | `loadAllModels` | PDB, mmCIF | `false` | Read every model and return an array. |
 | `traceOnly` | mmCIF | `false` | Keep only the CA of amino acids and the C3' of nucleotides, and no ligands or water. For structures too large to load in full; see [Large structures](./large-structures). |
-| `conectRecords` | PDB | `false` | Read `CONECT` records as bonds. A partner listed twice gives a double bond. In files with several models, the records are not read and bonds are found from distances. |
+| `conectRecords` | PDB | `true` | Read `CONECT` records as bonds. These are the only source of bonds between residues other than the polymer backbone: disulfides, glycan links, ligands attached to the protein. A partner listed twice gives a double bond. Records pointing at atoms that aren't in the file are skipped. In files with several models, the records are not read and bonds are found from distances. Set to `false` to ignore them. |
 
 ## What PV reads from mmCIF
 

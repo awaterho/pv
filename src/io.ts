@@ -186,7 +186,7 @@ class PDBReader {
     this._currChain =  null;
     this._currRes = null;
     this._currAtom = null;
-    this._options = { conectRecords: !!options.conectRecords };
+    this._options = { conectRecords: options.conectRecords !== false };
   }
 
   parseHelixRecord(line: string): boolean {
@@ -297,8 +297,9 @@ class PDBReader {
                                      isNaN(occupancy) ? undefined : occupancy,
                                      isNaN(tempFactor) ? undefined : tempFactor,
                                      serial);
-    // in case parseConect records is set to true, store away the atom serial
-    if (this._options.conectRecords) {
+    // in case parseConect records is set to true, store away the atom serial.
+    // Serials that don't parse (hybrid-36, overflow) can't be referenced.
+    if (this._options.conectRecords && !isNaN(serial)) {
       this._serialToAtomMap[serial] = atom;
     }
     return true;
@@ -306,15 +307,14 @@ class PDBReader {
 
   parseConectRecord(line: string): boolean {
     const atomSerial = parseInt(line.substr(6,5).trim(), 10);
+    // a record we can't read is skipped rather than failing the whole file
+    if (isNaN(atomSerial)) {
+      return true;
+    }
     const bondPartnerIds: number[] = [];
     for (let i = 0; i < 4; ++i) {
-      const partnerId = parseInt(line.substr(11 + i * 5, 6).trim(), 10);
-      if (isNaN(partnerId)) {
-        continue;
-      }
-      // bonds are listed twice, so to avoid duplicate bonds, only keep bonds
-      // with the lower serials as the first atom.
-      if (partnerId > atomSerial) {
+      const partnerId = parseInt(line.substr(11 + i * 5, 5).trim(), 10);
+      if (isNaN(partnerId) || partnerId === atomSerial) {
         continue;
       }
       bondPartnerIds.push(partnerId);
@@ -398,6 +398,8 @@ class PDBReader {
     if (this._options.conectRecords) {
       this._assignBondsFromConectRecords(this._structure);
     }
+    this._conect = [];
+    this._serialToAtomMap = {};
     this._structure.deriveConnectivity();
     const result = this._structure;
     this._structure = new Mol();
@@ -409,9 +411,12 @@ class PDBReader {
   }
 
   _assignBondsFromConectRecords(structure: Mol): void {
+    // most files list every bond from both ends, some only from one. Key
+    // bonds by their atom pair so either way gives exactly one bond.
+    const orderForPair = new Map<string, number>();
+    const pairs: [number, number][] = [];
     for (let i = 0; i < this._conect.length; ++i) {
       const record = this._conect[i]!;
-      const fromAtom = this._serialToAtomMap[record.from]!;
       // some tools (e.g. Open Babel) encode bond order by repeating the same
       // partner serial number within a CONECT record's partner list, e.g.
       // "CONECT 2 1 1" for atom 2 double-bonded to atom 1. Collapse those
@@ -423,9 +428,27 @@ class PDBReader {
         orderForPartner.set(partner, (orderForPartner.get(partner) || 0) + 1);
       }
       orderForPartner.forEach((order, partner) => {
-        const toAtom = this._serialToAtomMap[partner]!;
-        structure.connect(fromAtom as never, toAtom as never, order);
+        const a = Math.min(record.from, partner);
+        const b = Math.max(record.from, partner);
+        const key = a + ':' + b;
+        const known = orderForPair.get(key);
+        if (known === undefined) {
+          pairs.push([a, b]);
+        }
+        orderForPair.set(key, Math.max(known || 0, order));
       });
+    }
+    for (let i = 0; i < pairs.length; ++i) {
+      const [a, b] = pairs[i]!;
+      const atomA = this._serialToAtomMap[a];
+      const atomB = this._serialToAtomMap[b];
+      // records may point at atoms that aren't in the file (stripped
+      // hydrogens, unreadable serials); those bonds are dropped
+      if (!atomA || !atomB) {
+        continue;
+      }
+      structure.connect(atomA as never, atomB as never,
+                        orderForPair.get(a + ':' + b));
     }
   }
 }

@@ -103,7 +103,15 @@ test('uses conect records when conectRecords flag is set', function(assert) {
   assert.strictEqual(atoms[8].bonds().length, 1);
 });
 
-test('ignores conect records when conectRecords flag is not set', function(assert) {
+test('uses conect records by default', function(assert) {
+  var structure = io.pdb(CONECT_RECORDS);
+  var atoms = [];
+  structure.eachAtom(function(a) { atoms.push(a) });
+  assert.strictEqual(atoms[0].bonds().length, 3);
+  assert.strictEqual(atoms[3].bonds().length, 1);
+});
+
+test('ignores conect records when conectRecords flag is false', function(assert) {
   var structure = io.pdb(CONECT_RECORDS, { conectRecords : false });
   var atoms = [];
   structure.eachAtom(function(a) { atoms.push(a) });
@@ -143,6 +151,45 @@ test('derives bond order from repeated conect partners', function(assert) {
   })[0];
   assert.strictEqual(bondToC2.order(), 2);
   assert.strictEqual(bondToO.order(), 1);
+});
+
+function bondCounts(structure) {
+  var counts = [];
+  structure.eachAtom(function(a) { counts.push(a.bonds().length) });
+  return counts;
+}
+
+test('reads bonds listed from one end only', function() {
+  var pdb = '\
+HETATM    1  C                   0.000   0.000   0.000\n\
+HETATM    2  C                   0.000   0.000   0.000\n\
+HETATM    3  O                   0.000   0.000   0.000\n\
+CONECT    1    2    3\n\
+';
+  deepEqual(bondCounts(io.pdb(pdb)), [2, 1, 1]);
+});
+
+test('skips conect records pointing at missing atoms', function() {
+  // atom 3 was stripped from the file, its records were kept
+  var pdb = '\
+HETATM    1  C                   0.000   0.000   0.000\n\
+HETATM    2  C                   0.000   0.000   0.000\n\
+CONECT    1    2    3\n\
+CONECT    2    1\n\
+CONECT    3    1\n\
+CONECT A0000    1\n\
+';
+  deepEqual(bondCounts(io.pdb(pdb)), [1, 1]);
+});
+
+test('reads five-digit partner serials', function() {
+  var pdb = '\
+HETATM12345  C                   0.000   0.000   0.000\n\
+HETATM12346  C                   0.000   0.000   0.000\n\
+HETATM12347  O                   0.000   0.000   0.000\n\
+CONECT123451234612347\n\
+';
+  deepEqual(bondCounts(io.pdb(pdb)), [2, 1, 1]);
 });
 
 
