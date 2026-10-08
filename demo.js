@@ -190,7 +190,10 @@ function addLigands(withBases) {
   viewer.licorice('structure.ligand', ligands(), { showRelated : related() });
   if (withBases) {
     pv.rings.drawBases(viewer, 'structure.bases', structure,
-                       { sticks : true, showRelated : related() });
+                       { sticks : true, showRelated : related(),
+                         // the bases belong to the cartoon ('structure.protein'
+                         // for the default style, 'structure' for the others)
+                         picksFor : ['structure.protein', 'structure'] });
   }
   addLigandOverlays();
 }
@@ -202,10 +205,12 @@ function addLigandOverlays() {
   if (viewer.get('structure.ligand') === null) return;
   if (document.getElementById('snfg-toggle').checked &&
       structure.select('carbohydrate').residueCount() > 0) {
-    pv.snfg.draw(viewer, 'structure.glycans', structure, { showRelated : related() });
+    pv.snfg.draw(viewer, 'structure.glycans', structure,
+                 { showRelated : related(), picksFor : 'structure.ligand' });
   }
   if (document.getElementById('rings-toggle').checked) {
-    pv.rings.draw(viewer, 'structure.rings', ligands(), { showRelated : related() });
+    pv.rings.draw(viewer, 'structure.rings', ligands(),
+                  { showRelated : related(), picksFor : 'structure.ligand' });
   }
   applyOpacity(currentOpacity);
 }
@@ -1479,7 +1484,6 @@ window.addEventListener('hashchange', function() {
 // A single click only selects; double-click moves the camera, onto the
 // residue and its surroundings, or out to the whole structure.
 viewer.on('doubleClick', function(picked) {
-  picked = resolvePick(picked);
   if (picked === null) {
     viewer.fitTo(structure);
     return;
@@ -1704,37 +1708,6 @@ function selectResidue(picked, atom, event) {
   }));
 }
 
-// A pick on an SNFG symbol, a filled ring or a base returns one of its
-// atoms; treat it as a pick on that residue in the object it belongs to,
-// so hover and selection highlight it there (the overlays' custom meshes
-// have no hover or selection of their own).
-function resolvePick(picked) {
-  if (picked === null) return null;
-  // the bases belong to the cartoon ('structure.protein' for the default
-  // style, 'structure' for the others), the other overlays to the ligands
-  const name = picked.node().name();
-  let node;
-  if (name === 'structure.bases') {
-    node = viewer.get('structure.protein') || viewer.get('structure');
-  } else if (name === 'structure.glycans' || name === 'structure.rings') {
-    node = viewer.get('structure.ligand');
-  } else {
-    return picked;
-  }
-  if (node === null) return null;
-  const symIndex = picked.symIndex();
-  return {
-    node: () => node,
-    object: () => ({ geom: node }),
-    target: () => picked.target(),
-    pos: () => picked.pos(),
-    // the overlays draw the copies of an assembly themselves and tag the
-    // shapes with theirs, in the same order as the node's
-    symIndex: () => symIndex,
-    transform: () => (symIndex !== null ? node.symWithIndex(symIndex) : null),
-  };
-}
-
 // Shows what's under picked/atom in the status bar and arms the hover
 // highlight -- the information mousemove shows on desktop, also used for a
 // touch tap below, since touch has no hover of its own.
@@ -1773,8 +1746,8 @@ function doPVMouse(event) {
 
   const fastClick = event.type === 'click' && isFastClick(event);
   const rect = viewer.boundingClientRect();
-  const picked = resolvePick(viewer.pick({ x: event.clientX - rect.left,
-                                              y: event.clientY - rect.top }));
+  const picked = viewer.pick({ x: event.clientX - rect.left,
+                               y: event.clientY - rect.top });
   const atom = picked !== null ? picked.target() : null;
 
   // Still over the highlighted residue (or labelled shape): nothing changes
@@ -1806,14 +1779,12 @@ document.body.addEventListener('click',
 // separately above via 'doubleClick'.
 viewer.on('click', function(picked, event) {
   if (!event.type.startsWith('touch')) return;  // desktop handled above
-  picked = resolvePick(picked);
   const atom = picked !== null ? picked.target() : null;
   showResidueInfo(picked, atom, event);
   viewer.requestRedraw();
 });
 
 viewer.on('longPress', function(picked, event) {
-  picked = resolvePick(picked);
   const atom = picked !== null ? picked.target() : null;
   if (atom === null) return;
   showResidueInfo(picked, atom, event);

@@ -12,7 +12,7 @@
 | `snfgName(residue)` | The sugar's SNFG name, e.g. `'GlcNAc'`; `null` for a sugar without one; `undefined` for anything else |
 | `isSugar(residue)` | Whether it is a sugar |
 
-`draw` options: `size` (1.5), `linkRadius` (0.2), `linkColor` (`'grey'`), `showRelated` (`'asym'`). Picks on a symbol return its ring oxygen as `target()`.
+`draw` options: `size` (1.5), `linkRadius` (0.2), `linkColor` (`'grey'`), `showRelated` (`'asym'`), `picksFor` (the render object showing the same sugars, by name, so picks on the symbols are reported on it). Picks on a symbol return its ring oxygen as `target()`.
 
 ## pv.rings
 
@@ -23,9 +23,9 @@
 | `baseColor(residue)` | The default base color: A red, G green, C yellow, U and T blue; modified bases as the base they derive from |
 | `findRings(residue, maxSize)` | The rings of a residue, each an array of its atoms in order; `maxSize` defaults to 8 |
 
-`draw` options: `color` (a color, or a function of the residue; sugars in SNFG colors and other rings grey by default), `showRelated`.
+`draw` options: `color` (a color, or a function of the residue; sugars in SNFG colors and other rings grey by default), `showRelated`, `picksFor`.
 
-`drawBases` options: `color` (`baseColor` by default), `sticks` (`false`), `stickRadius` (0.3), `outlineRadius` (0.12), `showRelated`.
+`drawBases` options: `color` (`baseColor` by default), `sticks` (`false`), `stickRadius` (0.3), `outlineRadius` (0.12), `showRelated`, `picksFor`.
 
 Picks return an atom of the residue as `target()`.
 

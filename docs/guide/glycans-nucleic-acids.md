@@ -26,6 +26,7 @@ pv.io.fetchCif('https://files.rcsb.org/download/4BYH.cif').then(function (struct
 | `linkRadius` | 0.2 | Radius of the sticks |
 | `linkColor` | `'grey'` | Color of the sticks |
 | `showRelated` | `'asym'` | Or the name of a [biological assembly](./assemblies) |
+| `picksFor` | | The render object showing the same sugars, by name; picks on the symbols are reported on it (see [Picking](#picking)) |
 
 Sugars are recognized by the SNFG name in the mmCIF file, then by a table of about 35 common chemical component ids (NAG, MAN, BMA, FUC, GAL, SIA, …). A sugar without a known symbol is a white hexagon.
 
@@ -38,7 +39,7 @@ viewer.licorice('ligands', structure.select('ligand'));
 pv.rings.draw(viewer, 'rings', structure.select('ligand'));
 ```
 
-`pv.rings.draw(viewer, name, structure, options)` fills every ring of every residue in `structure`: sugars in their SNFG color, other rings grey. It goes with a licorice, balls-and-sticks or lines display of the same atoms. Options: `color` (a color, or a function of the residue returning one) and `showRelated`.
+`pv.rings.draw(viewer, name, structure, options)` fills every ring of every residue in `structure`: sugars in their SNFG color, other rings grey. It goes with a licorice, balls-and-sticks or lines display of the same atoms. Options: `color` (a color, or a function of the residue returning one), `showRelated` and `picksFor`.
 
 ## DNA and RNA bases
 
@@ -56,6 +57,7 @@ pv.rings.drawBases(viewer, 'bases', structure, { sticks: true });
 | `stickRadius` | 0.3 | |
 | `outlineRadius` | 0.12 | |
 | `showRelated` | `'asym'` | Or the name of a biological assembly |
+| `picksFor` | | The render object showing the same nucleotides, by name; picks on the bases are reported on it (see [Picking](#picking)) |
 
 ## Updating
 
@@ -63,4 +65,4 @@ These functions add a new mesh each time they are called. Remove the old one fir
 
 ## Picking
 
-A pick on a symbol, a ring or a base returns an atom of its residue as `target()`, so you can show the residue it belongs to. See [Picking the add-ons' meshes](./interaction#picking-the-add-ons-meshes).
+A pick on a symbol, a ring or a base returns an atom of its residue as `target()`, so you can show the residue it belongs to. Pass `picksFor` with the name of the render object that shows the same residues (the cartoon for the bases, the ligands for the symbols and rings) and the pick is reported on it, so hover and selection highlight the residue there. See [Picking the add-ons' meshes](./interaction#picking-the-add-ons-meshes).

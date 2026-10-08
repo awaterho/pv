@@ -32,14 +32,20 @@
 // Cam/shaderCatalog/style/pass aren't typed precisely yet (their modules are
 // later tiers of the TS conversion); BaseGeom and other subclasses override
 // draw() with the real per-geometry-type logic.
+// what picks on a node are reported on instead of itself: other nodes, or
+// their names, looked up when the pick happens (see SceneNode.picksFor()).
+export type PickProxy = SceneNode | string;
+
 export interface SceneNode {
   _children: SceneNode[];
   _visible: boolean;
   _name: string;
   _gl: WebGL2RenderingContext;
   _order: number;
+  _picksFor: PickProxy[];
 
   order(order?: number): number;
+  picksFor(targets?: PickProxy | PickProxy[] | null): PickProxy[];
   add(node: SceneNode): void;
   draw(cam: unknown, shaderCatalog: unknown, style: unknown, pass: unknown): void;
   show(): void;
@@ -61,6 +67,7 @@ const SceneNode = function(this: SceneNode, gl: WebGL2RenderingContext) {
   this._name = '';
   this._gl = gl;
   this._order = 1;
+  this._picksFor = [];
 } as unknown as SceneNodeConstructor;
 
 SceneNode.prototype = {
@@ -69,6 +76,30 @@ SceneNode.prototype = {
       this._order = order;
     }
     return this._order;
+  },
+
+  // Reports picks on this node as picks on another one: Viewer.pick()
+  // returns the first of targets that is in the viewer as the pick's
+  // node(), with the pick's own symIndex() and the matching transform().
+  // That is what an overlay drawn over a structure wants -- the SNFG
+  // symbols of pv.snfg, the filled rings and bases of pv.rings -- since
+  // they tag their shapes with an atom of the residue and have no hover or
+  // selection of their own: picks on them then land on the render object
+  // that shows the residue, and generic hover and selection code needs to
+  // know nothing about the overlay.
+  //
+  // targets is a node, its name, or a list of either (the first one in the
+  // viewer wins, so a caller can name the alternatives a style may use);
+  // names are looked up when the pick happens, so the render object may be
+  // replaced without touching the overlay. With none of them in the viewer
+  // the pick is reported on this node, as it is without picksFor(). null
+  // clears it.
+  picksFor: function(this: SceneNode, targets?: PickProxy | PickProxy[] | null): PickProxy[] {
+    if (targets !== undefined) {
+      this._picksFor = targets === null ? []
+                     : Array.isArray(targets) ? targets.slice() : [targets];
+    }
+    return this._picksFor;
   },
 
   add: function(this: SceneNode, node: SceneNode): void {

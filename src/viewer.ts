@@ -249,17 +249,19 @@ class PickedObject {
   private _pos: vec3;
   private _target: unknown;
   private _node: BaseGeom;
+  private _pickedNode: BaseGeom;
   private _symIndex: number | null;
   private _transform: mat4 | null;
   private _connectivity: string;
 
   constructor(
     target: unknown, node: BaseGeom, symIndex: number | null, pos: vec3,
-    transform: mat4 | null, connectivity: string,
+    transform: mat4 | null, connectivity: string, pickedNode?: BaseGeom,
   ) {
     this._pos = pos;
     this._target = target;
     this._node = node;
+    this._pickedNode = pickedNode ?? node;
     this._symIndex = symIndex;
     this._transform = transform;
     this._connectivity = connectivity;
@@ -279,8 +281,16 @@ class PickedObject {
     return this._connectivity;
   }
 
+  // the render object the pick is reported on: the one that was hit,
+  // unless it picksFor() another one (an overlay over a structure), in
+  // which case that one -- see pickedNode() for the geometry itself
   node(): BaseGeom {
     return this._node;
+  }
+  // the geometry actually under the cursor: the same as node(), except for
+  // a pick resolved through picksFor()
+  pickedNode(): BaseGeom {
+    return this._pickedNode;
   }
   // the symmetry operator of the picked copy, or null for the asymmetric unit
   transform(): mat4 | null {
@@ -1735,10 +1745,38 @@ class Viewer {
       }
     }
     const copy = (picked as { copy?: number | null }).copy;
-    return new PickedObject(target, picked.geom,
-                            symIndex < 255 ? symIndex : (copy ?? null),
+    const index = symIndex < 255 ? symIndex : (copy ?? null);
+    // an overlay that reports its picks on another object (pv.snfg's
+    // symbols, pv.rings' rings and bases): hand out that object, with the
+    // symmetry operator of the copy that was hit -- the overlays draw the
+    // copies of an assembly themselves and tag their shapes with the same
+    // indices as the object's
+    const proxy = this._pickProxy(picked.geom);
+    if (proxy !== null) {
+      // a custom mesh as the target has no assembly of its own to ask
+      const proxyTransform = index !== null && proxy.symWithIndex !== undefined
+                           ? proxy.symWithIndex(index) : transform;
+      return new PickedObject(target, proxy, index, transformedPos,
+                              proxyTransform, connectivity, picked.geom);
+    }
+    return new PickedObject(target, picked.geom, index,
                             transformedPos, transform,
                             connectivity);
+  }
+
+  // the first of geom's picksFor() targets that is in the viewer, or null
+  // when geom has none (or none of them is here any more)
+  private _pickProxy(geom: BaseGeom): BaseGeom | null {
+    const targets = geom.picksFor !== undefined ? geom.picksFor() : [];
+    for (const target of targets) {
+      const node = typeof target === 'string' ? this.get(target)
+                 : this._objects.indexOf(target as unknown as ViewerObject) !== -1
+                   ? target as unknown as BaseGeom : null;
+      if (node !== null && node !== (geom as unknown as BaseGeom)) {
+        return node;
+      }
+    }
+    return null;
   }
 
   add(name: string, obj: BaseGeom): BaseGeom {

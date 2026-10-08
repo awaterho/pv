@@ -38,6 +38,7 @@ interface SMesh {
   addSphere(center: vec3, radius: number, options?: Record<string, unknown>): void;
   addTube(start: vec3, end: vec3, radius: number, options?: Record<string, unknown>): void;
   addTriangles(positions: ArrayLike<number>, options?: Record<string, unknown>): void;
+  picksFor?(targets: string | string[]): unknown;
 }
 interface SViewer {
   customMesh(name: string, options?: Record<string, unknown>): SMesh;
@@ -230,6 +231,11 @@ export interface DrawOptions {
   // the symmetry copies to draw, like pv's render styles' option: 'asym'
   // (the default) or the name of a biological assembly
   showRelated?: string;
+  // the render object showing the same sugars (its name, or several names
+  // of which the first one in the viewer wins): picks on the symbols are
+  // then reported on it, so hover and selection highlight the residue
+  // there. See SceneNode.picksFor().
+  picksFor?: string | string[];
 }
 
 // draws the SNFG symbols of all sugars in structure (a structure or a
@@ -241,6 +247,9 @@ function draw(viewer: SViewer, name: string, structure: SStructure,
   const linkRadius = options.linkRadius ?? 0.2;
   const linkColor = options.linkColor ?? 'grey';
   const mesh = viewer.customMesh(name);
+  if (options.picksFor !== undefined && mesh.picksFor !== undefined) {
+    mesh.picksFor(options.picksFor);
+  }
 
   const frames = new Map<SResidue, RingFrame>();
   const order = new Map<SResidue, number>();

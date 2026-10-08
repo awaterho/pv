@@ -98,7 +98,8 @@ All take an optional duration in ms as their last argument. See [Camera](/guide/
 |---|---|
 | `target()` | The atom, or the `userData` of a custom mesh's shape |
 | `pos()` | Where it was hit, a `vec3` |
-| `node()` | The render object |
+| `node()` | The render object; the one it [`picksFor`](/guide/interaction#picking-the-add-ons-meshes), if it has one |
+| `pickedNode()` | The object actually under the point, the same as `node()` unless it `picksFor` another |
 | `symIndex()` | The copy of a biological assembly, or `null` |
 | `connectivity()` | `'full'`, `'trace'` or `'unknown'` (custom meshes) |
 

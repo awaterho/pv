@@ -85,4 +85,18 @@ See the [hover and select sample](/samples/hover-select).
 
 ## Picking the add-ons' meshes
 
-The meshes of [pv.rings and pv.snfg](./glycans-nucleic-acids) report an atom of the residue as `target()`, but their `node()` is the add-on's mesh, not the render object of the structure. To highlight the residue in the structure's own objects, find them by name, as the demo does.
+The meshes of [pv.rings and pv.snfg](./glycans-nucleic-acids) report an atom of the residue as `target()`, but they have no hover or selection of their own: a pick on an SNFG symbol, a filled ring or a base should highlight the residue in the render object that shows it. Name that object with `picksFor`, and picks on the overlay come back as picks on it:
+
+```js
+viewer.cartoon('protein', structure);
+viewer.licorice('ligand', structure.select('ligand'));
+pv.rings.drawBases(viewer, 'bases', structure, { sticks: true, picksFor: 'protein' });
+pv.snfg.draw(viewer, 'glycans', structure, { picksFor: 'ligand' });
+pv.rings.draw(viewer, 'rings', structure.select('ligand'), { picksFor: 'ligand' });
+```
+
+A pick on one of those meshes then has the cartoon or the licorice as its `node()`, with the `symIndex()` and `transform()` of the copy that was hit, so the hover and selection code above needs to know nothing about the overlays. The mesh itself is still there as `pickedNode()`.
+
+Any object takes it, not just the add-ons' — `obj.picksFor('protein')`, with a name, an object, or a list of either, of which the first one in the viewer wins (`['protein', 'structure']` covers two styles that name the polymer differently). Names are looked up when the pick happens, so the render object may be redrawn under the same name; if none of them is in the viewer the pick is reported on the mesh itself.
+
+The overlays' own shapes are tinted through `setHover(test)` and `setSelection(test)` with the `userData` atom, see [custom meshes](./custom-meshes).

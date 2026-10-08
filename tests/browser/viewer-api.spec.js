@@ -101,3 +101,26 @@ test('the end caps of custom-mesh tubes can be picked', async ({ page }) => {
   })()`));
   expect(picked).toBe('tube');
 });
+
+test('picksFor reports picks on a mesh as picks on another object', async ({ page }) => {
+  const picked = await run(page, new Function(`return (async () => {
+    const viewer = ${newViewer()};
+    const io = (await import('/src/io.ts')).default;
+    const structure = await io.fetchPdb('/tests/data/1crn.pdb');
+    viewer.cartoon('protein', structure);
+    const mesh = viewer.customMesh('overlay');
+    mesh.addSphere([0, 0, 20], 3, { userData: 'shape' });
+    mesh.picksFor(['nothing-here', 'protein']);
+    viewer.setCamera([1, 0, 0, 0, 1, 0, 0, 0, 1], [0, 0, 0], 60);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const hit = viewer.pick({ x: 150, y: 150 });
+    if (hit === null) return null;
+    const result = [hit.target(), hit.node().name(), hit.pickedNode().name()];
+    // cleared again, the pick comes back on the mesh itself
+    mesh.picksFor(null);
+    const again = viewer.pick({ x: 150, y: 150 });
+    result.push(again === null ? null : again.node().name());
+    return result;
+  })()`));
+  expect(picked).toEqual(['shape', 'protein', 'overlay', 'overlay']);
+});

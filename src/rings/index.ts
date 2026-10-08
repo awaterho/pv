@@ -29,6 +29,7 @@ interface RStructure {
 interface RMesh {
   addTriangles(positions: ArrayLike<number>, options?: Record<string, unknown>): void;
   addTube(start: vec3, end: vec3, radius: number, options?: Record<string, unknown>): void;
+  picksFor?(targets: string | string[]): unknown;
 }
 interface RViewer {
   customMesh(name: string, options?: Record<string, unknown>): RMesh;
@@ -106,6 +107,11 @@ export interface DrawOptions {
   // the symmetry copies to draw, like pv's render styles' option: 'asym'
   // (the default) or the name of a biological assembly
   showRelated?: string;
+  // the render object showing the same residues (its name, or several
+  // names of which the first one in the viewer wins): picks on the rings
+  // are then reported on it, so hover and selection highlight the residue
+  // there. See SceneNode.picksFor().
+  picksFor?: string | string[];
 }
 
 // fills the rings of all residues in structure (a structure or a selection
@@ -125,6 +131,9 @@ function draw(viewer: RViewer, name: string, structure: RStructure,
     return sym !== null ? sym.color : 'grey';
   };
   const mesh = viewer.customMesh(name);
+  if (options.picksFor !== undefined && mesh.picksFor !== undefined) {
+    mesh.picksFor(options.picksFor);
+  }
   const ringsOf = new Map<RResidue, RAtom[][]>();
   eachCopy(mesh, structure, options.showRelated, function(target, residue) {
     let rings = ringsOf.get(residue);
@@ -173,6 +182,12 @@ export interface BaseOptions {
   outlineRadius?: number;
   // the symmetry copies to draw: 'asym' (the default) or an assembly name
   showRelated?: string;
+  // the render object showing the same nucleotides (its name, or several
+  // names of which the first one in the viewer wins), usually the cartoon
+  // or tube the bases stand on: picks on the bases are then reported on
+  // it, so hover and selection highlight the residue there. See
+  // SceneNode.picksFor().
+  picksFor?: string | string[];
 }
 
 // the bases of all nucleotides of DNA/RNA chains in structure as filled
@@ -189,6 +204,9 @@ function drawBases(viewer: RViewer, name: string, structure: RStructure,
   const stickRadius = options.stickRadius ?? 0.3;
   const outlineRadius = options.outlineRadius ?? 0.12;
   const mesh = viewer.customMesh(name);
+  if (options.picksFor !== undefined && mesh.picksFor !== undefined) {
+    mesh.picksFor(options.picksFor);
+  }
   const nucleicChains = new Map<unknown, boolean>();
   const inNucleicChain = function(residue: RNucleotide): boolean {
     const chain = residue.chain();
