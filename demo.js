@@ -1400,12 +1400,20 @@ viewer = pv.Viewer(document.getElementById('viewer'), {
 });
 window.viewer = viewer;
 
-// fog and outline toggles, and a background slider running from white to
-// black. All start from the viewer's current options.
+// a color as #rrggbb, for the color choosers
+function hexColor(rgb) {
+  return '#' + Array.from(rgb).slice(0, 3).map(function(c) {
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  }).join('');
+}
+
+// fog and outline toggles, an outline width slider, and color choosers
+// for the outline and the background. All start from the viewer's
+// current options.
 function initDisplayControls() {
   var fog = document.getElementById('fog-toggle');
   var outline = document.getElementById('outline-toggle');
-  var background = document.getElementById('background-slider');
+  var background = document.getElementById('background-color');
   var spin = document.getElementById('spin-toggle');
   var rock = document.getElementById('rock-toggle');
   document.getElementById('snfg-toggle').addEventListener('change', addLigandOverlays);
@@ -1415,11 +1423,14 @@ function initDisplayControls() {
   var ssaoRadiusValue = document.getElementById('ssao-radius-value');
   var ssaoIntensity = document.getElementById('ssao-intensity-slider');
   var ssaoIntensityValue = document.getElementById('ssao-intensity-value');
+  var outlineWidth = document.getElementById('outline-width-slider');
+  var outlineWidthValue = document.getElementById('outline-width-value');
+  var outlineColor = document.getElementById('outline-color');
   fog.checked = viewer.options('fog');
   outline.checked = viewer.options('outline');
   spin.checked = viewer.spin();
   rock.checked = viewer.rockAndRoll();
-  background.value = 1 - viewer.options('background')[0];
+  background.value = hexColor(viewer.options('background'));
   ssao.checked = viewer.options('ssao');
   ssaoRadius.value = viewer.options('ssaoRadius');
   ssaoRadiusValue.textContent = parseFloat(ssaoRadius.value).toFixed(1);
@@ -1427,11 +1438,26 @@ function initDisplayControls() {
   ssaoIntensityValue.textContent = parseFloat(ssaoIntensity.value).toFixed(1);
   ssaoRadius.disabled = !ssao.checked;
   ssaoIntensity.disabled = !ssao.checked;
+  outlineWidth.value = viewer.options('outlineWidth');
+  outlineWidthValue.textContent = parseFloat(outlineWidth.value).toFixed(1);
+  outlineColor.value = hexColor(viewer.options('outlineColor'));
+  outlineWidth.disabled = !outline.checked;
+  outlineColor.disabled = !outline.checked;
   fog.addEventListener('change', function() {
     viewer.options('fog', fog.checked);
   });
   outline.addEventListener('change', function() {
     viewer.options('outline', outline.checked);
+    outlineWidth.disabled = !outline.checked;
+    outlineColor.disabled = !outline.checked;
+  });
+  outlineWidth.addEventListener('input', function() {
+    var val = parseFloat(outlineWidth.value);
+    outlineWidthValue.textContent = val.toFixed(1);
+    viewer.options('outlineWidth', val);
+  });
+  outlineColor.addEventListener('input', function() {
+    viewer.options('outlineColor', outlineColor.value);
   });
   spin.addEventListener('change', function() {
     viewer.spin(spin.checked);
@@ -1440,8 +1466,7 @@ function initDisplayControls() {
     viewer.rockAndRoll(rock.checked);
   });
   background.addEventListener('input', function() {
-    var grey = 1 - parseFloat(background.value);
-    viewer.options('background', [grey, grey, grey, 1]);
+    viewer.options('background', background.value);
   });
   ssao.addEventListener('change', function() {
     viewer.options('ssao', ssao.checked);

@@ -587,6 +587,7 @@ class Viewer {
         this.requestRedraw();
       } else if (optName === 'outlineWidth') {
         this._cam.setOutlineWidth((value as number) + 0.0 /* force to float*/);
+        this.requestRedraw();
       } else if (optName === 'ssao' || optName === 'ssaoRadius' || optName === 'ssaoIntensity') {
         this.requestRedraw();
       }

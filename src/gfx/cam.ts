@@ -448,6 +448,7 @@ class Cam {
 
   setOutlineColor(color: vec3): void {
     this._outlineColor = vec3.clone(color);
+    this._incrementStateId();
   }
 
   setSelectionColor(color: vec3 | vec4): void {
