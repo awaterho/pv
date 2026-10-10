@@ -1393,7 +1393,6 @@ document.getElementById('opacity-slider').addEventListener('input', function() {
 viewer = pv.Viewer(document.getElementById('viewer'), {
     width : 'auto', height: 'auto', 
     fog : true,
-    outline : true, 
     selectionColor : 'white',
     hoverColor: 'yellow',
     background : '#ccc', 

@@ -358,12 +358,11 @@ void main(void) {\n\
 OUTLINE_FS : '\n\
 varying float vertAlpha;\n\
 varying float vertSelect;\n\
-\n\
-uniform vec3 outlineColor;\n\
+varying vec3 vertOutlineColor;\n\
 \n\
 void main() {\n\
   vec3 selColor = vertSelect < 0.0 ? hoverColor.rgb : selectionColor.rgb;\n\
-  gl_FragColor = vec4(mix(outlineColor, selColor, \n\
+  gl_FragColor = vec4(mix(vertOutlineColor, selColor, \n\
                           step(0.5, abs(vertSelect))), \n\
                       vertAlpha);\n\
   gl_FragColor.rgb = handleFog(gl_FragColor.rgb);\n\
@@ -385,6 +384,7 @@ uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
 varying float vertAlpha;\n\
 varying float vertSelect;\n\
+varying vec3 vertOutlineColor;\n\
 uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
 uniform float outlineOffset;\n\
@@ -405,6 +405,15 @@ void main(void) {\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
   vertAlpha = attrColor.a;\n\
   vertSelect = selectForCopy(attrSelect);\n\
+  vertOutlineColor = outlineColor;\n\
+#ifdef CYLINDER\n\
+  // sticks thin on screen would be mostly outline: there it fades to a\n\
+  // darker shade of their colour, so that they don\'t turn black\n\
+  float screenRadius = cylRadius * projectionMat[0][0] /\n\
+                       (gl_Position.w * relativePixelSize.x);\n\
+  vertOutlineColor = mix(outlineColor, attrColor.rgb * 0.5,\n\
+                         smoothstep(0.4, 1.2, outlineWidth / screenRadius));\n\
+#endif\n\
   vec2 expansion = relativePixelSize * \n\
        (outlineWidth + 2.0 * step(0.5, abs(vertSelect)));\n\
   vec2 offset = normal.xy * expansion;\n\
@@ -461,6 +470,7 @@ in float radius;\n\
 uniform mat4 projectionMat;\n\
 uniform vec3 outlineColor;\n\
 in float border;\n\
+in float outlineFade;\n\
 uniform bool outlineEnabled;\n\
 uniform bool matte;\n\
 out vec4 fragColor;\n\
@@ -494,7 +504,8 @@ void main(void) {\n\
     rgbColor *= hemi; \n\
   }\n\
   if (outlineEnabled) { \n\
-    rgbColor = mix(rgbColor, outlineColor, step(border, rim));\n\
+    vec3 rimColor = mix(outlineColor, vertColor.rgb * 0.5, outlineFade);\n\
+    rgbColor = mix(rgbColor, rimColor, step(border, rim));\n\
   } \n\
   rgbColor = handleSelect(rgbColor, vertSelect);\n\
   vec4 fogged = vec4(handleFog(rgbColor), vertColor.a);\n\
@@ -517,6 +528,7 @@ uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
 out vec4 vertColor;\n\
 out float border;\n\
+out float outlineFade;\n\
 out vec4 vertCenter;\n\
 out vec3 vertViewPos;\n\
 out float vertSelect;\n\
@@ -545,6 +557,9 @@ void main() {\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
+  // spheres small on screen are mostly outline: there it fades to a\n\
+  // darker shade of their colour, so that they don\'t turn black\n\
+  outlineFade = smoothstep(0.3, 0.7, 1.0 - border);\n\
   radius = attrRadius;\n\
 }',
 
@@ -811,6 +826,7 @@ uniform mat4 modelviewMat;\n\
 uniform mat4 rotationMat;\n\
 out vec4 vertColor;\n\
 out float border;\n\
+out float outlineFade;\n\
 out vec4 vertCenter;\n\
 out vec3 vertViewPos;\n\
 out float vertSelect;\n\
@@ -839,6 +855,9 @@ void main() {\n\
   float dist = length((projectionMat * vertCenter).xy - gl_Position.xy);\n\
   float dd = dist / gl_Position.w / 1.5;\n\
   border = 1.0 - outlineWidth * 1.4 * length(relativePixelSize)/dd;\n\
+  // spheres small on screen are mostly outline: there it fades to a\n\
+  // darker shade of their colour, so that they don\'t turn black\n\
+  outlineFade = smoothstep(0.3, 0.7, 1.0 - border);\n\
   radius = attrRadius;\n\
 }',
 
@@ -853,6 +872,7 @@ in float radius;\n\
 uniform mat4 projectionMat;\n\
 uniform vec3 outlineColor;\n\
 in float border;\n\
+in float outlineFade;\n\
 uniform bool outlineEnabled;\n\
 uniform bool matte;\n\
 uniform vec4 selectionColor;\n\
@@ -909,7 +929,8 @@ void main(void) {\n\
     rgbColor *= hemi; \n\
   }\n\
   if (outlineEnabled) { \n\
-    rgbColor = mix(rgbColor, outlineColor, step(border, rim));\n\
+    vec3 rimColor = mix(outlineColor, vertColor.rgb * 0.5, outlineFade);\n\
+    rgbColor = mix(rgbColor, rimColor, step(border, rim));\n\
   } \n\
   rgbColor = handleSelect(rgbColor, vertSelect);\n\
   vec4 color = vec4(handleFog(rgbColor, gl_FragCoord.z / gl_FragCoord.w), vertColor.a);\n\
@@ -1113,13 +1134,16 @@ export function cylinderVS(meshVS: string): string {
              q + ' vec3 attrCylUp;\n' +
              q + ' vec3 attrCylAxis;\n' +
              'vec3 attrPos;\n' +
-             'vec3 attrNormal;\n')
+             'vec3 attrNormal;\n' +
+             '#define CYLINDER\n' +
+             'float cylRadius;\n')
     .replace(main,
              main +
              '  attrPos = attrCylCenter + attrProtoPos.x * attrCylLeft +\n' +
              '            attrProtoPos.y * attrCylUp + attrProtoPos.z * attrCylAxis;\n' +
              '  attrNormal = normalize(attrProtoNormal.x * attrCylLeft +\n' +
-             '                         attrProtoNormal.y * attrCylUp);\n');
+             '                         attrProtoNormal.y * attrCylUp);\n' +
+             '  cylRadius = length(attrCylLeft);\n');
 }
 
 export default shaders;
