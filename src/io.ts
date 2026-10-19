@@ -1297,6 +1297,75 @@ function cif(text: string, options?: CifOptions): Mol | (Mol | null)[] | undefin
   return reader.read();
 }
 
+type Format = 'cif' | 'pdb' | 'sdf' | 'crd';
+
+interface LoadOptions extends PdbOptions, CifOptions {
+  // the name or URL the text came from, if any: its extension is the first
+  // thing the format is taken from
+  name?: string;
+  // the format, when the caller knows it: skips the guessing altogether
+  format?: Format;
+}
+
+const FORMAT_BY_EXTENSION: Record<string, Format> = {
+  cif : 'cif', mmcif : 'cif',
+  pdb : 'pdb', ent : 'pdb', pdb1 : 'pdb',
+  sdf : 'sdf', mol : 'sdf', sd : 'sdf',
+  crd : 'crd'
+};
+
+// the format of a structure file: from name's extension when it has a known
+// one (ignoring any .gz, and any ?query or #fragment of a URL), and otherwise
+// from the text itself. PDB is what's left when nothing else matches, as a PDB
+// file has no header of its own to look for -- all of its records are
+// optional, and a file of nothing but ATOM lines is a valid one.
+function guessFormat(text: string, name?: string): Format {
+  if (name) {
+    const path = name.split(/[?#]/)[0]!.replace(/\.gz$/i, '');
+    const dot = path.lastIndexOf('.');
+    const extension = dot < 0 ? '' : path.substr(dot + 1).toLowerCase();
+    const known = FORMAT_BY_EXTENSION[extension];
+    if (known !== undefined) {
+      return known;
+    }
+  }
+  // mmCIF: the data_ block header, after any leading comment or blank lines
+  if (/^\s*(?:#[^\n]*\n\s*)*data_/.test(text)) {
+    return 'cif';
+  }
+  // CHARMM CRD: the title lines, each starting with a *
+  if (/^\s*\*/.test(text)) {
+    return 'crd';
+  }
+  // molfile: the counts line, the fourth, ends in the format version
+  const lines = text.split('\n', 4);
+  if (lines.length === 4 && /V[23]000\s*$/.test(lines[3]!)) {
+    return 'sdf';
+  }
+  return 'pdb';
+}
+
+// reads a structure from the text of a file of any of the formats PV knows,
+// for callers that don't know which one it is -- a file a user dropped on the
+// page, a URL typed into a box. The format comes from options.format when
+// given, else from options.name, else from the text (see guessFormat); the
+// rest of the options go to whichever parser is picked, and those that do not
+// apply to it are ignored.
+function loadStructure(text: string, options?: LoadOptions): Parsed {
+  const opts = options || {};
+  const format = opts.format || guessFormat(text, opts.name);
+  if (format === 'cif') {
+    return cif(text, opts);
+  }
+  if (format === 'sdf') {
+    return sdf(text);
+  }
+  if (format === 'crd') {
+    return crd(text);
+  }
+  return pdb(text, opts);
+}
+
 
 // the text of a downloaded file, unpacked if it is gzipped. That goes by the
 // gzip header's first two bytes, not the name or the Content-Type: some
@@ -1383,16 +1452,32 @@ function fetchCif(
   return fetchParsed(url, data => cif(data, options), callback);
 }
 
+// Fetches url and reads it in whatever format it turns out to be, for URLs
+// whose format isn't known up front (see loadStructure). The URL takes the
+// place of options.name, so the extension decides where there is one, and the
+// file's own contents where there isn't -- a URL naming an entry by its id
+// alone, say.
+function fetchStructure(
+  url: string, callback?: (structure: Parsed) => void, options?: LoadOptions
+): Promise<Parsed> {
+  return fetchParsed(url, function(data) {
+    return loadStructure(data, Object.assign({ name : url }, options));
+  }, callback);
+}
+
 export default {
   pdb : pdb,
   sdf : sdf,
   crd : crd,
   cif : cif,
+  loadStructure : loadStructure,
+  guessFormat : guessFormat,
   Remark350Reader : Remark350Reader,
   fetchPdb : fetchPdb,
   fetchSdf : fetchSdf,
   fetchCrd : fetchCrd,
   fetchCif : fetchCif,
+  fetchStructure : fetchStructure,
   fetchText : fetch,
   guessAtomElementFromName : guessAtomElementFromName
 };

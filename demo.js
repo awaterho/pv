@@ -1204,24 +1204,21 @@ function assignMissingSS(s) {
   }
 }
 
-// shows a structure from the text of a PDB or mmCIF file. The format comes
-// from the file name (without any .gz), falling back to sniffing for
-// mmCIF's leading "data_" block header; label names the file in messages.
+// shows a structure from the text of a file in any of the formats PV reads.
+// pv.io.loadStructure works out which one from name -- a file name or a URL --
+// and from the text itself; label names the file in messages.
 function loadText(data, name, label) {
-  var isCif = /\.(cif|mmcif)$/.test(name) ||
-              (!/\.(pdb|ent)$/.test(name) && /^\s*data_/.test(data));
-  var s;
-  if (isCif) {
+  var options = { name : name };
+  // only the mmCIF reader can load a trace, and only huge structures need to
+  if (io.guessFormat(data, name) === 'cif') {
     var atomCount = (data.match(/^(ATOM|HETATM)/gm) || []).length;
-    var traceOnly = atomCount > HUGE_ATOM_COUNT;
-    if (traceOnly) {
+    options.traceOnly = atomCount > HUGE_ATOM_COUNT;
+    if (options.traceOnly) {
       showWarning(label + ' has ' + atomCount.toLocaleString() +
                   ' atoms: loading CA/C3\' atoms only');
     }
-    s = io.cif(data, { traceOnly : traceOnly });
-  } else {
-    s = io.pdb(data);
   }
+  var s = io.loadStructure(data, options);
   if (!s || s.atomCount() === 0) {
     throw new Error('no atoms found');
   }
@@ -1231,16 +1228,15 @@ function loadText(data, name, label) {
   viewer.autoZoom();
 }
 
-// any URL of a PDB or mmCIF file, plain or gzipped (pv.io.fetchText unpacks
+// any URL of a structure file, plain or gzipped (pv.io.fetchText unpacks
 // it, see io.ts), e.g. a SWISS-MODEL model. The server has to allow
 // cross-origin requests, as the PDB, the AlphaFold DB, ModelArchive and
 // SWISS-MODEL do.
 function getFromUrl(url) {
   fetchingPdbId = url;
-  var name = (url.split(/[?#]/)[0].split('/').pop() || '').toLowerCase().replace(/\.gz$/, '');
   io.fetchText(url).then(function(data) {
     fetchingPdbId = null;
-    loadText(data, name, url);
+    loadText(data, url, url);
     showPdbId(url);
   }).catch(function(error) {
     fetchingPdbId = null;
@@ -1253,13 +1249,10 @@ function getFromUrl(url) {
   });
 }
 
-// dropping a PDB or mmCIF file (optionally gzipped) anywhere on the page
-// loads it. The format comes from the file name, falling back to sniffing
-// for mmCIF's leading "data_" block header.
+// dropping a structure file (optionally gzipped) anywhere on the page loads
+// it, in whatever format pv.io makes of it.
 function loadDroppedFile(file) {
-  var name = file.name.toLowerCase();
-  var gzipped = /\.gz$/.test(name);
-  name = name.replace(/\.gz$/, '');
+  var gzipped = /\.gz$/i.test(file.name);
   var text;
   if (gzipped) {
     var stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
@@ -1268,7 +1261,7 @@ function loadDroppedFile(file) {
     text = file.text();
   }
   text.then(function(data) {
-    loadText(data, name, file.name);
+    loadText(data, file.name, file.name);
     showFileName(file.name);
   }).catch(function(error) {
     showWarning('Could not load "' + file.name + '": ' + error.message);

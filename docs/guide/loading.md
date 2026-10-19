@@ -8,6 +8,9 @@
 | PDB | `pv.io.pdb(text, options)` | `pv.io.fetchPdb(url, callback, options)` |
 | SDF (V2000 molfile) | `pv.io.sdf(text)` | `pv.io.fetchSdf(url, callback)` |
 | CHARMM CRD | `pv.io.crd(text)` | `pv.io.fetchCrd(url, callback)` |
+| any of them | `pv.io.loadStructure(text, options)` | `pv.io.fetchStructure(url, callback, options)` |
+
+The last pair is for input whose format you don't know up front; see [Files of unknown format](#files-of-unknown-format).
 
 Prefer mmCIF: it is what the PDB archive publishes for every entry, and PV reads more from it (see [What PV reads from mmCIF](#what-pv-reads-from-mmcif)).
 
@@ -36,6 +39,29 @@ const structure = pv.io.cif(text);
 
 `pdb()` and `cif()` return the structure, or `undefined` if the text has no atoms. They don't throw on malformed numbers; a coordinate that doesn't parse becomes `NaN`.
 
+## Files of unknown format
+
+When you don't know which format you are getting — a file a user dropped on the page, a URL they typed into a box — `loadStructure()` and `fetchStructure()` work it out for you:
+
+```js
+pv.io.fetchStructure(url).then(function (structure) {
+  viewer.cartoon('structure', structure);
+  viewer.autoZoom();
+});
+```
+
+The format is taken from the file name or URL's extension (`.cif`, `.mmcif`, `.pdb`, `.ent`, `.pdb1`, `.sdf`, `.mol`, `.crd`, ignoring any `.gz` and any `?query` or `#fragment`), and where that says nothing, from the text itself: mmCIF's leading `data_` block header, a CHARMM CRD title line, a molfile's `V2000`/`V3000` counts line. PDB is what's left, as a PDB file has no header of its own to look for — all of its records are optional, and a file of nothing but `ATOM` lines is a valid one.
+
+`fetchStructure()` passes the URL as the name. For text you already have, give it yourself:
+
+```js
+const structure = pv.io.loadStructure(text, { name: file.name });
+```
+
+Both take all the [options](#options) below and give them to whichever parser they pick, ignoring those that don't apply to it. Pass `format: 'cif' | 'pdb' | 'sdf' | 'crd'` to skip the guessing. To ask what a file is without reading it, `pv.io.guessFormat(text, name)` returns the format the two would pick.
+
+These are wrappers: `cif()`, `pdb()` and the per-format fetchers are unchanged, and are still the better choice whenever you do know the format.
+
 ## Several models
 
 By default only the first model of an NMR ensemble or a multi-model file is read. With `loadAllModels: true`, `pdb()` and `cif()` return an array with one structure per model:
@@ -57,6 +83,8 @@ See the [NMR ensemble sample](/samples/ensemble).
 |---|---|---|---|
 | `loadAllModels` | PDB, mmCIF | `false` | Read every model and return an array. |
 | `traceOnly` | mmCIF | `false` | Keep only the CA of amino acids and the C3' of nucleotides, and no ligands or water. For structures too large to load in full; see [Large structures](./large-structures). |
+| `name` | any | — | For `loadStructure` only: the file name or URL the text came from, whose extension is the first thing the format is taken from. |
+| `format` | any | — | For `loadStructure` and `fetchStructure` only: `'cif'`, `'pdb'`, `'sdf'` or `'crd'`, when the format is known. Skips the guessing. |
 | `conectRecords` | PDB | `true` | Read `CONECT` records as bonds. These are the only source of bonds between residues other than the polymer backbone: disulfides, glycan links, ligands attached to the protein. A partner listed twice gives a double bond. Records pointing at atoms that aren't in the file are skipped. In files with several models, the records are not read and bonds are found from distances. Set to `false` to ignore them. |
 
 ## What PV reads from mmCIF

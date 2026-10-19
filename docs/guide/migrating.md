@@ -10,6 +10,7 @@ PV 2 is a rewrite of [Marco Biasini's PV](https://github.com/biasmv/pv) in TypeS
 ## Loading structures
 
 - `pv.io.fetchPdb` and the other fetchers return a promise. The callback still works.
+- `pv.io.loadStructure` and `pv.io.fetchStructure` are new: they read a file in any of the formats, working the format out from its name and its contents, for input you don't know up front. See [Files of unknown format](./loading#files-of-unknown-format).
 - `pv.io.cif` and `pv.io.fetchCif` are new, and read much more than the PDB reader: see [Loading structures](./loading#what-pv-reads-from-mmcif). Chains of mmCIF files are the `label_asym_id` chains, so ligands and water are chains of their own.
 
 ## Selections
