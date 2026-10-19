@@ -15,7 +15,7 @@ Creates a viewer in `element`: a canvas of the given size, with mouse, touch and
 | `quality` | `'auto'` | Detail of curved geometry: `'high'`, `'medium'`, `'low'`, or `'auto'` (high, and low above 50,000 residues) |
 | `background` | `'white'` | Background color, also the color of the fog |
 | `fog` | `true` | Fade things further back into the background |
-| `outline` | `true` | Outline silhouettes |
+| `outline` | `false` | Outline silhouettes |
 | `outlineColor` | `'black'` | |
 | `outlineWidth` | 1.5 | In pixels |
 | `ssao` | `true` | Screen-space ambient occlusion |

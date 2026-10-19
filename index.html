@@ -911,6 +911,16 @@
       margin-right: 12px;
     }
 
+    /* swatch in front of the text, like the checkboxes */
+    #display-widget label.color-row {
+      display: flex;
+      align-items: center;
+    }
+
+    #display-widget label.color-row input[type=color] {
+      margin: 0 6px 0 0;
+    }
+
     #display-widget input[type=checkbox] {
       vertical-align: middle;
       margin: 0 4px 0 0;
@@ -1051,19 +1061,28 @@
               <li id="display-widget">
                 <label for="opacity-slider">Opacity: <span id="opacity-value">1.00</span></label>
                 <input type="range" id="opacity-slider" min="0" max="1" step="0.01" value="1">
-                <label for="background-slider">Background</label>
-                <input type="range" id="background-slider" min="0" max="1" step="0.01" value="0">
+                
+
+                <label title="Ambient occlusion - SSAO (Screen-Space Ambient Occlusion)"><input type="checkbox"
+                      id="ssao-toggle">Ambient occlusion</label>
                 <label for="ssao-radius-slider" title="SSAO Radius (Screen-Space Ambient Occlusion)">Ambient occlusion
                   radius: <span id="ssao-radius-value">3.0</span></label>
                 <input type="range" id="ssao-radius-slider" min="0.1" max="10" step="0.1" value="3">
                 <label for="ssao-intensity-slider" title="SSAO Intensity (Screen-Space Ambient Occlusion)">Ambient
                   occlusion intensity: <span id="ssao-intensity-value">0.7</span></label>
                 <input type="range" id="ssao-intensity-slider" min="0" max="3" step="0.1" value="0.7">
+                
+                <label><input type="checkbox" id="outline-toggle">Outline</label>
+                <label for="outline-width-slider">Outline width: <span id="outline-width-value">1.5</span></label>
+                <input type="range" id="outline-width-slider" min="0" max="8" step="0.1" value="1.5">
+                <label for="outline-color" class="color-row"><input type="color" id="outline-color"
+                    value="#000000">Outline color</label>
                 <div class="toggles">
-                  <label title="Ambient occlusion - SSAO (Screen-Space Ambient Occlusion)"><input type="checkbox"
-                      id="ssao-toggle">Ambient occlusion</label>
+                  
+                  <label for="background-color" class="color-row"><input type="color" id="background-color"
+                      value="#cccccc">Background color</label>
                   <label><input type="checkbox" id="fog-toggle">Fog</label>
-                  <label><input type="checkbox" id="outline-toggle">Outline</label>
+                  
                   <label><input type="checkbox" id="spin-toggle">Spin</label>
                   <label><input type="checkbox" id="rock-toggle">Rock and roll</label>
                   <label title="3D Symbol Nomenclature for Glycans"><input type="checkbox" id="snfg-toggle" checked>SNFG

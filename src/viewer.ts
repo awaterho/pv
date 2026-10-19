@@ -498,7 +498,7 @@ class Viewer {
       style : optValue(opts, 'style', 'hemilight'),
       background : color.forceRGB(opts.background as string || 'white'),
       slabMode : slabModeToStrategy(opts.slabMode as string | undefined),
-      outline : optValue(opts, 'outline', true),
+      outline : optValue(opts, 'outline', false),
       outlineColor : color.forceRGB(optValue(opts, 'outlineColor', 'black')),
       outlineWidth: optValue(opts, 'outlineWidth', 1.5),
       ssao : optValue(opts, 'ssao', true),
@@ -587,6 +587,7 @@ class Viewer {
         this.requestRedraw();
       } else if (optName === 'outlineWidth') {
         this._cam.setOutlineWidth((value as number) + 0.0 /* force to float*/);
+        this.requestRedraw();
       } else if (optName === 'ssao' || optName === 'ssaoRadius' || optName === 'ssaoIntensity') {
         this.requestRedraw();
       }

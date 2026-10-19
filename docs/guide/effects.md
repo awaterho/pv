@@ -19,11 +19,11 @@ Transparent geometry is blended with weighted, order-independent transparency, s
 
 ## Outline
 
-A dark outline around the silhouettes of objects, and around a [selection](./interaction#selection) in the selection color. On by default.
+A dark outline around the silhouettes of objects, and around a [selection](./interaction#selection) in the selection color. Off by default. Sticks and spheres small on screen get a darker shade of their own color instead of black, so zoomed-out structures keep their colors.
 
 | Option | Default | |
 |---|---|---|
-| `outline` | `true` | On or off; also `viewer.options('outline', false)` |
+| `outline` | `false` | On or off; also `viewer.options('outline', true)` |
 | `outlineWidth` | 1.5 | In pixels |
 | `outlineColor` | `'black'` | Also `viewer.options('outlineColor', 'grey')` |
 

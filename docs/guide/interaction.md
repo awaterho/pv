@@ -65,7 +65,7 @@ viewer.on('mousemove', function (event) {
 
 ## Selection
 
-`setSelection(selection)` tints a selection with the `selectionColor` and outlines it, until you change it:
+`setSelection(selection)` tints a selection with the `selectionColor`, and outlines it when the [outline](./effects#outline) is on, until you change it:
 
 ```js
 const cartoon = viewer.cartoon('protein', structure);
