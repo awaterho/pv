@@ -1321,16 +1321,24 @@ const FORMAT_BY_EXTENSION: Record<string, Format> = {
 // optional, and a file of nothing but ATOM lines is a valid one.
 function guessFormat(text: string, name?: string): Format {
   if (name) {
+    // only the last path segment can carry the extension. A URL that doesn't
+    // name a file -- an endpoint taking the id as the last segment, say -- has
+    // dots in its host name and often in its path (a DOI, a version number),
+    // and none of those say anything about the format
     const path = name.split(/[?#]/)[0]!.replace(/\.gz$/i, '');
-    const dot = path.lastIndexOf('.');
-    const extension = dot < 0 ? '' : path.substr(dot + 1).toLowerCase();
+    const file = path.substr(path.lastIndexOf('/') + 1);
+    const dot = file.lastIndexOf('.');
+    const extension = dot < 0 ? '' : file.substr(dot + 1).toLowerCase();
     const known = FORMAT_BY_EXTENSION[extension];
     if (known !== undefined) {
       return known;
     }
   }
-  // mmCIF: the data_ block header, after any leading comment or blank lines
-  if (/^\s*(?:#[^\n]*\n\s*)*data_/.test(text)) {
+  // mmCIF: the data_ block header, after any leading comment or blank lines.
+  // Failing that an _atom_site. tag near the top, for the stripped files some
+  // tools write without a block header
+  if (/^\s*(?:#[^\n]*\n\s*)*data_/.test(text) ||
+      /^_atom_site\./m.test(text.substr(0, 4096))) {
     return 'cif';
   }
   // CHARMM CRD: the title lines, each starting with a *

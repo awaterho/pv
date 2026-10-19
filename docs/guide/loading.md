@@ -50,7 +50,9 @@ pv.io.fetchStructure(url).then(function (structure) {
 });
 ```
 
-The format is taken from the file name or URL's extension (`.cif`, `.mmcif`, `.pdb`, `.ent`, `.pdb1`, `.sdf`, `.mol`, `.crd`, ignoring any `.gz` and any `?query` or `#fragment`), and where that says nothing, from the text itself: mmCIF's leading `data_` block header, a CHARMM CRD title line, a molfile's `V2000`/`V3000` counts line. PDB is what's left, as a PDB file has no header of its own to look for — all of its records are optional, and a file of nothing but `ATOM` lines is a valid one.
+The format is taken from the last path segment's extension (`.cif`, `.mmcif`, `.pdb`, `.ent`, `.pdb1`, `.sdf`, `.mol`, `.crd`, ignoring any `.gz` and any `?query` or `#fragment`), and where that says nothing, from the text itself: mmCIF's leading `data_` block header or an `_atom_site.` tag, a CHARMM CRD title line, a molfile's `V2000`/`V3000` counts line. PDB is what's left, as a PDB file has no header of its own to look for — all of its records are optional, and a file of nothing but `ATOM` lines is a valid one.
+
+Plenty of URLs have no extension to go on — an endpoint that takes the entry id as its last segment, or in a query parameter. Those fall to the text, which is the reliable signal anyway: only the last segment is looked at for an extension, so the dots in a host name, a DOI or a version number are never mistaken for one.
 
 `fetchStructure()` passes the URL as the name. For text you already have, give it yourself:
 
