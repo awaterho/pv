@@ -95,12 +95,28 @@ A bond has `atom_one()`, `atom_two()`, `order()` (1 to 4; aromatic bonds read fr
 
 ```js
 const pairs = pv.mol.matchResiduesByNum(model, reference, 'backbone');
-pv.mol.superpose(pairs[0], pairs[1]);
+const fit = pv.mol.superpose(pairs[0], pairs[1]);
+console.log(fit.rmsd);
 ```
 
-`pv.mol.superpose(subject, reference)` moves the whole structure of `subject` to fit its atoms onto those of `reference`, paired in order, with the least root-mean-square deviation. Both must have the same number of atoms, at least 3. It returns `true` on success. Draw the structure again afterwards.
+`pv.mol.superpose(subject, reference)` moves the whole structure of `subject` to fit its atoms onto those of `reference`, paired in order, with the least root-mean-square deviation. Both must have the same number of atoms, at least 3. Draw the structure again afterwards.
 
-`matchResiduesByNum(a, b, atoms)` and `matchResiduesByIndex(a, b, atoms)` pair the residues of two structures, chain by chain in order, by residue number or by position, and return two selections with the atoms both residues have, in matching order. `atoms` limits them: `'backbone'` (N, CA, C, O), a list such as `'CA'` or `'N, CA, C'`, an array of names, or `'all'`.
+It returns `{ rmsd, transform, atomCount }`, or `null` if the two do not match. `rmsd` is over the paired atoms, in Å. `transform` is the `mat4` that was applied, mapping the subject's original coordinates into the reference frame, so you can move other structures the same way without superposing them again.
+
+`matchResiduesByNum(a, b, atoms)` and `matchResiduesByIndex(a, b, atoms)` pair the residues of two structures, chain by chain, by residue number or by position, and return two selections with the atoms both residues have, in matching order. Chains are paired by name, except when each side has a single chain, which are paired whatever they are called. `atoms` limits the pairing: `'backbone'` (N, CA, C, O), a list such as `'CA'` or `'N, CA, C'`, an array of names, or `'all'`.
+
+### Superposing on chosen residues
+
+Both helpers take selections, not just whole structures, so anything you can select can be the basis for the fit — useful when the user picks anchor residues and everything else should be free to move:
+
+```js
+const anchors = { chain: 'A', rnums: [5, 9, 23, 44] };
+const pairs = pv.mol.matchResiduesByNum(
+  model.select(anchors), reference.select(anchors), 'backbone');
+const fit = pv.mol.superpose(pairs[0], pairs[1]);
+```
+
+Only the anchor atoms drive the rotation; the whole of `model` moves with it, ligands and waters included. Use `matchResiduesByIndex` instead when the two structures number their residues differently and the anchors are already in corresponding order, as when they come from an alignment.
 
 ## Secondary structure
 

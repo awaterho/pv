@@ -17,8 +17,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-import { vec3, mat3 } from 'gl-matrix';
-import svd from '../svd';
+import { vec3, mat3, mat4, quat } from 'gl-matrix';
 
 // Structural typing for the mol data model (Mol/MolView/Chain/Residue/Atom):
 // superpose() and the matchResidues* helpers work polymorphically over
@@ -53,116 +52,193 @@ interface SPStructure {
   full(): { atoms(): SPAtom[]; createEmptyView(): SPStructureView };
 }
 
+export interface SuperposeResult {
+  // Root-mean-square deviation of the matched atoms after superposition, in A.
+  rmsd: number;
+  // The transform that was applied, mapping the subject's original
+  // coordinates into the reference frame. Useful to move other structures
+  // (or cameras) the same way without superposing them again.
+  transform: mat4;
+  // Number of atom pairs the superposition was computed from.
+  atomCount: number;
+}
+
+// Optimal superposition follows Horn's quaternion method (J. Opt. Soc. Am. A
+// 4, 629-642, 1987): the rotation minimising the RMSD is the eigenvector
+// belonging to the largest eigenvalue of a symmetric 4x4 matrix built from
+// the correlation of the two centred coordinate sets.
+//
+// The textbook SVD/Kabsch route computes the same thing, but needs an
+// explicit determinant correction to return a rotation rather than a
+// mirroring. That correction is easy to get subtly wrong and only misbehaves
+// on rank-deficient input, which is exactly what a minimal three-residue
+// selection produces: three points, once centred, always lie in a plane. A
+// unit quaternion is a proper rotation by construction, so the correction and
+// the entire class of bug that comes with it simply does not arise here. The
+// RMSD also falls out of the largest eigenvalue, without a second pass over
+// the atoms.
+
 const calculateCenter = function(atoms: SPAtom[], center: vec3): void {
   vec3.set(center, 0, 0, 0);
   if (atoms.length === 0) {
     return;
   }
+  // Accumulated as doubles: gl-matrix' vec3 is a Float32Array, which loses
+  // digits summing thousands of coordinates far from the origin.
+  let x = 0, y = 0, z = 0;
   for (let i = 0; i < atoms.length; ++i) {
-    const atom = atoms[i]!;
-    vec3.add(center, center, atom.pos());
+    const pos = atoms[i]!.pos();
+    x += pos[0]; y += pos[1]; z += pos[2];
   }
-  vec3.scale(center, center, 1.0/atoms.length);
+  vec3.set(center, x/atoms.length, y/atoms.length, z/atoms.length);
 };
 
+const MAX_JACOBI_SWEEPS = 50;
 
-// calculate a covariance matrix from the deviations of the atoms of the subject
-// and reference structure.
-const calculateCov = (function() {
-  const shiftedSubject = vec3.create();
-  const shiftedReference = vec3.create();
-  return function(
-    subjectAtoms: SPAtom[], referenceAtoms: SPAtom[], subjectCenter: vec3,
-    referenceCenter: vec3, covariance: mat3,
-  ): void {
-    covariance[0] = 0; covariance[1] = 0; covariance[2] = 0;
-    covariance[3] = 0; covariance[4] = 0; covariance[5] = 0;
-    covariance[6] = 0; covariance[7] = 0; covariance[8] = 0;
-    for (let i = 0; i < referenceAtoms.length; ++i) {
-      vec3.sub(shiftedSubject, subjectAtoms[i]!.pos(), subjectCenter);
-      vec3.sub(shiftedReference, referenceAtoms[i]!.pos(), referenceCenter);
-
-      const ss = shiftedSubject;
-      const sr = shiftedReference;
-      covariance[0] += ss[0] * sr[0];
-      covariance[1] += ss[0] * sr[1];
-      covariance[2] += ss[0] * sr[2];
-
-      covariance[3] += ss[1] * sr[0];
-      covariance[4] += ss[1] * sr[1];
-      covariance[5] += ss[1] * sr[2];
-
-      covariance[6] += ss[2] * sr[0];
-      covariance[7] += ss[2] * sr[1];
-      covariance[8] += ss[2] * sr[2];
+// Cyclic Jacobi eigenvalue iteration for the symmetric 4x4 key matrix. `a`
+// (row-major, overwritten) comes back diagonalised; the columns of `v` are
+// the eigenvectors and `d` holds the matching eigenvalues. Four by four and
+// symmetric is the easy case for Jacobi, so this converges in a handful of
+// sweeps and needs no pivoting strategy beyond the cyclic sweep.
+function jacobiEigen4(a: Float64Array, d: Float64Array, v: Float64Array): void {
+  v.fill(0);
+  v[0] = 1; v[5] = 1; v[10] = 1; v[15] = 1;
+  for (let sweep = 0; sweep < MAX_JACOBI_SWEEPS; ++sweep) {
+    let offDiagonal = 0;
+    for (let p = 0; p < 3; ++p) {
+      for (let q = p + 1; q < 4; ++q) {
+        offDiagonal += a[p*4 + q]! * a[p*4 + q]!;
+      }
     }
-  };
-})();
+    if (offDiagonal < 1e-32) {
+      break;
+    }
+    for (let p = 0; p < 3; ++p) {
+      for (let q = p + 1; q < 4; ++q) {
+        const apq = a[p*4 + q]!;
+        if (apq === 0) {
+          continue;
+        }
+        // Rotate by the angle that zeroes a[p][q], in the numerically stable
+        // form that avoids cancellation when the diagonal entries are close.
+        const theta = (a[q*4 + q]! - a[p*4 + p]!)/(2*apq);
+        const t = (theta >= 0 ? 1 : -1)/
+                  (Math.abs(theta) + Math.sqrt(theta*theta + 1));
+        const c = 1/Math.sqrt(t*t + 1);
+        const s = t*c;
+        for (let k = 0; k < 4; ++k) {
+          const akp = a[k*4 + p]!, akq = a[k*4 + q]!;
+          a[k*4 + p] = c*akp - s*akq;
+          a[k*4 + q] = s*akp + c*akq;
+        }
+        for (let k = 0; k < 4; ++k) {
+          const apk = a[p*4 + k]!, aqk = a[q*4 + k]!;
+          a[p*4 + k] = c*apk - s*aqk;
+          a[q*4 + k] = s*apk + c*aqk;
+        }
+        for (let k = 0; k < 4; ++k) {
+          const vkp = v[k*4 + p]!, vkq = v[k*4 + q]!;
+          v[k*4 + p] = c*vkp - s*vkq;
+          v[k*4 + q] = s*vkp + c*vkq;
+        }
+      }
+    }
+  }
+  d[0] = a[0]!; d[1] = a[5]!; d[2] = a[10]!; d[3] = a[15]!;
+}
 
 const superpose = (function() {
   const referenceCenter = vec3.create();
   const subjectCenter = vec3.create();
   const shiftedPos = vec3.create();
   const rotation = mat3.create();
-  const cov = mat3.create();
-  const tmp = mat3.create();
-  const uMat = mat3.create();
-  const vMat = mat3.create();
-  return function(structure: SPStructure, reference: SPStructure): boolean {
+  const rotationQuat = quat.create();
+  const keyMatrix = new Float64Array(16);
+  const eigenvalues = new Float64Array(4);
+  const eigenvectors = new Float64Array(16);
+  return function(
+    structure: SPStructure, reference: SPStructure
+  ): SuperposeResult | null {
     const subjectAtoms = structure.atoms();
     const referenceAtoms = reference.atoms();
-    calculateCenter(referenceAtoms, referenceCenter);
-    calculateCenter(subjectAtoms, subjectCenter);
     if (subjectAtoms.length !== referenceAtoms.length) {
       console.error('atom counts do not match (' +
-                    subjectAtoms.length + 'in structure vs ' +
+                    subjectAtoms.length + ' in structure vs ' +
                     referenceAtoms.length + ' in reference)');
-      return false;
+      return null;
     }
-    if (subjectAtoms.length < 3) {
-      console.error('at least 3 atoms are required for superposition') ;
-      return false;
+    const atomCount = subjectAtoms.length;
+    if (atomCount < 3) {
+      console.error('at least 3 atoms are required for superposition');
+      return null;
     }
-    calculateCov(subjectAtoms, referenceAtoms, subjectCenter,
-                 referenceCenter, cov);
-    // the SVD implementation assumes nested arrays as inputs instead of linear
-    // arrays of length 9, so we need to convert between the two formats.
-    const input = [
-      [ cov[0], cov[1], cov[2] ],
-      [ cov[3], cov[4], cov[5] ],
-      [ cov[6], cov[7], cov[8] ]
-    ];
-    const decomp = svd(input);
-    uMat[0] = decomp.U[0]![0]!;
-    uMat[1] = decomp.U[0]![1]!;
-    uMat[2] = decomp.U[0]![2]!;
-    uMat[3] = decomp.U[1]![0]!;
-    uMat[4] = decomp.U[1]![1]!;
-    uMat[5] = decomp.U[1]![2]!;
-    uMat[6] = decomp.U[2]![0]!;
-    uMat[7] = decomp.U[2]![1]!;
-    uMat[8] = decomp.U[2]![2]!;
-    const detU = mat3.determinant(uMat);
-    vMat[0] = decomp.V[0]![0]!;
-    vMat[1] = decomp.V[0]![1]!;
-    vMat[2] = decomp.V[0]![2]!;
-    vMat[3] = decomp.V[1]![0]!;
-    vMat[4] = decomp.V[1]![1]!;
-    vMat[5] = decomp.V[1]![2]!;
-    vMat[6] = decomp.V[2]![0]!;
-    vMat[7] = decomp.V[2]![1]!;
-    vMat[8] = decomp.V[2]![2]!;
-    const detV = mat3.determinant(vMat);
-    mat3.identity(tmp);
-    // in case the products of the determinant are smaller than zero, flip
-    // one of the axis. If we don't do this, the resulting matrix is not a
-    // rotation but a mirroring.
-    if (detU * detV < 0.0) {
-      tmp[8] = -1;
-      mat3.mul(uMat, uMat, tmp);
+    calculateCenter(referenceAtoms, referenceCenter);
+    calculateCenter(subjectAtoms, subjectCenter);
+
+    // Correlation of the two centred coordinate sets, s[i][j] summing
+    // subject[i]*reference[j], together with the summed squared radii of
+    // gyration the RMSD is derived from. Kept in doubles for the same reason
+    // as the centre above.
+    let sxx = 0, sxy = 0, sxz = 0;
+    let syx = 0, syy = 0, syz = 0;
+    let szx = 0, szy = 0, szz = 0;
+    let residual = 0;
+    for (let i = 0; i < atomCount; ++i) {
+      const p = subjectAtoms[i]!.pos();
+      const q = referenceAtoms[i]!.pos();
+      const px = p[0] - subjectCenter[0];
+      const py = p[1] - subjectCenter[1];
+      const pz = p[2] - subjectCenter[2];
+      const qx = q[0] - referenceCenter[0];
+      const qy = q[1] - referenceCenter[1];
+      const qz = q[2] - referenceCenter[2];
+      residual += px*px + py*py + pz*pz + qx*qx + qy*qy + qz*qz;
+      sxx += px*qx; sxy += px*qy; sxz += px*qz;
+      syx += py*qx; syy += py*qy; syz += py*qz;
+      szx += pz*qx; szy += pz*qy; szz += pz*qz;
     }
-    mat3.mul(rotation, mat3.transpose(vMat, vMat), uMat);
-    //mat3.transpose(rotation, rotation);
+
+    keyMatrix[0]  = sxx + syy + szz;
+    keyMatrix[1]  = syz - szy;
+    keyMatrix[2]  = szx - sxz;
+    keyMatrix[3]  = sxy - syx;
+    keyMatrix[4]  = syz - szy;
+    keyMatrix[5]  = sxx - syy - szz;
+    keyMatrix[6]  = sxy + syx;
+    keyMatrix[7]  = szx + sxz;
+    keyMatrix[8]  = szx - sxz;
+    keyMatrix[9]  = sxy + syx;
+    keyMatrix[10] = -sxx + syy - szz;
+    keyMatrix[11] = syz + szy;
+    keyMatrix[12] = sxy - syx;
+    keyMatrix[13] = szx + sxz;
+    keyMatrix[14] = syz + szy;
+    keyMatrix[15] = -sxx - syy + szz;
+    jacobiEigen4(keyMatrix, eigenvalues, eigenvectors);
+
+    let best = 0;
+    for (let i = 1; i < 4; ++i) {
+      if (eigenvalues[i]! > eigenvalues[best]!) {
+        best = i;
+      }
+    }
+    // Horn orders the quaternion (w, x, y, z); gl-matrix stores (x, y, z, w).
+    quat.set(rotationQuat,
+             eigenvectors[1*4 + best]!, eigenvectors[2*4 + best]!,
+             eigenvectors[3*4 + best]!, eigenvectors[0*4 + best]!);
+    quat.normalize(rotationQuat, rotationQuat);
+    mat3.fromQuat(rotation, rotationQuat);
+
+    const rmsd = Math.sqrt(
+      Math.max(0, residual - 2*eigenvalues[best]!)/atomCount);
+    // Coincident atoms, or any other input that leaves the key matrix without
+    // a usable eigenvector, would otherwise write NaN over every position.
+    if (!isFinite(rmsd) || !isFinite(rotation[0]!) || !isFinite(rotation[4]!) ||
+        !isFinite(rotation[8]!)) {
+      console.error('superposition is degenerate; structure left unchanged');
+      return null;
+    }
+
     // apply transformation to all atoms
     const allAtoms = structure.full().atoms();
     for (let i = 0; i < allAtoms.length; ++i) {
@@ -172,7 +248,19 @@ const superpose = (function() {
       vec3.add(shiftedPos, referenceCenter, shiftedPos);
       atom.setPos(shiftedPos);
     }
-    return true;
+
+    // The same thing as a single matrix, for callers that want to move
+    // something else along: rotate about the subject centre, then land on the
+    // reference centre.
+    const transform = mat4.create();
+    mat4.fromQuat(transform, rotationQuat);
+    const offset = vec3.create();
+    vec3.transformMat3(offset, subjectCenter, rotation);
+    vec3.sub(offset, referenceCenter, offset);
+    transform[12] = offset[0];
+    transform[13] = offset[1];
+    transform[14] = offset[2];
+    return { rmsd : rmsd, transform : transform, atomCount : atomCount };
   };
 })();
 
@@ -232,18 +320,47 @@ function addAtomsPresentInBoth(
   }
 }
 
+// Pairs up the chains of two structures by name.
+//
+// Pairing by position instead silently matches unrelated chains whenever the
+// two structures list their chains in a different order, which is common
+// enough in deposited entries. The one case where names cannot be trusted is
+// a lone chain on either side, since the same molecule is routinely called A
+// in one file and B in another, so those are paired directly.
+function matchChains(chainsA: SPChain[], chainsB: SPChain[]): [SPChain, SPChain][] {
+  if (chainsA.length === 1 && chainsB.length === 1) {
+    return [[chainsA[0]!, chainsB[0]!]];
+  }
+  const byName = new Map<string, SPChain>();
+  for (let i = 0; i < chainsB.length; ++i) {
+    byName.set(chainsB[i]!.name(), chainsB[i]!);
+  }
+  const pairs: [SPChain, SPChain][] = [];
+  for (let i = 0; i < chainsA.length; ++i) {
+    const chainB = byName.get(chainsA[i]!.name());
+    if (chainB !== undefined) {
+      pairs.push([chainsA[i]!, chainB]);
+    }
+  }
+  return pairs;
+}
+
 function matchResidues(
   inA: SPStructure, inB: SPStructure, atoms: string | string[] | undefined,
   matchFn: (chainA: SPChain, chainB: SPChain) => [SPResidue[], SPResidue[]],
 ): [SPStructureView, SPStructureView] | null {
   const outA = inA.full().createEmptyView();
   const outB = inB.full().createEmptyView();
-  const numChains = Math.min(inA.chains().length, inB.chains().length);
   const atomSet = parseAtomNames(atoms);
+  const pairs = matchChains(inA.chains(), inB.chains());
+  if (pairs.length === 0) {
+    console.error('no chains with matching names in the two structures');
+    return null;
+  }
 
-  for (let i = 0; i < numChains; ++i) {
-    const chainA = inA.chains()[i]!;
-    const chainB = inB.chains()[i]!;
+  for (let i = 0; i < pairs.length; ++i) {
+    const chainA = pairs[i]![0];
+    const chainB = pairs[i]![1];
     const matchedResidues = matchFn(chainA, chainB);
     const residuesA = matchedResidues[0];
     const residuesB = matchedResidues[1];
