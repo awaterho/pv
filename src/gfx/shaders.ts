@@ -117,8 +117,15 @@ varying float lineEdge;\n\
 \n\
 void main(void) {\n\
   float edge = lineEdge;\n\
-  float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
-    1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
+  // a line is a quad, measured across its width by lineMapping.y; a\n\
+  // point is a square sprite, masked here to the disc inscribed in it\n\
+  float dist;\n\
+  if (lineMapping.x > 1.5) {\n\
+    dist = 2.0 * length(gl_PointCoord - vec2(0.5));\n\
+  } else {\n\
+    dist = abs(lineMapping.y);\n\
+  }\n\
+  float coverage = 1.0 - smoothstep(1.0 - edge, 1.0 + edge, dist);\n\
   gl_FragColor = handleAlpha(vec4(vertColor.rgb, vertColor.a * coverage));\n\
   gl_FragColor.rgb = handleFog(gl_FragColor.rgb);\n\
 }',
@@ -287,9 +294,14 @@ void main(void) {\n\
   if (attrMapping.x > 1.5) {\n\
     gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
     float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
-    gl_PointSize = pointSize * 200.0 / abs(distToCamera);\n\
+    float ptSize = pointSize * 200.0 / abs(distToCamera);\n\
+    gl_PointSize = ptSize;\n\
     lineMapping = attrMapping;\n\
-    lineEdge = 0.0;\n\
+    // half of a one-pixel-wide antialiasing band, in the units the\n\
+    // fragment shader measures gl_PointCoord in: dist 1.0 there is\n\
+    // half the sprite width, so one pixel is 2.0 / ptSize. A wider\n\
+    // band than this visibly thins small dots\n\
+    lineEdge = 1.0 / max(ptSize, 1.0);\n\
     vertColor = attrColor;\n\
     return;\n\
   }\n\
@@ -747,9 +759,14 @@ void main(void) {\n\
   if (attrMapping.x > 1.5) {\n\
     gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
     float distToCamera = vec4(modelviewMat * vec4(attrPos, 1.0)).z;\n\
-    gl_PointSize = pointSize * 200.0 / abs(distToCamera);\n\
+    float ptSize = pointSize * 200.0 / abs(distToCamera);\n\
+    gl_PointSize = ptSize;\n\
     lineMapping = attrMapping;\n\
-    lineEdge = 0.0;\n\
+    // half of a one-pixel-wide antialiasing band, in the units the\n\
+    // fragment shader measures gl_PointCoord in: dist 1.0 there is\n\
+    // half the sprite width, so one pixel is 2.0 / ptSize. A wider\n\
+    // band than this visibly thins small dots\n\
+    lineEdge = 1.0 / max(ptSize, 1.0);\n\
     vertColor = attrColor;\n\
     return;\n\
   }\n\
@@ -795,8 +812,15 @@ float oitWeight(float z, float a) {\n\
 void main(void) {\n\
   vec4 color = vertColor;\n\
   float edge = lineEdge;\n\
-  float coverage = lineMapping.x > 1.5 ? 1.0 :\n\
-    1.0 - smoothstep(1.0 - edge, 1.0 + edge, abs(lineMapping.y));\n\
+  // a line is a quad, measured across its width by lineMapping.y; a\n\
+  // point is a square sprite, masked here to the disc inscribed in it\n\
+  float dist;\n\
+  if (lineMapping.x > 1.5) {\n\
+    dist = 2.0 * length(gl_PointCoord - vec2(0.5));\n\
+  } else {\n\
+    dist = abs(lineMapping.y);\n\
+  }\n\
+  float coverage = 1.0 - smoothstep(1.0 - edge, 1.0 + edge, dist);\n\
   color.a *= coverage;\n\
   if (color.a >= 0.999 || color.a <= 0.001) { discard; }\n\
   float depth = gl_FragCoord.z / gl_FragCoord.w;\n\
