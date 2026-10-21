@@ -99,7 +99,9 @@ utils.derive(LineGeom, BaseGeom, {
   shaderForStyleAndPass: function(
     this: LineGeom, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown
   ) {
-    if (pass === 'outline') {
+    // line-based modes have no silhouette outline, in either pass -- note
+    // this must stay ahead of the fall-through to the plain lines shader
+    if (pass === 'outline' || pass === 'outlineTransparent') {
       return null;
     }
     if (pass === 'select') {

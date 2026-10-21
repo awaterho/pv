@@ -40,6 +40,8 @@ export interface ShaderSources {
   SELECT_SPHERES_VS: string;
   OIT_ACCUM_VS: string;
   OIT_ACCUM_HEMILIGHT_FS: string;
+  OIT_ACCUM_OUTLINE_VS: string;
+  OIT_ACCUM_OUTLINE_FS: string;
   OIT_ACCUM_LINES_VS: string;
   OIT_ACCUM_LINES_FS: string;
   OIT_ACCUM_SPHERES_VS: string;
@@ -742,6 +744,105 @@ void main(void) {\n\
   revealOut = vec4(color.a);\n\
 }',
 
+// the ES 3.00 counterpart of OUTLINE_VS/OUTLINE_FS: the same silhouette
+// expansion and colouring, accumulated into the OIT targets instead of
+// blended directly, so that translucent geometry keeps its outline (faded
+// to its own opacity) rather than losing it to PRELUDE_FS's opaqueOnly
+// discard. Drawn by Viewer._drawTransparent() after a depth-only prepass of
+// the translucent geometry -- without that prepass the expanded backfaces,
+// which cover the whole silhouette and not just its rim, would wash the
+// object in outlineColor (OIT accumulation has no occlusion of its own).
+OIT_ACCUM_OUTLINE_VS : '#version 300 es\n\
+in vec3 attrPos;\n\
+in vec3 attrNormal;\n\
+in vec4 attrColor;\n\
+in float attrSelect;\n\
+\n\
+uniform vec3 outlineColor;\n\
+uniform mat4 projectionMat;\n\
+uniform mat4 modelviewMat;\n\
+out float vertAlpha;\n\
+out float vertSelect;\n\
+out vec3 vertOutlineColor;\n\
+uniform vec2 relativePixelSize;\n\
+uniform float outlineWidth;\n\
+uniform float outlineOffset;\n\
+\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
+void main(void) {\n\
+  gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
+  vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
+  vertAlpha = attrColor.a;\n\
+  vertSelect = selectForCopy(attrSelect);\n\
+  vertOutlineColor = outlineColor;\n\
+#ifdef CYLINDER\n\
+  // sticks thin on screen would be mostly outline: there it fades to a\n\
+  // darker shade of their colour, so that they don\'t turn black\n\
+  float screenRadius = cylRadius * projectionMat[0][0] /\n\
+                       (gl_Position.w * relativePixelSize.x);\n\
+  vertOutlineColor = mix(outlineColor, attrColor.rgb * 0.5,\n\
+                         smoothstep(0.4, 1.2, outlineWidth / screenRadius));\n\
+#endif\n\
+  vec2 expansion = relativePixelSize * \n\
+       (outlineWidth + 2.0 * step(0.5, abs(vertSelect)));\n\
+  vec2 offset = normal.xy * expansion;\n\
+  gl_Position.xy += gl_Position.w * offset;\n\
+  gl_Position.z += gl_Position.w * outlineOffset;\n\
+}',
+
+OIT_ACCUM_OUTLINE_FS : '#version 300 es\n\
+precision ${PRECISION} float;\n\
+\n\
+in float vertAlpha;\n\
+in float vertSelect;\n\
+in vec3 vertOutlineColor;\n\
+\n\
+uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
+uniform bool fog;\n\
+uniform float fogNear;\n\
+uniform float fogFar;\n\
+uniform vec3 fogColor;\n\
+\n\
+layout(location = 0) out vec4 accumOut;\n\
+layout(location = 1) out vec4 revealOut;\n\
+\n\
+vec3 handleFog(vec3 inColor, float depth) {\n\
+  if (fog) {\n\
+    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
+    return mix(inColor, fogColor, fogFactor);\n\
+  }\n\
+  return inColor;\n\
+}\n\
+// must match OIT_ACCUM_HEMILIGHT_FS\'s weight, or the outline and the\n\
+// surface it belongs to composite against each other inconsistently\n\
+float oitWeight(float z, float a) {\n\
+  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
+}\n\
+\n\
+void main(void) {\n\
+  // fully-opaque outlines belong to the opaque pass, fully-transparent\n\
+  // geometry has none\n\
+  if (vertAlpha >= 0.999 || vertAlpha <= 0.001) { discard; }\n\
+  vec3 selColor = vertSelect < 0.0 ? hoverColor.rgb : selectionColor.rgb;\n\
+  vec3 rgb = mix(vertOutlineColor, selColor, step(0.5, abs(vertSelect)));\n\
+  float depth = gl_FragCoord.z / gl_FragCoord.w;\n\
+  rgb = handleFog(rgb, depth);\n\
+  float w = oitWeight(depth, vertAlpha);\n\
+  accumOut = vec4(rgb * vertAlpha * w, vertAlpha * w);\n\
+  revealOut = vec4(vertAlpha);\n\
+}',
+
 OIT_ACCUM_LINES_VS : '#version 300 es\n\
 in vec3 attrPos;\n\
 in vec3 attrEnd;\n\
@@ -1136,7 +1237,7 @@ void main(void) {\n\
 };
 
 // turns a mesh vertex shader (HEMILIGHT_VS, OUTLINE_VS, SELECT_VS,
-// OIT_ACCUM_VS) into one drawing instanced cylinders (see CylinderGeom): the
+// OIT_ACCUM_VS, OIT_ACCUM_OUTLINE_VS) into one drawing instanced cylinders (see CylinderGeom): the
 // unit cylinder's vertices are placed by the instance's center and axes, as
 // ProtoCylinder.addTransformed() does on the CPU, before the shader's own
 // code reads attrPos and attrNormal.

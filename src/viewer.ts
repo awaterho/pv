@@ -700,6 +700,11 @@ class Viewer {
         c.initShader(shaders.OIT_ACCUM_SPHERES_VS, shaders.OIT_ACCUM_SPHERES_FS, p);
       this._shaderCatalog.linesTransparent =
         c.initShader(shaders.OIT_ACCUM_LINES_VS, shaders.OIT_ACCUM_LINES_FS, p);
+      this._shaderCatalog.outlineTransparent =
+        c.initShader(shaders.OIT_ACCUM_OUTLINE_VS, shaders.OIT_ACCUM_OUTLINE_FS, p);
+      this._shaderCatalog.outlineCylindersTransparent =
+        c.initShader(cylinderVS(shaders.OIT_ACCUM_OUTLINE_VS),
+                     shaders.OIT_ACCUM_OUTLINE_FS, p);
       this._compositeShader = c.initShader(
         shaders.OIT_COMPOSITE_VS, shaders.OIT_COMPOSITE_FS, p,
       )!;
@@ -763,10 +768,17 @@ class Viewer {
     if (gl.getParameter(gl.DEPTH_BITS) >= 24) {
         outlineOffset = 0.00001;
     }
-    const outlineProg = this._shaderCatalog.outline;
-    gl.useProgram(outlineProg as WebGLProgram | null);
-    gl.uniform1f(gl.getUniformLocation(outlineProg!, 'outlineOffset'),
-                 outlineOffset);
+    for (const name of ['outline', 'outlineTransparent']) {
+      const outlineProg = this._shaderCatalog[name];
+      if (!outlineProg) {
+        continue;
+      }
+      gl.useProgram(outlineProg as WebGLProgram | null);
+      gl.uniform1f(gl.getUniformLocation(outlineProg, 'outlineOffset'),
+                   outlineOffset);
+    }
+    // the loop above called gl.useProgram() behind Cam's back
+    this._cam.invalidateCurrentShader();
     // call init on all registered extensions
     this._extensions.forEach((ext) => {
       ext.init(this);
@@ -1051,8 +1063,41 @@ class Viewer {
     ext.blendFunciOES(0, gl.ONE, gl.ONE);
     ext.blendFunciOES(1, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     this._drawWithPass('transparent');
+    if (this._options.outline) {
+      this._drawTransparentOutline(gl);
+    }
     gl.disable(gl.BLEND);
     gl.depthMask(true);
+  }
+
+  // the silhouette outline of translucent geometry, accumulated into the
+  // same OIT targets as the pass above (shaders.ts's OIT_ACCUM_OUTLINE_*).
+  // The opaque outline pass can't draw it: every fragment it produces for
+  // non-opaque geometry is thrown away by PRELUDE_FS's opaqueOnly gate.
+  //
+  // Must run after that accumulation, not before: the outline is expanded
+  // backface geometry covering the object's whole silhouette, and OIT
+  // accumulation has no occlusion of its own, so drawn naively it washes
+  // the object in outlineColor instead of rimming it. The depth-only
+  // prepass below fills the (shared) depth buffer with the translucent
+  // geometry's own depth so the outline is tested against it and only its
+  // rim survives. Doing the prepass first would instead make the
+  // translucent geometry occlude itself and defeat the order-independence
+  // of the pass. Clobbering the depth buffer here is safe: SSAO has already
+  // run and _compositeToCanvas() only samples colour.
+  private _drawTransparentOutline(gl: WebGL2RenderingContext): void {
+    // the accumulation shaders discard everything that isn't translucent,
+    // so this writes depth for exactly the fragments drawn above
+    gl.colorMask(false, false, false, false);
+    gl.depthMask(true);
+    this._drawWithPass('transparent');
+    gl.colorMask(true, true, true, true);
+    gl.depthMask(false);
+
+    // back faces, as in the opaque outline pass
+    gl.cullFace(gl.BACK);
+    this._drawWithPass('outlineTransparent');
+    gl.cullFace(gl.FRONT);
   }
 
   // composites the (optional) transparent accumulation and the (optional)

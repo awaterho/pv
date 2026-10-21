@@ -374,9 +374,10 @@ utils.derive(BaseGeom, SceneNode, {
     if (!this._visible) {
       return;
     }
-    // the transparent pass only draws translucent fragments: skip geometry
+    // the transparent passes only draw translucent fragments: skip geometry
     // that has none, i.e. nearly always, rather than draw all of it again
-    if (pass === 'transparent' && !this.vertArrays().some((va) => va.translucent())) {
+    if ((pass === 'transparent' || pass === 'outlineTransparent') &&
+        !this.vertArrays().some((va) => va.translucent())) {
       return;
     }
 

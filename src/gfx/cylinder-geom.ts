@@ -33,6 +33,7 @@ interface ShaderCatalog {
   selectCylinders: unknown;
   outlineCylinders: unknown;
   hemilightCylindersTransparent?: unknown;
+  outlineCylindersTransparent?: unknown;
 }
 
 type UnitCylinder = Parameters<typeof unitCylinder>[1];
@@ -80,6 +81,9 @@ utils.derive(CylinderGeom, InstancedGeom, {
     }
     if (pass === 'outline') {
       return shaderCatalog.outlineCylinders;
+    }
+    if (pass === 'outlineTransparent') {
+      return shaderCatalog.outlineCylindersTransparent ?? null;
     }
     return null;
   },

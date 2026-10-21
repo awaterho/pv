@@ -203,6 +203,9 @@ utils.derive(MeshGeom, BaseGeom, {
     if (pass === 'outline') {
       return shaderCatalog.outline;
     }
+    if (pass === 'outlineTransparent') {
+      return shaderCatalog.outlineTransparent ?? null;
+    }
     const shader = shaderCatalog[pass as string];
     return shader !== undefined ? shader : null;
   },

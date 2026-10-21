@@ -602,7 +602,8 @@ utils.derive(CustomMesh, SceneNode, {
       this._prepareVertexArray();
     }
     // like BaseGeom.draw(): no transparent pass without translucent vertices
-    if (pass === 'transparent' && !this._vas.some((va) => va.translucent())) {
+    if ((pass === 'transparent' || pass === 'outlineTransparent') &&
+        !this._vas.some((va) => va.translucent())) {
       return;
     }
     const shader = this.shaderForStyleAndPass(shaderCatalog, style, pass);
@@ -634,6 +635,9 @@ utils.derive(CustomMesh, SceneNode, {
     }
     if (pass === 'outline') {
       return shaderCatalog.outline;
+    }
+    if (pass === 'outlineTransparent') {
+      return shaderCatalog.outlineTransparent ?? null;
     }
     const shader = shaderCatalog[pass as string];
     return shader !== undefined ? shader : null;
