@@ -105,7 +105,7 @@ const eachCentralAtomSym = (function() {
 // gfx/mesh-geom.js, not yet converted, chain-invoke this via
 // `BaseGeom.call(this, gl)`).
 //
-// vertArrays()/shaderForStyleAndPass()/_drawVertArrays() are used here but
+// vertArrays()/shaderForPass()/_drawVertArrays() are used here but
 // must be provided by whichever subclass sets up the actual vertex buffers
 // (gfx/line-geom.ts, gfx/mesh-geom.ts).
 export interface BaseGeom extends ISceneNode {
@@ -117,7 +117,7 @@ export interface BaseGeom extends ISceneNode {
   _ready: boolean;
 
   vertArrays(): VertArray[];
-  shaderForStyleAndPass(shaderCatalog: unknown, style: unknown, pass: unknown): ShaderProgram | null;
+  shaderForPass(shaderCatalog: unknown, pass: unknown): ShaderProgram | null;
   _drawVertArrays(cam: Cam, shader: ShaderProgram, vertArrays: VertArray[], matrices: mat4[] | null,
                   firstSymId?: number): void;
 
@@ -369,7 +369,7 @@ utils.derive(BaseGeom, SceneNode, {
     return radius;
   },
 
-  draw: function(this: BaseGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown) {
+  draw: function(this: BaseGeom, cam: Cam, shaderCatalog: unknown, pass: unknown) {
 
     if (!this._visible) {
       return;
@@ -381,7 +381,7 @@ utils.derive(BaseGeom, SceneNode, {
       return;
     }
 
-    const shader = this.shaderForStyleAndPass(shaderCatalog, style, pass);
+    const shader = this.shaderForPass(shaderCatalog, pass);
 
     if (!shader) {
       return;

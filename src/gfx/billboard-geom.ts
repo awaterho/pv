@@ -62,9 +62,9 @@ utils.derive(BillboardGeom, InstancedGeom, {
   setMatte: function(this: BillboardGeom, matte: boolean) {
     this._matte = matte;
   },
-  draw: function(this: BillboardGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown) {
+  draw: function(this: BillboardGeom, cam: Cam, shaderCatalog: unknown, pass: unknown) {
     // the matte flag is per object, not part of what Cam.bind() sets
-    const shader = this.shaderForStyleAndPass(shaderCatalog as ShaderCatalog, style, pass) as
+    const shader = this.shaderForPass(shaderCatalog as ShaderCatalog, pass) as
       (WebGLProgram & { matte?: WebGLUniformLocation | null }) | null;
     if (shader && shader.matte) {
       this._gl.useProgram(shader);
@@ -74,11 +74,11 @@ utils.derive(BillboardGeom, InstancedGeom, {
     // we need the back-faces for the outline rendering
     this._gl.disable(this._gl.CULL_FACE);
     (InstancedGeom.prototype.draw as (
-      this: BillboardGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown
-    ) => void).call(this, cam, shaderCatalog, style, pass);
+      this: BillboardGeom, cam: Cam, shaderCatalog: unknown, pass: unknown
+    ) => void).call(this, cam, shaderCatalog, pass);
     this._gl.enable(this._gl.CULL_FACE);
   },
-  shaderForStyleAndPass: function(this: BillboardGeom, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
+  shaderForPass: function(this: BillboardGeom, shaderCatalog: ShaderCatalog, pass: unknown) {
     // the normal pass contains render code for both the normal
     // and outline pass which is toggled on/off by a boolean
     // uniform.

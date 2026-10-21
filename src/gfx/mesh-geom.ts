@@ -186,11 +186,7 @@ utils.derive(MeshGeom, BaseGeom, {
     return this._indexedVAs[0]!.numVerts();
   },
 
-  // 'style' is currently always 'hemilight' (the only shading style pv
-  // supports), so this always resolves to the hemilight shader -- kept as a
-  // dispatcher (rather than inlined at call sites) since 'pass' still
-  // selects between several distinct shaders.
-  shaderForStyleAndPass: function(this: MeshGeom, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
+  shaderForPass: function(this: MeshGeom, shaderCatalog: ShaderCatalog, pass: unknown) {
     if (pass === 'normal') {
       return shaderCatalog.hemilight;
     }

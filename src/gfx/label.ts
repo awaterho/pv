@@ -224,7 +224,7 @@ utils.derive(TextLabel, SceneNode, {
     this._ready = true;
   },
 
-  draw: function(this: TextLabel, cam: Cam, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
+  draw: function(this: TextLabel, cam: Cam, shaderCatalog: ShaderCatalog, pass: unknown) {
     if (!this._visible) {
       return;
     }

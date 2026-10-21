@@ -62,12 +62,6 @@ class FixedSlab {
 }
 
 class AutoSlab {
-  private _far: number;
-
-  constructor() {
-    this._far = 100.0;
-  }
-
   update(objects: readonly SlabObject[], cam: SlabCamera): Slab | null {
     const center = cam.center();
     let radius: number | null = null;

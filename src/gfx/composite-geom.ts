@@ -79,12 +79,12 @@ utils.derive(CompositeGeom, BaseGeom, {
     return vertArrays;
   },
 
-  draw: function(this: CompositeGeom, cam: Cam, shaderCatalog: unknown, style: unknown, pass: unknown) {
+  draw: function(this: CompositeGeom, cam: Cam, shaderCatalog: unknown, pass: unknown) {
     if (!this._visible) {
       return;
     }
     for (let i = 0; i < this._parts.length; ++i) {
-      this._parts[i]!.draw(cam, shaderCatalog, style, pass);
+      this._parts[i]!.draw(cam, shaderCatalog, pass);
     }
   },
 } as Partial<CompositeGeom>);

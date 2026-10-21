@@ -96,9 +96,7 @@ utils.derive(LineGeom, BaseGeom, {
     return this._vertArrays;
   },
 
-  shaderForStyleAndPass: function(
-    this: LineGeom, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown
-  ) {
+  shaderForPass: function(this: LineGeom, shaderCatalog: ShaderCatalog, pass: unknown) {
     // line-based modes have no silhouette outline, in either pass -- note
     // this must stay ahead of the fall-through to the plain lines shader
     if (pass === 'outline' || pass === 'outlineTransparent') {

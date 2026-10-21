@@ -20,6 +20,8 @@
 
 export interface ShaderSources {
   ES3_HEADER: string;
+  SELECT_FOR_COPY: string;
+  ES3_PRELUDE_FS: string;
   PRELUDE_FS: string;
   LINES_FS: string;
   SELECT_LINES_FS: string;
@@ -64,6 +66,61 @@ ES3_HEADER : '#version 300 es\n',
 // This is required, because the outline shaders do not work well on iOS 
 // with mediump, but some android devices do not support highp.
 
+
+// spliced into every vertex shader that calls selectForCopy() (see the
+// loop below main's shader definitions). Vertex shaders have no prelude to
+// prepend to, and an ES 3.00 one must keep '#version' on its very first
+// line, so this goes in just above main() instead -- after every
+// declaration the shader makes, before its first use.
+SELECT_FOR_COPY : '\n\
+// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
+// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
+// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
+uniform int symId;\n\
+uniform int hoverSymId;\n\
+float selectForCopy(float flag) {\n\
+  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
+    return flag < -1.5 ? 1.0 : 0.0;\n\
+  }\n\
+  return flag;\n\
+}\n\
+',
+
+// PRELUDE_FS's counterpart for the ES 3.00 OIT accumulation shaders, which
+// can't use it: their fog and selection helpers take the depth/flag as a
+// parameter rather than reading a varying, and they need oitWeight(), which
+// the ES 1.00 shaders have no use for. Spliced in just above main() rather
+// than concatenated ahead of the shader, so that each shader's own
+// precision statement (highp in the ray-casting sphere shaders,
+// ${PRECISION} in the rest) still governs these functions.
+ES3_PRELUDE_FS : '\n\
+uniform vec4 selectionColor;\n\
+uniform vec4 hoverColor;\n\
+uniform bool fog;\n\
+uniform float fogNear;\n\
+uniform float fogFar;\n\
+uniform vec3 fogColor;\n\
+\n\
+vec3 handleSelect(vec3 inColor, float sel) {\n\
+  vec3 c = mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
+  return mix(c, hoverColor.rgb, step(0.5, -sel) * hoverColor.a);\n\
+}\n\
+vec3 handleFog(vec3 inColor, float depth) {\n\
+  if (fog) {\n\
+    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
+    return mix(inColor, fogColor, fogFactor);\n\
+  }\n\
+  return inColor;\n\
+}\n\
+// empirically-tuned weight favoring nearer and more opaque fragments; not\n\
+// copied from a specific published constant set -- see McGuire & Bavoil\n\
+// 2013 for the general technique this approximates. Every accumulation\n\
+// shader must weigh a fragment the same way, or geometry and the outline\n\
+// around it composite against each other inconsistently.\n\
+float oitWeight(float z, float a) {\n\
+  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
+}\n\
+',
 
 // this fragment shader prelude gets added to all fragment shader code
 // before  compiling. It essentially contains a selection of functions
@@ -174,17 +231,6 @@ uniform vec2 relativePixelSize;\n\
 varying float vertSelect;\n\
 varying vec2 lineMapping;\n\
 varying float lineEdge;\n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main(void) {\n\
   vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 end = projectionMat * modelviewMat * vec4(attrEnd, 1.0);\n\
@@ -348,17 +394,6 @@ varying vec4 vertColor;\n\
 varying vec3 vertNormal;\n\
 varying vec3 vertPos;\n\
 varying float vertSelect;\n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main(void) {\n\
   vertPos = (modelviewMat * vec4(attrPos, 1.0)).xyz;\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
@@ -403,17 +438,6 @@ uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
 uniform float outlineOffset;\n\
 \n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
@@ -442,7 +466,6 @@ attribute vec3 attrCenter;\n\
 attribute vec2 attrCorner;\n\
 uniform mat4 projectionMat;\n\
 uniform mat4 modelviewMat;\n\
-uniform mat4 rotationMat;\n\
 varying vec2 vertTex;\n\
 uniform float width;\n\
 uniform float height;\n\
@@ -457,8 +480,6 @@ void main() { \n\
 TEXT_FS : '\n\
 precision ${PRECISION} float;\n\
 \n\
-uniform mat4 projectionMat;\n\
-uniform mat4 modelviewMat;\n\
 uniform sampler2D sampler;\n\
 uniform float xScale;\n\
 uniform float yScale;\n\
@@ -546,17 +567,6 @@ out float outlineFade;\n\
 out vec4 vertCenter;\n\
 out vec3 vertViewPos;\n\
 out float vertSelect;\n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main() {\n\
   // 1.5 times the radius: under perspective, the outline of a sphere off\n\
   // the view axis is an ellipse a little larger than the radius\n\
@@ -677,17 +687,6 @@ out vec4 vertColor;\n\
 out vec3 vertNormal;\n\
 out vec3 vertPos;\n\
 out float vertSelect;\n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main(void) {\n\
   vertPos = (modelviewMat * vec4(attrPos, 1.0)).xyz;\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
@@ -704,33 +703,10 @@ in vec4 vertColor;\n\
 in vec3 vertNormal;\n\
 in float vertSelect;\n\
 \n\
-uniform vec4 selectionColor;\n\
-uniform vec4 hoverColor;\n\
-uniform bool fog;\n\
-uniform float fogNear;\n\
-uniform float fogFar;\n\
-uniform vec3 fogColor;\n\
 \n\
 layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
-vec3 handleSelect(vec3 inColor, float sel) {\n\
-  vec3 c = mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
-  return mix(c, hoverColor.rgb, step(0.5, -sel) * hoverColor.a);\n\
-}\n\
-vec3 handleFog(vec3 inColor, float depth) {\n\
-  if (fog) {\n\
-    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
-    return mix(inColor, fogColor, fogFactor);\n\
-  }\n\
-  return inColor;\n\
-}\n\
-// empirically-tuned weight favoring nearer and more opaque fragments; not\n\
-// copied from a specific published constant set -- see McGuire & Bavoil\n\
-// 2013 for the general technique this approximates.\n\
-float oitWeight(float z, float a) {\n\
-  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
-}\n\
 \n\
 void main(void) {\n\
   float dp = dot(vertNormal, vec3(0.0, 0.0, 1.0));\n\
@@ -768,17 +744,6 @@ uniform vec2 relativePixelSize;\n\
 uniform float outlineWidth;\n\
 uniform float outlineOffset;\n\
 \n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
@@ -807,28 +772,10 @@ in float vertAlpha;\n\
 in float vertSelect;\n\
 in vec3 vertOutlineColor;\n\
 \n\
-uniform vec4 selectionColor;\n\
-uniform vec4 hoverColor;\n\
-uniform bool fog;\n\
-uniform float fogNear;\n\
-uniform float fogFar;\n\
-uniform vec3 fogColor;\n\
 \n\
 layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
-vec3 handleFog(vec3 inColor, float depth) {\n\
-  if (fog) {\n\
-    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
-    return mix(inColor, fogColor, fogFactor);\n\
-  }\n\
-  return inColor;\n\
-}\n\
-// must match OIT_ACCUM_HEMILIGHT_FS\'s weight, or the outline and the\n\
-// surface it belongs to composite against each other inconsistently\n\
-float oitWeight(float z, float a) {\n\
-  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
-}\n\
 \n\
 void main(void) {\n\
   // fully-opaque outlines belong to the opaque pass, fully-transparent\n\
@@ -891,24 +838,10 @@ precision ${PRECISION} float;\n\
 in vec4 vertColor;\n\
 in vec2 lineMapping;\n\
 in float lineEdge;\n\
-uniform bool fog;\n\
-uniform float fogNear;\n\
-uniform float fogFar;\n\
-uniform vec3 fogColor;\n\
 \n\
 layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
-vec3 handleFog(vec3 inColor, float depth) {\n\
-  if (fog) {\n\
-    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
-    return mix(inColor, fogColor, fogFactor);\n\
-  }\n\
-  return inColor;\n\
-}\n\
-float oitWeight(float z, float a) {\n\
-  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
-}\n\
 \n\
 void main(void) {\n\
   vec4 color = vertColor;\n\
@@ -955,17 +888,6 @@ out float outlineFade;\n\
 out vec4 vertCenter;\n\
 out vec3 vertViewPos;\n\
 out float vertSelect;\n\
-// the hover tint only on the hovered copy of a symmetry assembly: symId is\n\
-// the copy being drawn (255 outside of assemblies), hoverSymId the hovered\n\
-// one (-1 for all). -1 flags hovered, -2 hovered and selected.\n\
-uniform int symId;\n\
-uniform int hoverSymId;\n\
-float selectForCopy(float flag) {\n\
-  if (flag < 0.0 && hoverSymId >= 0 && symId != hoverSymId) {\n\
-    return flag < -1.5 ? 1.0 : 0.0;\n\
-  }\n\
-  return flag;\n\
-}\n\
 void main() {\n\
   // 1.5 times the radius: under perspective, the outline of a sphere off\n\
   // the view axis is an ellipse a little larger than the radius\n\
@@ -1000,30 +922,10 @@ in float border;\n\
 in float outlineFade;\n\
 uniform bool outlineEnabled;\n\
 uniform bool matte;\n\
-uniform vec4 selectionColor;\n\
-uniform vec4 hoverColor;\n\
-uniform bool fog;\n\
-uniform float fogNear;\n\
-uniform float fogFar;\n\
-uniform vec3 fogColor;\n\
 \n\
 layout(location = 0) out vec4 accumOut;\n\
 layout(location = 1) out vec4 revealOut;\n\
 \n\
-vec3 handleSelect(vec3 inColor, float sel) {\n\
-  vec3 c = mix(inColor, selectionColor.rgb, step(0.5, sel) * selectionColor.a);\n\
-  return mix(c, hoverColor.rgb, step(0.5, -sel) * hoverColor.a);\n\
-}\n\
-vec3 handleFog(vec3 inColor, float depth) {\n\
-  if (fog) {\n\
-    float fogFactor = smoothstep(fogNear, fogFar, depth);\n\
-    return mix(inColor, fogColor, fogFactor);\n\
-  }\n\
-  return inColor;\n\
-}\n\
-float oitWeight(float z, float a) {\n\
-  return a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);\n\
-}\n\
 \n\
 void main(void) {\n\
   // the eye ray through this fragment (the eye is at the origin of view\n\
@@ -1269,6 +1171,35 @@ export function cylinderVS(meshVS: string): string {
              '  attrNormal = normalize(attrProtoNormal.x * attrCylLeft +\n' +
              '                         attrProtoNormal.y * attrCylUp);\n' +
              '  cylRadius = length(attrCylLeft);\n');
+}
+
+// Splices a shared snippet in just above main(), where it sits after every
+// declaration the shader makes and before its first use -- the one spot
+// that works for both GLSL dialects and for ES 3.00's '#version must come
+// first' rule. main() is written both as 'void main()' and 'void
+// main(void)' across these shaders.
+function spliceAboveMain(source: string, snippet: string): string {
+  const main = source.match(/^void main\s*\([^)]*\)\s*\{/m);
+  if (main === null) {
+    throw new Error('spliceAboveMain: no main() found');
+  }
+  return source.replace(main[0], snippet + main[0]);
+}
+
+// Hand every shader the shared code it uses, rather than each carrying its
+// own copy: selectForCopy() was duplicated across 7 vertex shaders, and the
+// fog/selection/OIT-weight helpers across 4 accumulation shaders. Keyed off
+// what a shader actually says, so a new one picks them up by itself.
+{
+  const sources = shaders as unknown as Record<string, string>;
+  for (const name of Object.keys(sources)) {
+    if (name.endsWith('_VS') && sources[name]!.includes('selectForCopy(')) {
+      sources[name] = spliceAboveMain(sources[name]!, shaders.SELECT_FOR_COPY);
+    }
+    if (name.startsWith('OIT_ACCUM_') && name.endsWith('_FS')) {
+      sources[name] = spliceAboveMain(sources[name]!, shaders.ES3_PRELUDE_FS);
+    }
+  }
 }
 
 export default shaders;

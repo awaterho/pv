@@ -68,8 +68,7 @@ utils.derive(CylinderGeom, InstancedGeom, {
     return va;
   },
 
-  shaderForStyleAndPass: function(this: CylinderGeom, shaderCatalog: ShaderCatalog, style: unknown,
-                                  pass: unknown) {
+  shaderForPass: function(this: CylinderGeom, shaderCatalog: ShaderCatalog, pass: unknown) {
     if (pass === 'normal') {
       return shaderCatalog.hemilightCylinders;
     }

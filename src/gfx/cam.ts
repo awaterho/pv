@@ -37,7 +37,6 @@ export interface ShaderProgram extends WebGLProgram {
   fogFar: WebGLUniformLocation;
   fogNear: WebGLUniformLocation;
   fogColor: WebGLUniformLocation;
-  zoom: WebGLUniformLocation;
   outlineColor: WebGLUniformLocation;
   selectionColor: WebGLUniformLocation;
   hoverColor: WebGLUniformLocation;
@@ -519,7 +518,6 @@ class Cam {
     gl.uniform1i(shader.fog, this._fog ? 1 : 0);
     const nearOffset = this._zoom;
     gl.uniform1f(shader.fogFar, this._fogFar + nearOffset);
-    gl.uniform1f(shader.zoom, this._zoom);
     gl.uniform1f(shader.fogNear, this._fogNear + nearOffset);
     gl.uniform3fv(shader.fogColor, this._fogColor);
     gl.uniform3fv(shader.outlineColor, this._outlineColor);

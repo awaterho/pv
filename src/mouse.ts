@@ -45,7 +45,6 @@ class MouseHandler {
   private _viewer: MouseViewer;
   private _canvas: MouseCanvas;
   private _cam: Cam;
-  private _animationTime: number;
   private _lastMouseUpTime: number | null;
   private _lastMouseDownTime!: number;
   private _lastMousePos!: { x: number; y: number };
@@ -53,21 +52,12 @@ class MouseHandler {
   private _mouseRotateListener!: (event: Event) => void;
   private _mouseUpListener!: (event: Event) => void;
 
-  constructor(canvas: MouseCanvas, viewer: MouseViewer, cam: Cam, animationTime: number) {
+  constructor(canvas: MouseCanvas, viewer: MouseViewer, cam: Cam) {
     this._viewer = viewer;
     this._canvas = canvas;
     this._cam = cam;
-    this._canvas = canvas;
-    this._animationTime = animationTime;
     this._lastMouseUpTime = null;
     this._init();
-  }
-
-  private _centerOnClicked(picked: Picked | null): void {
-    if (picked === null) {
-      return;
-    }
-    this._viewer.setCenter(picked.pos(), this._animationTime);
   }
 
   private _mouseUp(event: MouseEvent): void {

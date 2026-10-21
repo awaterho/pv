@@ -47,7 +47,7 @@ export interface SceneNode {
   order(order?: number): number;
   picksFor(targets?: PickProxy | PickProxy[] | null): PickProxy[];
   add(node: SceneNode): void;
-  draw(cam: unknown, shaderCatalog: unknown, style: unknown, pass: unknown): void;
+  draw(cam: unknown, shaderCatalog: unknown, pass: unknown): void;
   show(): void;
   hide(): void;
   name(name?: string): string;
@@ -107,10 +107,10 @@ SceneNode.prototype = {
   },
 
   draw: function(
-    this: SceneNode, cam: unknown, shaderCatalog: unknown, style: unknown, pass: unknown
+    this: SceneNode, cam: unknown, shaderCatalog: unknown, pass: unknown
   ): void {
     for (let i = 0, e = this._children.length; i !== e; ++i) {
-      this._children[i]!.draw(cam, shaderCatalog, style, pass);
+      this._children[i]!.draw(cam, shaderCatalog, pass);
     }
   },
 

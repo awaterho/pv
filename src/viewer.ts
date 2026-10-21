@@ -140,7 +140,7 @@ interface DrawBuffersIndexedExt {
 interface ViewerObject {
   name(name?: string): string;
   destroy(): void;
-  draw(cam: unknown, shaderCatalog: unknown, style: unknown, pass: unknown): void;
+  draw(cam: unknown, shaderCatalog: unknown, pass: unknown): void;
   order(order?: number): number;
   visible(): boolean;
   show(): void;
@@ -354,7 +354,6 @@ interface ResolvedViewerOptions {
   antialias: boolean;
   forceManualAntialiasing: boolean;
   quality: string;
-  style: string;
   background: RGBA;
   slabMode: SlabStrategy;
   outline: boolean;
@@ -386,7 +385,6 @@ class Viewer {
   private _domElement: HTMLElement;
   private _redrawRequested: boolean;
   private _resize: boolean;
-  private _lastTimestamp: number | null;
   private _objectIdManager: UniqueObjectIdPool<PickedData>;
   private _spin: ReturnType<typeof anim.spin> | null;
   private _rockAndRoll: ReturnType<typeof anim.rockAndRoll> | null;
@@ -442,7 +440,6 @@ class Viewer {
     this._domElement = domElement;
     this._redrawRequested = false;
     this._resize = false;
-    this._lastTimestamp = null;
     this._objectIdManager = new UniqueObjectIdPool<PickedData>();
     // these two are set to the animation objects when spin/rockAndRoll
     // are active
@@ -495,7 +492,6 @@ class Viewer {
       antialias : optValue(opts, 'antialias', true),
       forceManualAntialiasing: optValue(opts, 'forceManualAntialiasing', true),
       quality : optValue(opts, 'quality', 'auto'),
-      style : optValue(opts, 'style', 'hemilight'),
       background : color.forceRGB(opts.background as string || 'white'),
       slabMode : slabModeToStrategy(opts.slabMode as string | undefined),
       outline : optValue(opts, 'outline', false),
@@ -809,7 +805,7 @@ class Viewer {
       // which symmetry copy of the object its hover tints, see setHover()
       const hoverSymId = (obj as { hoverSymId?(): number }).hoverSymId;
       this._cam.setHoverSymId(hoverSymId !== undefined ? hoverSymId.call(obj) : -1);
-      obj.draw(this._cam, this._shaderCatalog, this._options.style, pass);
+      obj.draw(this._cam, this._shaderCatalog, pass);
     }
   }
 
@@ -853,8 +849,7 @@ class Viewer {
     this._textureCanvas = document.createElement('canvas');
     this._textureCanvas.style.display = 'none';
     this._domElement.appendChild(this._textureCanvas);
-    this._mouseHandler = new MouseHandler(this._canvas as never, this, this._cam,
-                                          this._options.animateTime);
+    this._mouseHandler = new MouseHandler(this._canvas as never, this, this._cam);
     this._canvas.domElement()
         .addEventListener('mousedown', utils.bind(this, this.focus) as EventListener);
   }

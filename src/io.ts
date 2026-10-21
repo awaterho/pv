@@ -35,14 +35,12 @@ interface PdbOptions {
 
 class Remark350Reader {
   private _assemblies: Record<string, Assembly>;
-  private _current: unknown;
   private _currentAssembly!: Assembly;
   private _currentSymGen!: SymGenerator;
   private _currentMatrix!: mat4;
 
   constructor() {
     this._assemblies = {};
-    this._current = null;
   }
 
   assemblies(): Assembly[] {
@@ -172,7 +170,6 @@ class PDBReader {
   private _remark350Reader: Remark350Reader;
   private _currChain: Chain | null;
   private _currRes: Residue | null;
-  private _currAtom: unknown;
   private _options: { conectRecords: boolean };
 
   constructor(options: PdbOptions) {
@@ -185,7 +182,6 @@ class PDBReader {
     this._remark350Reader = new Remark350Reader();
     this._currChain =  null;
     this._currRes = null;
-    this._currAtom = null;
     this._options = { conectRecords: options.conectRecords !== false };
   }
 
@@ -405,7 +401,6 @@ class PDBReader {
     this._structure = new Mol();
     this._currChain =  null;
     this._currRes = null;
-    this._currAtom = null;
     this._rosettaMode = false;
     return result;
   }
@@ -621,14 +616,12 @@ class SDFReader {
 
 class CRDReader {
   private _structure: Mol;
-  private _sawEnd: boolean;
   private _currentResidue!: Residue | null;
   private _currentChain!: Chain | null;
 
   constructor() {
     this._structure = new Mol();
     this._reset();
-    this._sawEnd = false;
   }
 
   processLine(line: string): boolean {

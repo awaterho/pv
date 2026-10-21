@@ -55,7 +55,6 @@ class Canvas {
   private _antialias: boolean | undefined;
   private _height: number;
   private _resize: boolean;
-  private _lastTimestamp: number | null;
   private _domElement: HTMLElement;
   private _backgroundColor: [number, number, number] | Float32Array;
   private _forceManualAntialiasing: boolean | undefined;
@@ -70,7 +69,6 @@ class Canvas {
     this._antialias = options.antialias;
     this._height = options.height;
     this._resize = false;
-    this._lastTimestamp = null;
     this._domElement = parentElement;
     this._initCanvas();
     this._backgroundColor = options.backgroundColor;
@@ -243,7 +241,6 @@ class Canvas {
                                                  'selectionColor')!;
     shaderProgram.hoverColor = getUniformLoc(shaderProgram, 'hoverColor')!;
     shaderProgram.pointSize = getUniformLoc(shaderProgram, 'pointSize')!;
-    shaderProgram.zoom = getUniformLoc(shaderProgram, 'zoom')!;
     shaderProgram.outlineEnabled = getUniformLoc(shaderProgram,
                                                  'outlineEnabled')!;
     shaderProgram.opaqueOnly = getUniformLoc(shaderProgram, 'opaqueOnly')!;

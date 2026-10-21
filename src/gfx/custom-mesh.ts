@@ -324,7 +324,7 @@ export interface CustomMesh extends ISceneNode {
   _hoverCopy: number | null;
   _applySelection(): void;
   _prepareVertexArray(): void;
-  shaderForStyleAndPass(shaderCatalog: ShaderCatalog, style: unknown, pass: unknown): Shader | null;
+  shaderForPass(shaderCatalog: ShaderCatalog, pass: unknown): Shader | null;
 }
 
 interface CustomMeshConstructor {
@@ -594,7 +594,7 @@ utils.derive(CustomMesh, SceneNode, {
     });
   },
 
-  draw: function(this: CustomMesh, cam: Cam, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
+  draw: function(this: CustomMesh, cam: Cam, shaderCatalog: ShaderCatalog, pass: unknown) {
     if (!this._visible) {
       return;
     }
@@ -606,7 +606,7 @@ utils.derive(CustomMesh, SceneNode, {
         !this._vas.some((va) => va.translucent())) {
       return;
     }
-    const shader = this.shaderForStyleAndPass(shaderCatalog, style, pass);
+    const shader = this.shaderForPass(shaderCatalog, pass);
     if (!shader) {
       return;
     }
@@ -619,11 +619,7 @@ utils.derive(CustomMesh, SceneNode, {
       va.releaseAttribs(shader);
     }
   },
-  // 'style' is currently always 'hemilight' (the only shading style pv
-  // supports), so this always resolves to the hemilight shader -- kept as a
-  // dispatcher (rather than inlined at call sites) since 'pass' still
-  // selects between several distinct shaders.
-  shaderForStyleAndPass: function(this: CustomMesh, shaderCatalog: ShaderCatalog, style: unknown, pass: unknown) {
+  shaderForPass: function(this: CustomMesh, shaderCatalog: ShaderCatalog, pass: unknown) {
     if (pass === 'normal') {
       return shaderCatalog.hemilight;
     }
