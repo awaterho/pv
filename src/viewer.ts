@@ -849,7 +849,8 @@ class Viewer {
     this._textureCanvas = document.createElement('canvas');
     this._textureCanvas.style.display = 'none';
     this._domElement.appendChild(this._textureCanvas);
-    this._mouseHandler = new MouseHandler(this._canvas as never, this, this._cam);
+    this._mouseHandler = new MouseHandler(this._canvas as never, this, this._cam,
+                                          this._options.animateTime);
     this._canvas.domElement()
         .addEventListener('mousedown', utils.bind(this, this.focus) as EventListener);
   }
@@ -1214,9 +1215,12 @@ class Viewer {
       this.listenerMap[eventName] = callbacks;
     }
     if (callback === 'center') {
+      // Direct reference, no cast: this is what makes removing
+      // MouseHandler._centerOnClicked a compile error rather than a
+      // runtime TypeError inside the mouseup handler.
       const cb = utils.bind(
         this._mouseHandler,
-        (this._mouseHandler as unknown as { _centerOnClicked: (picked: unknown) => void })._centerOnClicked,
+        this._mouseHandler._centerOnClicked,
       ) as EventCallback;
       callbacks.push(cb);
     } else {

@@ -45,6 +45,7 @@ class MouseHandler {
   private _viewer: MouseViewer;
   private _canvas: MouseCanvas;
   private _cam: Cam;
+  private _animationTime: number;
   private _lastMouseUpTime: number | null;
   private _lastMouseDownTime!: number;
   private _lastMousePos!: { x: number; y: number };
@@ -52,32 +53,48 @@ class MouseHandler {
   private _mouseRotateListener!: (event: Event) => void;
   private _mouseUpListener!: (event: Event) => void;
 
-  constructor(canvas: MouseCanvas, viewer: MouseViewer, cam: Cam) {
+  constructor(canvas: MouseCanvas, viewer: MouseViewer, cam: Cam,
+              animationTime: number) {
     this._viewer = viewer;
     this._canvas = canvas;
     this._cam = cam;
+    this._animationTime = animationTime;
     this._lastMouseUpTime = null;
     this._init();
+  }
+
+  // NOTE: not private -- Viewer.on() reaches through _mouseHandler to bind
+  // this as the handler for the 'center' click/doubleClick shorthand.
+  _centerOnClicked(picked: Picked | null): void {
+    if (picked === null) {
+      return;
+    }
+    this._viewer.setCenter(picked.pos(), this._animationTime);
   }
 
   private _mouseUp(event: MouseEvent): void {
     const canvas = this._canvas;
     const currentTime = (new Date()).getTime();
-    if ((this._lastMouseUpTime === null ||
-        currentTime - this._lastMouseUpTime > 300) &&
-        (currentTime - this._lastMouseDownTime < 300)) {
-      const rect = this._canvas.domElement().getBoundingClientRect();
-      const picked = this._viewer.pick(
-          { x : event.clientX - rect.left, y : event.clientY - rect.top });
-      this._viewer._dispatchEvent(event, 'click', picked);
+    // Tear the drag listeners down in a finally, so that a click handler
+    // that throws can never strand a drag attached to the mouse.
+    try {
+      if ((this._lastMouseUpTime === null ||
+          currentTime - this._lastMouseUpTime > 300) &&
+          (currentTime - this._lastMouseDownTime < 300)) {
+        const rect = this._canvas.domElement().getBoundingClientRect();
+        const picked = this._viewer.pick(
+            { x : event.clientX - rect.left, y : event.clientY - rect.top });
+        this._viewer._dispatchEvent(event, 'click', picked);
+      }
+    } finally {
+      this._lastMouseUpTime = currentTime;
+      canvas.removeEventListener('mousemove', this._mouseRotateListener);
+      canvas.removeEventListener('mousemove', this._mousePanListener);
+      canvas.removeEventListener('mouseup', this._mouseUpListener);
+      document.removeEventListener('mouseup', this._mouseUpListener);
+      document.removeEventListener('mousemove', this._mouseRotateListener);
+      document.removeEventListener('mousemove', this._mousePanListener);
     }
-    this._lastMouseUpTime = currentTime;
-    canvas.removeEventListener('mousemove', this._mouseRotateListener);
-    canvas.removeEventListener('mousemove', this._mousePanListener);
-    canvas.removeEventListener('mouseup', this._mouseUpListener);
-    document.removeEventListener('mouseup', this._mouseUpListener);
-    document.removeEventListener('mousemove', this._mouseRotateListener);
-    document.removeEventListener('mousemove', this._mousePanListener);
   }
 
   setCam(cam: Cam): void {
