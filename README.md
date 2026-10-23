@@ -7,7 +7,7 @@ color schemes, selections, and proper order-independent transparency, all at int
 framerates even for large macromolecules.
 
 You can try the [online demo](https://awaterho.github.io/pv/demo/), and read the
-[documentation](https://awaterho.github.io/pv/docs/).
+[documentation](https://awaterho.github.io/pv/).
 
 Origins
 -----------------------------------------
