@@ -568,6 +568,11 @@ function draw(viewer: MViewer, name: string, structure: MStructure, membrane: Me
       obj = drawDots(viewer, name, positions, frame, radius, options);
     }
   }
+  // the membrane is scenery around the molecule rather than part of it:
+  // the viewer's silhouette outline (and its width) is for the structure,
+  // and rimming the planes, slab or rings with it only makes them noisy.
+  // The caller can put it back with obj.outline(true).
+  (obj as { outline?(flag: boolean): boolean }).outline?.(false);
   viewer.requestRedraw();
   return obj;
 }

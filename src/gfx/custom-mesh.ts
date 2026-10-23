@@ -598,6 +598,10 @@ utils.derive(CustomMesh, SceneNode, {
     if (!this._visible) {
       return;
     }
+    // geometry that asks for no silhouette, see SceneNode.outline()
+    if ((pass === 'outline' || pass === 'outlineTransparent') && !this._outline) {
+      return;
+    }
     if (!this._ready) {
       this._prepareVertexArray();
     }

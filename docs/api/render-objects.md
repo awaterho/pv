@@ -31,6 +31,7 @@ Render objects, custom meshes and labels all have:
 | `name()` | |
 | `show()`, `hide()`, `visible()` | |
 | `order(n)` | Drawing order, lowest first (1 by default, labels 100); takes effect when the object is added |
+| `outline(flag)` | Whether the viewer's `outline` silhouette is drawn for this object (`true` by default). Off for the membrane add-on's objects, which the outline only makes noisy |
 | `picksFor(target)` | Reports picks on this object as picks on another one: a name, an object, or a list of either (the first one in the viewer wins); `null` clears it. See [picking the add-ons' meshes](/guide/interaction#picking-the-add-ons-meshes). |
 
 ## Custom meshes

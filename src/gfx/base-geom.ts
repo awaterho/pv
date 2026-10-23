@@ -374,6 +374,10 @@ utils.derive(BaseGeom, SceneNode, {
     if (!this._visible) {
       return;
     }
+    // geometry that asks for no silhouette, see SceneNode.outline()
+    if ((pass === 'outline' || pass === 'outlineTransparent') && !this._outline) {
+      return;
+    }
     // the transparent passes only draw translucent fragments: skip geometry
     // that has none, i.e. nearly always, rather than draw all of it again
     if ((pass === 'transparent' || pass === 'outlineTransparent') &&

@@ -56,6 +56,8 @@ The membrane around a membrane protein: two parallel planes bounding the hydroph
 | `'slab'` | A translucent cylinder between the planes |
 | `'rings'` | A circle on each plane, and the axis as an arrow |
 
+The membrane is scenery around the molecule, so it is drawn without the viewer's [`outline`](/api/viewer) silhouette, whatever `outlineWidth` is set to; `obj.outline(true)` on the returned object puts it back.
+
 `draw` options: `color` and `lineColor` (each style has its own), `radius` (of what's drawn of each plane; the membrane's radius + 8 Å), `spacing` (of the dot grids: 2.25 Å for `'dots'`, 1.5 Å for `'flatDots'`), `clearance` (how close to an atom a dot may lie: 3.5 Å), `pointSize` (of `'dots'`, in pixels: 2), `lineWidth` (of the `'plane'` outline, in pixels: 8), `showRelated` (the symmetry copies of `structure` that cut the membrane: `'asym'` or an assembly name, as for the render styles).
 
 `color` options: `core`, `headgroups` (colors), `headgroupWidth` (5 Å).

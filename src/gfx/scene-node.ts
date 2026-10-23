@@ -43,8 +43,10 @@ export interface SceneNode {
   _gl: WebGL2RenderingContext;
   _order: number;
   _picksFor: PickProxy[];
+  _outline: boolean;
 
   order(order?: number): number;
+  outline(flag?: boolean): boolean;
   picksFor(targets?: PickProxy | PickProxy[] | null): PickProxy[];
   add(node: SceneNode): void;
   draw(cam: unknown, shaderCatalog: unknown, pass: unknown): void;
@@ -68,6 +70,7 @@ const SceneNode = function(this: SceneNode, gl: WebGL2RenderingContext) {
   this._gl = gl;
   this._order = 1;
   this._picksFor = [];
+  this._outline = true;
 } as unknown as SceneNodeConstructor;
 
 SceneNode.prototype = {
@@ -76,6 +79,18 @@ SceneNode.prototype = {
       this._order = order;
     }
     return this._order;
+  },
+
+  // Whether the viewer's silhouette outline (its 'outline' and
+  // 'outlineTransparent' passes, and with them outlineWidth) is drawn for
+  // this node. On by default; off for geometry the outline only makes
+  // noisier rather than clearer -- the membrane add-on's planes, slab and
+  // rings are scenery around the molecule, not part of it.
+  outline: function(this: SceneNode, flag?: boolean): boolean {
+    if (flag !== undefined) {
+      this._outline = flag;
+    }
+    return this._outline;
   },
 
   // Reports picks on this node as picks on another one: Viewer.pick()

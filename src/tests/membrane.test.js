@@ -23,15 +23,23 @@ function structureOf(positions) {
 }
 
 function stubViewer() {
-  const calls = { triangles: [], tubes: [], points: [], lines: [] };
+  const calls = { triangles: [], tubes: [], points: [], lines: [], outline: [] };
+  // the render objects the viewer hands back carry SceneNode.outline()
+  const node = (extra) => ({ outline: (flag) => calls.outline.push(flag), ...extra });
   return {
     calls,
-    customMesh: () => ({
+    customMesh: () => node({
       addTriangles: (positions, opts) => calls.triangles.push({ positions, opts }),
       addTube: (start, end, radius, opts) => calls.tubes.push({ start, end, radius, opts }),
     }),
-    points: (name, structure, opts) => calls.points.push({ structure, opts }),
-    lines: (name, structure, opts) => calls.lines.push({ name, structure, opts }),
+    points: (name, structure, opts) => {
+      calls.points.push({ structure, opts });
+      return node();
+    },
+    lines: (name, structure, opts) => {
+      calls.lines.push({ name, structure, opts });
+      return node();
+    },
     requestRedraw: () => {},
   };
 }
@@ -135,4 +143,15 @@ test('cuts the membrane with every copy of showRelated', function() {
   // where the chains touch
   const ratio = (all - trimer) / (all - none);
   ok(ratio > 2.5 && ratio <= 3);
+});
+
+// the membrane is scenery around the molecule: the viewer's silhouette
+// outline (and its width) is for the structure, and rimming the planes,
+// slab or rings with it only makes them noisy
+test('takes the membrane out of the silhouette outline', function() {
+  for (const style of ['dots', 'flatDots', 'plane', 'slab', 'rings']) {
+    const viewer = stubViewer();
+    membrane.draw(viewer, 'membrane', structureOf([[0, 0, 15]]), MEMBRANE, { style });
+    deepEqual(viewer.calls.outline, [false]);
+  }
 });
