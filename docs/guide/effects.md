@@ -25,6 +25,29 @@ viewer.requestRedraw();
 
 Transparent geometry is blended with weighted, order-independent transparency, so overlapping transparent objects look right however they are arranged. It needs two WebGL2 extensions that most browsers have (`EXT_color_buffer_float` and `OES_draw_buffers_indexed`); without them, transparent parts are blended in the order they are drawn.
 
+## Spotlight
+
+`viewer.spotlight(target, options)` fades everything except what is near `target`, to show a binding site or a region in its context:
+
+```js
+const site = structure.select({ cname: 'A', rnums: [39, 42, 88] });
+viewer.spotlight([site, ligand], { radius: 5 });
+viewer.spotlight(null);  // off again
+```
+
+`target` is a structure, a selection, a point (`[x, y, z]`), or a list of them, so several separate regions can be lit at once.
+
+| Option | Default | |
+|---|---|---|
+| `radius` | 5 | Everything within this many Å of an atom of `target` stays as it is |
+| `falloff` | 3 | Over this many Å further out, it fades to `opacity` |
+| `opacity` | 0.2 | Of everything further away |
+| `objects` | `'*'` | The objects it applies to: a name, or with one `*`, or a list of them |
+
+`objects` is matched by name each time the scene is drawn, so an object that is removed and added again under the same name (to change its render style, for example) stays in the spotlight. Objects that don't match, such as the residues drawn as sticks around a ligand, aren't faded.
+
+The fade is done in the shaders, from the distance of each point to `target`, so it is smooth across a cartoon or surface, and `colorBy` doesn't undo it. It is measured in the scene, so each copy of a [biological assembly](./assemblies) fades by where it is. `target` is held as up to 128 spheres: one per atom when they fit, otherwise around a few bonded atoms each, then around whole residues, then around runs of residues. So the larger the target, the coarser the edge of the lit region; a few dozen residues still measure to within about an Å of their atoms.
+
 ## Outline
 
 A dark outline around the silhouettes of objects, and around a [selection](./interaction#selection) in the selection color. Off by default. Sticks and spheres small on screen get a darker shade of their own color instead of black, so zoomed-out structures keep their colors.

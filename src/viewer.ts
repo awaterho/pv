@@ -27,7 +27,8 @@ import FrameBuffer from './gfx/framebuffer';
 import SceneBuffers from './gfx/oit-buffers';
 import PoolAllocator from './buffer-allocators';
 import Cam, { type ShaderProgram } from './gfx/cam';
-import shaders, { cylinderVS } from './gfx/shaders';
+import shaders, { cylinderVS, MAX_SPOTLIGHT_SPHERES } from './gfx/shaders';
+import { spotlightSpheres, type SpotlightTarget } from './spotlight';
 import TouchHandler from './touch';
 import MouseHandler from './mouse';
 import renderModuleRaw from './gfx/render';
@@ -137,6 +138,14 @@ interface DrawBuffersIndexedExt {
 // structural typing for the geometry objects tracked in this._objects: only
 // what Viewer itself touches, common to every BaseGeom-derived render result
 // (MeshGeom/LineGeom/BillboardGeom), CustomMesh and TextLabel alike.
+// see Viewer.spotlight()
+export interface SpotlightOptions {
+  radius?: number;
+  falloff?: number;
+  opacity?: number;
+  objects?: string | string[];
+}
+
 interface ViewerObject {
   name(name?: string): string;
   destroy(): void;
@@ -430,6 +439,8 @@ class Viewer {
   private _uint16Allocator!: PoolAllocator<Uint16Array>;
   private _cam!: Cam;
   private _shaderCatalog!: Record<string, ShaderProgram | null>;
+  // the names of the objects the spotlight fades, null without one
+  private _spotlightObjects: RegExp[] | null = null;
   private _boundDraw!: () => void;
 
   constructor(domElement: HTMLElement, opts?: Record<string, unknown>) {
@@ -805,6 +816,8 @@ class Viewer {
       // which symmetry copy of the object its hover tints, see setHover()
       const hoverSymId = (obj as { hoverSymId?(): number }).hoverSymId;
       this._cam.setHoverSymId(hoverSymId !== undefined ? hoverSymId.call(obj) : -1);
+      this._cam.setSpotlit(this._spotlightObjects !== null &&
+                           this._spotlightObjects.some((r) => r.test(obj.name())));
       obj.draw(this._cam, this._shaderCatalog, pass);
     }
   }
@@ -1832,6 +1845,29 @@ class Viewer {
     });
     this.requestRedraw();
     return obj;
+  }
+
+  // Fades the objects matching options.objects (names, or with one '*'; all
+  // by default) to options.opacity, except within options.radius Angstrom
+  // of target, over options.falloff Angstrom: a structure or selection, a
+  // point, or a list of them. null turns it off. Done in the shaders, so it
+  // survives recolouring, and it applies to objects added later under a
+  // matching name. See shaders.ts's SPOTLIGHT and spotlight.ts.
+  spotlight(target: SpotlightTarget | null, options: SpotlightOptions = {}): void {
+    if (target === null || target === undefined) {
+      this._spotlightObjects = null;
+      this._cam.setSpotlight(null);
+    } else {
+      const objects = options.objects ?? '*';
+      this._spotlightObjects = (Array.isArray(objects) ? objects : [objects])
+        .map((pattern) => this._globToRegex(pattern));
+      // smoothstep() is undefined for a falloff of 0
+      this._cam.setSpotlight(spotlightSpheres(target, MAX_SPOTLIGHT_SPHERES),
+                             options.radius ?? 5,
+                             Math.max(options.falloff ?? 3, 0.01),
+                             options.opacity ?? 0.2);
+    }
+    this.requestRedraw();
   }
 
   private _globToRegex(glob: string): RegExp {

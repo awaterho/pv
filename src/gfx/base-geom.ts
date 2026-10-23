@@ -379,8 +379,11 @@ utils.derive(BaseGeom, SceneNode, {
       return;
     }
     // the transparent passes only draw translucent fragments: skip geometry
-    // that has none, i.e. nearly always, rather than draw all of it again
+    // that has none, i.e. nearly always, rather than draw all of it again.
+    // In the spotlight, what is outside it is translucent however opaque
+    // the vertices are.
     if ((pass === 'transparent' || pass === 'outlineTransparent') &&
+        !cam.spotlightActive() &&
         !this.vertArrays().some((va) => va.translucent())) {
       return;
     }

@@ -245,6 +245,10 @@ class Canvas {
                                                  'outlineEnabled')!;
     shaderProgram.opaqueOnly = getUniformLoc(shaderProgram, 'opaqueOnly')!;
     shaderProgram.matte = getUniformLoc(shaderProgram, 'matte');
+    shaderProgram.spotlightCount = getUniformLoc(shaderProgram, 'spotlightCount');
+    shaderProgram.spotlightSpheres = getUniformLoc(shaderProgram, 'spotlightSpheres');
+    shaderProgram.spotlightParams = getUniformLoc(shaderProgram, 'spotlightParams');
+    shaderProgram.modelMat = getUniformLoc(shaderProgram, 'modelMat');
 
     return shaderProgram as unknown as ShaderProgram;
   }

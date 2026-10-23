@@ -21,6 +21,7 @@
 export interface ShaderSources {
   ES3_HEADER: string;
   SELECT_FOR_COPY: string;
+  SPOTLIGHT: string;
   ES3_PRELUDE_FS: string;
   PRELUDE_FS: string;
   LINES_FS: string;
@@ -55,6 +56,11 @@ export interface ShaderSources {
   SSAO_BLUR_FS: string;
 }
 
+// the most spheres a spotlight can have, see SPOTLIGHT below: Viewer.spotlight()
+// merges neighbouring ones to stay within it. Each costs a vec4 uniform, of
+// the 256 WebGL2 guarantees a vertex shader, and a distance per vertex.
+export const MAX_SPOTLIGHT_SPHERES = 128;
+
 const shaders: ShaderSources = {
 // must be the very first line of an ES 3.00 shader, so it can't live in
 // PRELUDE_FS itself.
@@ -83,6 +89,43 @@ float selectForCopy(float flag) {\n\
     return flag < -1.5 ? 1.0 : 0.0;\n\
   }\n\
   return flag;\n\
+}\n\
+',
+
+// spliced into every vertex shader that calls spotlit() or spotlightAlpha(),
+// like SELECT_FOR_COPY. The viewer's spotlight (Viewer.spotlight()) keeps
+// everything within radius of its spheres as it is and fades the rest to
+// opacity, over falloff Angstrom. Measured in world space, through modelMat,
+// so each symmetry copy fades by where it is rather than where the
+// asymmetric unit is. spotlightCount is 0 when there is no spotlight, or the
+// object being drawn isn't in it.
+SPOTLIGHT : '\n\
+#define MAX_SPOTLIGHT_SPHERES ' + MAX_SPOTLIGHT_SPHERES + '\n\
+uniform int spotlightCount;\n\
+uniform highp vec4 spotlightSpheres[MAX_SPOTLIGHT_SPHERES];\n\
+// radius, falloff, opacity\n\
+uniform highp vec3 spotlightParams;\n\
+uniform highp mat4 modelMat;\n\
+// highp throughout: the vertex shaders compiled with mediump would be\n\
+// too coarse for world coordinates\n\
+float spotlightAlpha(highp vec3 pos) {\n\
+  if (spotlightCount == 0) {\n\
+    return 1.0;\n\
+  }\n\
+  highp vec3 p = (modelMat * vec4(pos, 1.0)).xyz;\n\
+  highp float dist = 1e10;\n\
+  for (int i = 0; i < MAX_SPOTLIGHT_SPHERES; ++i) {\n\
+    if (i >= spotlightCount) {\n\
+      break;\n\
+    }\n\
+    highp vec4 s = spotlightSpheres[i];\n\
+    dist = min(dist, length(p - s.xyz) - s.w);\n\
+  }\n\
+  return mix(1.0, spotlightParams.z,\n\
+             smoothstep(spotlightParams.x, spotlightParams.x + spotlightParams.y, dist));\n\
+}\n\
+vec4 spotlit(vec4 color, vec3 pos) {\n\
+  return vec4(color.rgb, color.a * spotlightAlpha(pos));\n\
 }\n\
 ',
 
@@ -350,7 +393,7 @@ void main(void) {\n\
     // half the sprite width, so one pixel is 2.0 / ptSize. A wider\n\
     // band than this visibly thins small dots\n\
     lineEdge = 1.0 / max(ptSize, 1.0);\n\
-    vertColor = attrColor;\n\
+    vertColor = spotlit(attrColor, attrPos);\n\
     return;\n\
   }\n\
   vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
@@ -362,7 +405,7 @@ void main(void) {\n\
   gl_Position = mix(start, end, attrMapping.x);\n\
   gl_Position.xy += gl_Position.w * perpendicular * attrMapping.y * pointSize *\n\
                     0.25 * relativePixelSize;\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, mix(attrPos, attrEnd, attrMapping.x));\n\
   lineMapping = attrMapping;\n\
   lineEdge = 2.0 / max(pointSize, 1.0);\n\
 }',
@@ -399,7 +442,7 @@ void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 n = (modelviewMat * vec4(attrNormal, 0.0));\n\
   vertNormal = n.xyz;\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
 }',
 
@@ -441,7 +484,7 @@ uniform float outlineOffset;\n\
 void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
-  vertAlpha = attrColor.a;\n\
+  vertAlpha = attrColor.a * spotlightAlpha(attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertOutlineColor = outlineColor;\n\
 #ifdef CYLINDER\n\
@@ -574,7 +617,7 @@ void main() {\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
@@ -692,7 +735,7 @@ void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 n = (modelviewMat * vec4(attrNormal, 0.0));\n\
   vertNormal = n.xyz;\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
 }',
 
@@ -747,7 +790,7 @@ uniform float outlineOffset;\n\
 void main(void) {\n\
   gl_Position = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
   vec4 normal = modelviewMat * vec4(attrNormal, 0.0);\n\
-  vertAlpha = attrColor.a;\n\
+  vertAlpha = attrColor.a * spotlightAlpha(attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertOutlineColor = outlineColor;\n\
 #ifdef CYLINDER\n\
@@ -815,7 +858,7 @@ void main(void) {\n\
     // half the sprite width, so one pixel is 2.0 / ptSize. A wider\n\
     // band than this visibly thins small dots\n\
     lineEdge = 1.0 / max(ptSize, 1.0);\n\
-    vertColor = attrColor;\n\
+    vertColor = spotlit(attrColor, attrPos);\n\
     return;\n\
   }\n\
   vec4 start = projectionMat * modelviewMat * vec4(attrPos, 1.0);\n\
@@ -829,7 +872,7 @@ void main(void) {\n\
                     0.25 * relativePixelSize;\n\
   lineMapping = attrMapping;\n\
   lineEdge = 2.0 / max(pointSize, 1.0);\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, mix(attrPos, attrEnd, attrMapping.x));\n\
 }',
 
 OIT_ACCUM_LINES_FS : '#version 300 es\n\
@@ -895,7 +938,7 @@ void main() {\n\
   vec4 rotated = vec4(d, 0.0)*rotationMat;\n\
   gl_Position = projectionMat * modelviewMat * \n\
                 (vec4(attrPos, 1.0)+rotated);\n\
-  vertColor = attrColor;\n\
+  vertColor = spotlit(attrColor, attrPos);\n\
   vertSelect = selectForCopy(attrSelect);\n\
   vertCenter = modelviewMat* vec4(attrPos, 1.0);\n\
   vertViewPos = (modelviewMat * (vec4(attrPos, 1.0)+rotated)).xyz;\n\
@@ -1195,6 +1238,9 @@ function spliceAboveMain(source: string, snippet: string): string {
   for (const name of Object.keys(sources)) {
     if (name.endsWith('_VS') && sources[name]!.includes('selectForCopy(')) {
       sources[name] = spliceAboveMain(sources[name]!, shaders.SELECT_FOR_COPY);
+    }
+    if (name.endsWith('_VS') && /spotlit\(|spotlightAlpha\(/.test(sources[name]!)) {
+      sources[name] = spliceAboveMain(sources[name]!, shaders.SPOTLIGHT);
     }
     if (name.startsWith('OIT_ACCUM_') && name.endsWith('_FS')) {
       sources[name] = spliceAboveMain(sources[name]!, shaders.ES3_PRELUDE_FS);

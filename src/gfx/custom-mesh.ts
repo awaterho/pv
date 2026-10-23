@@ -605,8 +605,10 @@ utils.derive(CustomMesh, SceneNode, {
     if (!this._ready) {
       this._prepareVertexArray();
     }
-    // like BaseGeom.draw(): no transparent pass without translucent vertices
+    // like BaseGeom.draw(): no transparent pass without translucent vertices,
+    // or the spotlight
     if ((pass === 'transparent' || pass === 'outlineTransparent') &&
+        !cam.spotlightActive() &&
         !this._vas.some((va) => va.translucent())) {
       return;
     }

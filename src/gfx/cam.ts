@@ -47,6 +47,11 @@ export interface ShaderProgram extends WebGLProgram {
   // billboarded spheres only, see BillboardGeom.setMatte()
   matte?: WebGLUniformLocation | null;
   hoverSymId?: WebGLUniformLocation | null;
+  // the vertex shaders with SPOTLIGHT (shaders.ts) only
+  spotlightCount?: WebGLUniformLocation | null;
+  spotlightSpheres?: WebGLUniformLocation | null;
+  spotlightParams?: WebGLUniformLocation | null;
+  modelMat?: WebGLUniformLocation | null;
   stateId: number;
 }
 
@@ -111,6 +116,10 @@ class Cam {
   private _selectionColor: vec4;
   private _hoverColor: vec4;
   private _hoverSymId = -1;
+  private _spotlightSpheres: Float32Array | null = null;
+  private _spotlightParams = new Float32Array(3);
+  private _spotlit = false;
+  private static readonly _identity = mat4.create();
   private _center: vec3;
   private _zoom: number;
   private _updateProjectionMat: boolean;
@@ -485,6 +494,27 @@ class Cam {
     this._hoverSymId = symId;
   }
 
+  // the spotlight's spheres, as x, y, z, radius each, and how it fades what
+  // is outside them (see shaders.ts's SPOTLIGHT); null for none
+  setSpotlight(spheres: Float32Array | null, radius = 0, falloff = 0,
+               opacity = 1): void {
+    this._spotlightSpheres = spheres !== null && spheres.length > 0 ? spheres : null;
+    this._spotlightParams.set([radius, falloff, opacity]);
+    this._incrementStateId();
+  }
+
+  // whether the object about to be drawn is in the spotlight, set by the
+  // viewer for each object before drawing it
+  setSpotlit(spotlit: boolean): void {
+    this._spotlit = spotlit;
+  }
+
+  // whether the object being drawn fades outside the spotlight: then it has
+  // translucent fragments even when all its vertices are opaque
+  spotlightActive(): boolean {
+    return this._spotlit && this._spotlightSpheres !== null;
+  }
+
   bind(shader: ShaderProgram, additionalTransform?: mat4): void {
     const gl = this._gl;
     if (this._currentShader !== shader) {
@@ -494,6 +524,13 @@ class Cam {
     this._updateIfRequired();
     if (shader.hoverSymId) {
       gl.uniform1i(shader.hoverSymId, this._hoverSymId);
+    }
+    // per object and per symmetry copy, so outside the stateId check below
+    if (shader.spotlightCount) {
+      gl.uniform1i(shader.spotlightCount, this.spotlightActive()
+                   ? this._spotlightSpheres!.length / 4 : 0);
+      gl.uniformMatrix4fv(shader.modelMat!, false,
+                          additionalTransform ?? Cam._identity);
     }
 
     // in case additionalTransform is given, multiply camera model view
@@ -527,6 +564,10 @@ class Cam {
     gl.uniform1f(shader.outlineWidth, this._outlineWidth);
     gl.uniform1i(shader.outlineEnabled, this._outlineEnabled ? 1 : 0);
     gl.uniform1i(shader.opaqueOnly, this._opaqueOnly ? 1 : 0);
+    if (shader.spotlightSpheres && this._spotlightSpheres !== null) {
+      gl.uniform4fv(shader.spotlightSpheres, this._spotlightSpheres);
+      gl.uniform3fv(shader.spotlightParams!, this._spotlightParams);
+    }
   }
 }
 

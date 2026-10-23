@@ -62,6 +62,7 @@ Each draws `structure` (a structure or a selection), adds it to the scene under 
 | `rm(pattern)` | Removes the objects matching `pattern` (a name, or with one `*`) |
 | `hide(pattern)`, `show(pattern)` | Hides or shows them |
 | `forEach(pattern, callback)` | Calls `callback(obj, index)` for each; `pattern` can be left out |
+| `spotlight(target, options)` | Fades everything but what is near `target`; `null` turns it off. See [Spotlight](/guide/effects#spotlight). |
 | `all()` | All objects |
 | `clear()` | Removes all objects |
 
