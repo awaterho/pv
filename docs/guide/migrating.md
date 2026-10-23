@@ -41,7 +41,7 @@ PV 2 is a rewrite of [Marco Biasini's PV](https://github.com/biasmv/pv) in TypeS
 
 - `spheres` draws every atom as a sphere of 1.5 Å times `radiusMultiplier`, drawn as a flat image of a sphere; `sphereDetail` has no effect.
 - `ballsAndSticks` draws double and triple bonds, where the file gives bond orders, and its default `sphereRadius` is 0.2.
-- `setOpacity(alpha, selection)` and `setHover(selection, symIndex)` take a selection, so they can apply to part of an object. Transparency is order-independent.
+- `setOpacity(alpha, selection)` and `setHover(selection, symIndex)` take a selection, so they can apply to part of an object. Transparency is order-independent. Opacity is held separately from the color, so `colorBy` leaves it alone instead of resetting it; `setOpacity(null, selection)` clears it.
 - `setSelection` tints and outlines the selection instead of drawing a halo.
 - The `quality` default is `'auto'`: high detail, and low for structures with more than 50,000 residues.
 - Antialiasing is on by default (`antialias: false` turns it off), and draws the scene at twice the size and scales it down. Ambient occlusion is on by default too.

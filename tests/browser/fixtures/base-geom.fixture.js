@@ -233,3 +233,127 @@ test('set opacity on mesh geom with atom assoc on structural subset',
 });
 
 
+
+// opacity and color are kept apart (gfx/vert-assoc.ts): the opacity set for
+// individual residues survives recoloring, a color's own alpha applies
+// wherever no opacity was set, and setOpacity(null) hands those residues
+// back to the color.
+test('opacity survives recoloring with trace assoc',
+     function(assert) {
+  var done = assert.async();
+
+  var viewer = createViewer();
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
+      var obj = viewer.cartoon('object', structure, {
+                               color : color.uniform('red') });
+      var view = structure.select({rnumRange : [ 10, 15 ] });
+      obj.setOpacity(0.5, view);
+      obj.colorBy(color.uniform('blue'));
+      structure.eachResidue(function(residue) {
+        var ca = residue.atom('CA');
+        if (ca === null) {
+          return;
+        }
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(ca, atomColor);
+        assert.strictEqual(atomColor[0], 0.0);
+        assert.strictEqual(atomColor[2], 1.0);
+        assert.strictEqual(atomColor[3],
+                           view.containsResidue(residue) ? 0.5 : 1.0);
+      });
+      viewer.destroy();
+      done();
+  });
+});
+
+test('opacity survives recoloring with atom assoc',
+     function(assert) {
+  var done = assert.async();
+
+  var viewer = createViewer();
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
+      var obj = viewer.spheres('object', structure, {
+                               color : color.uniform('red') });
+      var view = structure.select({rnumRange : [ 10, 15 ] });
+      obj.setOpacity(0.5, view);
+      obj.colorBy(color.uniform('blue'));
+      structure.eachAtom(function(atom) {
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(atom, atomColor);
+        assert.strictEqual(atomColor[0], 0.0);
+        assert.strictEqual(atomColor[2], 1.0);
+        assert.strictEqual(atomColor[3],
+                           view.containsResidue(atom.residue()) ? 0.5 : 1.0);
+      });
+      viewer.destroy();
+      done();
+  });
+});
+
+test('opacity wins over the color alpha, and null gives it back, ' +
+     'with trace assoc',
+     function(assert) {
+  var done = assert.async();
+
+  var viewer = createViewer();
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
+      var obj = viewer.cartoon('object', structure, {
+                               color : color.uniform('red') });
+      var view = structure.select({rnumRange : [ 10, 15 ] });
+      obj.setOpacity(0.5, view);
+      obj.colorBy(color.uniform([0, 0, 1, 0.25]));
+      structure.eachResidue(function(residue) {
+        var ca = residue.atom('CA');
+        if (ca === null) {
+          return;
+        }
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(ca, atomColor);
+        assert.strictEqual(atomColor[3],
+                           view.containsResidue(residue) ? 0.5 : 0.25);
+      });
+      // cleared: the color's alpha applies everywhere again
+      obj.setOpacity(null, view);
+      structure.eachResidue(function(residue) {
+        var ca = residue.atom('CA');
+        if (ca === null) {
+          return;
+        }
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(ca, atomColor);
+        assert.strictEqual(atomColor[3], 0.25);
+      });
+      viewer.destroy();
+      done();
+  });
+});
+
+test('opacity wins over the color alpha, and null gives it back, ' +
+     'with atom assoc',
+     function(assert) {
+  var done = assert.async();
+
+  var viewer = createViewer();
+  io.fetchPdb('/tests/data/1crn.pdb', function(structure) {
+      var obj = viewer.spheres('object', structure, {
+                               color : color.uniform('red') });
+      var view = structure.select({rnumRange : [ 10, 15 ] });
+      obj.setOpacity(0.5, view);
+      obj.colorBy(color.uniform([0, 0, 1, 0.25]));
+      structure.eachAtom(function(atom) {
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(atom, atomColor);
+        assert.strictEqual(atomColor[3],
+                           view.containsResidue(atom.residue()) ? 0.5 : 0.25);
+      });
+      // cleared: the color's alpha applies everywhere again
+      obj.setOpacity(null, view);
+      structure.eachAtom(function(atom) {
+        var atomColor = [0, 0, 0, 0];
+        obj.getColorForAtom(atom, atomColor);
+        assert.strictEqual(atomColor[3], 0.25);
+      });
+      viewer.destroy();
+      done();
+  });
+});

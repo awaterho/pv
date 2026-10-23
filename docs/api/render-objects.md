@@ -9,7 +9,7 @@ Returned by `cartoon`, `tube`, `trace`, `sline`, `lineTrace`, `lines`, `points`,
 | Method | |
 |---|---|
 | `colorBy(colorOp, selection)` | Recolors everything, or the atoms of `selection`. Sets the opacity too, to the colors' alpha. |
-| `setOpacity(alpha, selection)` | Opacity from 0 to 1, of everything or of `selection` |
+| `setOpacity(alpha, selection)` | Opacity from 0 to 1, of everything or of `selection`. Survives `colorBy` and wins over the alpha of the colors; `null` clears it again |
 | `setSelection(selection)` | Tints and outlines `selection` in the selection color; an empty selection clears it |
 | `selection()` | The current selection |
 | `setHover(selection, symIndex)` | Tints `selection` in the hover color, only in copy `symIndex` if given; `null` clears it |

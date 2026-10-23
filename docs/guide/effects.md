@@ -13,9 +13,17 @@ viewer.requestRedraw();
 
 Opacity runs from 0 (invisible) to 1 (opaque). For the trace-based styles it is set per residue. Fully transparent parts can't be picked. A color with an alpha below 1 makes things transparent as well, in [color operations](./coloring) and in [custom meshes](./custom-meshes).
 
-Transparent geometry is blended with weighted, order-independent transparency, so overlapping transparent objects look right however they are arranged. It needs two WebGL2 extensions that most browsers have (`EXT_color_buffer_float` and `OES_draw_buffers_indexed`); without them, transparent parts are blended in the order they are drawn.
+Opacity is kept apart from the color, so `colorBy` no longer resets it: set a residue opaque once and it stays opaque through any number of recolorings. Where an opacity was set it wins over the alpha of the colors; everywhere else the colors' own alpha applies. `setOpacity(null, selection)` drops the opacity again, handing that selection back to its colors:
 
-`colorBy` sets the opacity too, to that of its colors (opaque for the built-in operations), so call `setOpacity` again after recoloring.
+```js
+cartoon.setOpacity(0.4);
+cartoon.setOpacity(1, structure.select({ cname: 'A' }));
+cartoon.colorBy(color.bySS());        // chain A is still opaque
+cartoon.setOpacity(null);             // back to the alpha of bySS()
+viewer.requestRedraw();
+```
+
+Transparent geometry is blended with weighted, order-independent transparency, so overlapping transparent objects look right however they are arranged. It needs two WebGL2 extensions that most browsers have (`EXT_color_buffer_float` and `OES_draw_buffers_indexed`); without them, transparent parts are blended in the order they are drawn.
 
 ## Outline
 

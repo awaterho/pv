@@ -145,7 +145,7 @@ export interface BaseGeom extends ISceneNode {
   _updateSquaredSphereRadiusAsym(center: vec3, radius: number | null): number | null;
   updateSquaredSphereRadius(center: vec3, radius: number | null): number | null;
   colorBy(colorFunc: never, view?: unknown): void;
-  setOpacity(val: number, view?: unknown): void;
+  setOpacity(val: number | null, view?: unknown): void;
   setSelection(view: unknown): void;
   selection(): unknown;
   setHover(view: unknown, symIndex?: number | null): void;
@@ -407,7 +407,10 @@ utils.derive(BaseGeom, SceneNode, {
     }
   },
 
-  setOpacity: function(this: BaseGeom, val: number, view?: unknown) {
+  // the opacity of everything, or of view, from 0 (transparent) to 1
+  // (opaque). It is kept apart from the color, so colorBy() no longer
+  // resets it; pass null to drop back to the color's own alpha.
+  setOpacity: function(this: BaseGeom, val: number | null, view?: unknown) {
     this._ready = false;
     this._pickVersion += 1;
     view = view || this.structure();
