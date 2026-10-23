@@ -1,5 +1,4 @@
-import { test, strictEqual, deepEqual, ok } from './helpers';
-import fs from 'node:fs';
+import { test, strictEqual, deepEqual, ok, structureText } from './helpers';
 import io from '../io';
 import snfg from '../snfg';
 import { shapeGeometry } from '../snfg/shapes';
@@ -10,7 +9,7 @@ import UniqueObjectIdPool from '../unique-object-id-pool';
 // sialylated IgG1 Fc (the demo's glycan example): two N-glycans of ten
 // sugars each, label chains C and D, on Asn297 of chains A and B.
 function loadFc() {
-  return io.cif(fs.readFileSync('structures/4byh.cif', 'utf8'));
+  return io.cif(structureText('4byh'));
 }
 
 // records what draw() puts into the mesh, without WebGL

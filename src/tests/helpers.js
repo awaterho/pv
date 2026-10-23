@@ -4,6 +4,8 @@
 // {...})) can be ported to Vitest by changing only the module wrapper
 // (require/define -> import), not the test bodies.
 import { it, expect } from 'vitest';
+import fs from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 
 export function almostEqual(actual, expected, epsilon) {
   epsilon = epsilon === undefined ? 0.000001 : epsilon;
@@ -83,4 +85,11 @@ export function test(name, fn) {
       await ctx.donePromise;
     }
   });
+}
+
+// The mmCIF fixtures in structures/ are stored gzipped, as the demo and the
+// documentation samples load them straight from there over the network. This
+// reads one of them as text, by its id: structureText('1ake').
+export function structureText(id) {
+  return gunzipSync(fs.readFileSync('structures/' + id + '.cif.gz')).toString('utf8');
 }

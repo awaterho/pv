@@ -1,5 +1,4 @@
-import { test, strictEqual, deepEqual } from '../helpers';
-import fs from 'node:fs';
+import { test, strictEqual, deepEqual, structureText } from '../helpers';
 import * as glMatrix from 'gl-matrix';
 import io from '../../io';
 
@@ -419,7 +418,7 @@ test('derives bond order from chem_comp_bond instead of guessing from distance',
 
 // structures/8yti.cif: two nucleosomes with H1x, 22 protein and DNA chains
 test('traceOnly keeps the polymer central atoms and the same backbone traces', function() {
-  var text = fs.readFileSync('structures/8yti.cif', 'utf8');
+  var text = structureText('8yti');
   var full = io.cif(text);
   var trace = io.cif(text, { traceOnly: true });
   function traceLengths(structure) {

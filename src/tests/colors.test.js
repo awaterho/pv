@@ -1,4 +1,4 @@
-import { test, strictEqual, deepEqual, ok } from './helpers';
+import { test, strictEqual, deepEqual, ok, structureText } from './helpers';
 import fs from 'node:fs';
 import color from '../color';
 import io from '../io';
@@ -39,7 +39,7 @@ test("force rgb from color names", function() {
 // titin-telethonin: six protein chains (A-F) among 17 label chains, the rest
 // sulfates and waters. Entity 1 is chains A, B, D and E, entity 2 C and F.
 function loadTitin() {
-  return io.cif(fs.readFileSync('structures/2f8v.cif', 'utf8'));
+  return io.cif(structureText('2f8v'));
 }
 
 function colorOfChain(op, structure, chainName) {

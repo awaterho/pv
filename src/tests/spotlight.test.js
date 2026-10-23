@@ -1,10 +1,9 @@
-import { test, strictEqual, ok, almostEqualAssert } from './helpers';
-import fs from 'node:fs';
+import { test, strictEqual, ok, almostEqualAssert, structureText } from './helpers';
 import io from '../io';
 import { spotlightSpheres } from '../spotlight';
 
 function load(id) {
-  return io.cif(fs.readFileSync('structures/' + id + '.cif', 'utf8'));
+  return io.cif(structureText(id));
 }
 
 function spheres(packed) {

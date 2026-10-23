@@ -7,7 +7,7 @@ const HYDROPHOBICITY = {
   HIS: -3.2, GLU: -3.5, GLN: -3.5, ASP: -3.5, ASN: -3.5, LYS: -3.9, ARG: -4.5,
 };
 
-pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {
+pv.io.fetchCif('../structures/1ake.cif.gz').then(function (structure) {
   const protein = structure.select({ cname: 'A' });
   protein.eachResidue(function (residue) {
     residue.setProp('hydrophobicity', HYDROPHOBICITY[residue.name()] || 0);

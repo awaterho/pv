@@ -86,7 +86,7 @@ test('compiles for every render style, with outlines', async ({ page }) => {
     const viewer = pv.Viewer(document.getElementById('viewer'), {
       width: 200, height: 200, outline: true,
     });
-    const structure = pv.io.cif(await (await window.fetch('/structures/1ake.cif')).text());
+    const structure = await pv.io.fetchCif('/structures/1ake.cif.gz');
     viewer.cartoon('cartoon', structure);
     viewer.lines('lines', structure);
     viewer.ballsAndSticks('bs', structure.select({ rnumRange: [1, 20] }));

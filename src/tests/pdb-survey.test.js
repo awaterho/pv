@@ -1,11 +1,10 @@
-import { test, strictEqual, deepEqual } from './helpers';
-import fs from 'node:fs';
+import { test, strictEqual, deepEqual, structureText } from './helpers';
 import io from '../io';
 import { parseCIF } from '../cif';
 import { bondKey, checkBonds, checkShown, entityTypes } from '../../scripts/pdb-survey/checks.mjs';
 
 function load(id) {
-  return io.cif(fs.readFileSync('structures/' + id + '.cif', 'utf8'));
+  return io.cif(structureText(id));
 }
 
 test('survey: bonds are compared with the CCD both ways', function() {

@@ -1,6 +1,6 @@
 const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
-pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {
+pv.io.fetchCif('../structures/1ake.cif.gz').then(function (structure) {
   const cartoon = viewer.cartoon('protein', structure);
   viewer.licorice('ligands', structure.select('ligand'));
   viewer.autoZoom();

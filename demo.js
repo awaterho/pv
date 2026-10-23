@@ -215,9 +215,10 @@ function addLigandOverlays() {
   applyOpacity(currentOpacity);
 }
 
-// loads a structure from its local mmCIF fixture (structures/<id>.cif).
+// loads a structure from its local mmCIF fixture (structures/<id>.cif.gz,
+// which pv.io unpacks itself).
 function load(cif_id) {
-  io.fetchCif('structures/'+cif_id+'.cif').then(function(s) {
+  io.fetchCif('structures/'+cif_id+'.cif.gz').then(function(s) {
     structure = s;
     showStructure();
     viewer.autoZoom();
@@ -281,11 +282,11 @@ function nucleosomeH1x() {
 // secondary structure in _struct_conf (including the beta strands, tagged
 // conf_type_id 'STRN'), but pv only reads strands from the separate
 // _struct_sheet_range category the way RCSB depositions lay it out -- so the
-// local fixture (structures/a0a4y8at86.cif) adds a _struct_sheet_range loop built
+// local fixture (structures/a0a4y8at86.cif.gz) adds a _struct_sheet_range loop built
 // from those same STRN rows. Without it every strand falls back to a plain
 // coil tube and the "flower" is invisible.
 function betaFlower() {
-  io.fetchCif('structures/a0a4y8at86.cif', function(s) {
+  io.fetchCif('structures/a0a4y8at86.cif.gz', function(s) {
     structure = s;
     showStructure();
     var go = viewer.get('structure') || viewer.get('structure.protein');
@@ -892,7 +893,7 @@ function customMeshDemo() {
 // The coloring is a custom pv.color.ColorOp: a function filling in the
 // color of each atom, here looked up from the residue's spread.
 function ensemble() {
-  io.fetchCif('structures/1nmr.cif', function(structures) {
+  io.fetchCif('structures/1nmr.cif.gz', function(structures) {
     viewer.clear();
     structure = structures[0];
 

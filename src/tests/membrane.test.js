@@ -1,5 +1,4 @@
-import { test, strictEqual, deepEqual, ok, almostEqualAssert } from './helpers';
-import fs from 'node:fs';
+import { test, strictEqual, deepEqual, ok, almostEqualAssert, structureText } from './helpers';
 import io from '../io';
 import mol from '../mol/all';
 import color from '../color';
@@ -122,7 +121,7 @@ test('draws a slab and rings without atoms', function() {
 });
 
 test('cuts the membrane with every copy of showRelated', function() {
-  const porin = io.cif(fs.readFileSync('structures/2por.cif', 'utf8'));
+  const porin = io.cif(structureText('2por'));
   // SWISS-MODEL's membrane of the porin trimer
   const porinMembrane = {
     axis: [-0.00079, -0.000068, 1],

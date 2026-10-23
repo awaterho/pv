@@ -28,7 +28,7 @@ npm run dev
 
 ## Tests
 
-- **Unit tests** are in `src/tests/**/*.test.js` and run in Node. Structures they need are in `structures/`.
+- **Unit tests** are in `src/tests/**/*.test.js` and run in Node. Structures they need are in `structures/`, gzipped; read one with `structureText(id)` from `src/tests/helpers.js`. The demo and the documentation samples load the same files over the network, which `pv.io` unpacks itself.
 - **Browser tests** are in `tests/browser/` and run in Chromium against the dev server. Some compare screenshots with saved images, in `tests/browser/*-snapshots/`, allowing 2% of the pixels to differ.
 
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, build, the unit tests and the browser tests on every push and pull request. Pushes to `main` also publish the site (`.github/workflows/pages.yml`).

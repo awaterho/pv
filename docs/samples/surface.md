@@ -10,4 +10,4 @@ Adenylate kinase with its inhibitor Ap5A, buried in the enzyme, inside a faint s
 
 <<< ./code/surface.js
 
-The pocket is the largest cavity [pyKVFinder](https://github.com/LBC-LNBio/pyKVFinder) 0.9.5 finds in chain A without the inhibitor and the waters (step 0.8, probe out 8.0), as it writes it: a PDB file of points filling the cavity (`samples/data/1ake-pocket.pdb` in the docs). The output of other cavity finders, such as the pocket spheres of fpocket, can be drawn the same way.
+The pocket is the largest cavity [pyKVFinder](https://github.com/LBC-LNBio/pyKVFinder) 0.9.5 finds in chain A without the inhibitor and the waters (step 0.8, probe out 8.0), as it writes it: a PDB file of points filling the cavity (`samples/data/1ake-pocket.pdb.gz` in the docs). The output of other cavity finders, such as the pocket spheres of fpocket, can be drawn the same way.

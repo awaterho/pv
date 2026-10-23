@@ -1,6 +1,6 @@
 const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
-pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif').then(function (structure) {
+pv.io.fetchCif('../structures/1ake.cif.gz').then(function (structure) {
   // rainbow: blue at each chain's N-terminus, through to red at its C-terminus
   viewer.cartoon('protein', structure, { color: pv.color.rainbow() });
   // label both ends of both chains, colored to match the rainbow scheme

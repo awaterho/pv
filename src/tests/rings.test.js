@@ -1,11 +1,10 @@
-import { test, strictEqual, deepEqual, ok } from './helpers';
-import fs from 'node:fs';
+import { test, strictEqual, deepEqual, ok, structureText } from './helpers';
 import io from '../io';
 import rings from '../rings';
 import { vec3 } from 'gl-matrix';
 
 function load(id) {
-  return io.cif(fs.readFileSync('structures/' + id + '.cif', 'utf8'));
+  return io.cif(structureText(id));
 }
 
 test('finds the one pyranose ring of a sugar, in ring order', function() {

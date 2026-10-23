@@ -1,7 +1,7 @@
 const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 // an NMR ensemble: every model, each as a smooth line in its own color
-pv.io.fetchCif('https://files.rcsb.org/download/1NMR.cif', undefined, { loadAllModels: true })
+pv.io.fetchCif('../structures/1nmr.cif.gz', undefined, { loadAllModels: true })
   .then(function (models) {
     const gradient = pv.color.gradient('rainbow');
     models.forEach(function (model, i) {

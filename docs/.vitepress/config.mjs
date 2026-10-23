@@ -1,4 +1,32 @@
 import { defineConfig } from 'vitepress';
+import { cpSync, createReadStream, existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// structures/ in the repository root, the structure files the samples load.
+// They are the same files the demo and the tests use, stored gzipped (pv.io
+// unpacks them itself), so no sample depends on a download from the RCSB.
+const structuresDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../structures');
+
+// VitePress serves docs/public and nothing else, so structures/ is served
+// from here in development. The built site gets its copy in buildEnd below.
+function structuresPlugin() {
+  return {
+    name: 'pv-structures',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url || '').split('?')[0];
+        const match = /^(?:\/pv)?\/structures\/([A-Za-z0-9_-]+\.(?:cif|pdb|sdf|crd)\.gz)$/.exec(path);
+        const file = match && resolve(structuresDir, match[1]);
+        if (!file || !existsSync(file)) {
+          return next();
+        }
+        res.setHeader('Content-Type', 'application/gzip');
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
 
 // Published with the demo on GitHub Pages, at <site>/pv/ (see
 // scripts/build-pages.mjs), so the base is /pv/ in development too. The docs
@@ -8,6 +36,11 @@ export default defineConfig({
   title: 'PV',
   description: 'Documentation of PV, a WebGL2 protein viewer',
   base: '/pv/',
+  vite: { plugins: [structuresPlugin()] },
+  // the structure files the samples load, next to the pages in the built site
+  buildEnd(siteConfig) {
+    cpSync(structuresDir, resolve(siteConfig.outDir, 'structures'), { recursive: true });
+  },
   outDir: '../pages-dist',
   cleanUrls: false,
   lastUpdated: false,
@@ -64,6 +97,7 @@ export default defineConfig({
           { text: 'Nucleic acid', link: '/samples/nucleic-acid' },
           { text: 'Biological assembly', link: '/samples/assembly' },
           { text: 'Surface', link: '/samples/surface' },
+          { text: 'Spotlight', link: '/samples/spotlight' },
           { text: 'NMR ensemble', link: '/samples/ensemble' },
           { text: 'Color by a custom property', link: '/samples/custom-property' },
           { text: 'Measure a distance', link: '/samples/measure-distance' },

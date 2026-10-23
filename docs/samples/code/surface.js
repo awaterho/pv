@@ -1,10 +1,10 @@
 const viewer = pv.Viewer(document.getElementById('viewer'), { width: 'auto', height: 400 });
 
 Promise.all([
-  pv.io.fetchCif('https://files.rcsb.org/download/1AKE.cif'),
+  pv.io.fetchCif('../structures/1ake.cif.gz'),
   // the inhibitor's pocket, found by a cavity finder (KVFinder) as a set of
   // points filling the empty space
-  pv.io.fetchPdb('data/1ake-pocket.pdb'),
+  pv.io.fetchPdb('data/1ake-pocket.pdb.gz'),
 ]).then(function ([structure, cavity]) {
   const protein = structure.select({ cname: 'A' }).select('protein');
   // the inhibitor bound to chain A, whose author chain name is A

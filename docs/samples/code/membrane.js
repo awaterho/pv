@@ -34,7 +34,7 @@ document.getElementById('viewer').before(buttons);
 
 // the file holds one chain of the porin; its biological assembly 1 is the
 // trimer in the membrane. Each chain is a barrel around a pore.
-pv.io.fetchCif('https://files.rcsb.org/download/2POR.cif').then(function (structure) {
+pv.io.fetchCif('../structures/2por.cif.gz').then(function (structure) {
   const protein = structure.select('protein');
   // detergent molecules (C8E) where the lipids would be, and calcium ions
   const ligands = structure.select('ligand');
