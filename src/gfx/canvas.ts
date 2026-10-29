@@ -22,6 +22,11 @@
 import utils from '../utils';
 import type { GLWithViewport, ShaderProgram } from './cam';
 
+// Why initGL() gave up: 'unsupported' means the browser could not give us a
+// WebGL2 context at all, 'context-lost' means we got one but it was already
+// dead. The two call for very different advice to the user.
+type GLInitFailure = 'unsupported' | 'context-lost';
+
 interface CanvasOptions {
   width: number;
   height: number;
@@ -61,6 +66,7 @@ class Canvas {
   private _canvas!: HTMLCanvasElement;
   private _gl!: GLWithViewport;
   private _samples!: number;
+  private _initFailure: GLInitFailure = 'unsupported';
   private _realWidth!: number;
   private _realHeight!: number;
 
@@ -121,6 +127,11 @@ class Canvas {
     return this._gl;
   }
 
+  // only meaningful after initGL() returned false.
+  initFailure(): GLInitFailure {
+    return this._initFailure;
+  }
+
 
   // returns the content of the WebGL context as a data URL element which can be
   // inserted into an img element. This allows users to save a picture to disk
@@ -138,10 +149,22 @@ class Canvas {
     }
     catch (err) {
       console.error('WebGL not supported', err);
+      this._initFailure = 'unsupported';
       return false;
     }
     if (!this._gl) {
       console.error('WebGL not supported');
+      this._initFailure = 'unsupported';
+      return false;
+    }
+    // getContext() can hand back a context that is already lost, e.g. when the
+    // GPU process is unavailable or the browser's per-page context limit has
+    // been hit (Safari recycles the least-recently-used context). Such a
+    // context looks fine but every query on it returns null, so bail out here
+    // and let the caller explain that the 3D view could not be started.
+    if (this._gl.isContextLost()) {
+      console.error('WebGL context lost immediately after creation');
+      this._initFailure = 'context-lost';
       return false;
     }
     return true;
@@ -154,7 +177,14 @@ class Canvas {
     }
 
     const gl = this._gl;
-    if (!gl.getContextAttributes()!.antialias &&
+    // null when the context got lost between creation and now.
+    const contextAttribs = gl.getContextAttributes();
+    if (contextAttribs === null) {
+      console.error('WebGL context lost during initialization');
+      this._initFailure = 'context-lost';
+      return false;
+    }
+    if (!contextAttribs.antialias &&
         this._forceManualAntialiasing && this._antialias) {
       samples = 2;
     }

@@ -193,6 +193,20 @@ on how to unblock it.\
 </p>\
 </div>';
 
+// Shown when the browser does have WebGL but could not give us a usable
+// context, e.g. because the page already holds more WebGL contexts than the
+// browser allows (Safari then kills the oldest one), or because the graphics
+// driver was reset. Unlike the message above, this one is usually transient.
+const WEBGL_CONTEXT_LOST = '\
+<div style="vertical-align:middle; text-align:center;">\
+<h1>3D view could not be started</h1><p>Your browser supports WebGL, but it \
+could not start the 3D view on this page.\
+</p>\
+<p>This is usually temporary. Reloading the page, or closing other tabs and \
+views showing 3D graphics, normally fixes it.\
+</p>\
+</div>';
+
 // gl-matrix v3 dropped mat4.fromMat3 (present in the v2.2.0 this code was
 // originally written against); this reproduces its exact behavior: copy a
 // mat3 into the upper-left 3x3 of an identity mat4.
@@ -636,7 +650,9 @@ class Viewer {
   private _initViewer(): boolean {
     if (!this._canvas!.initGL()) {
       this._domElement.removeChild(this._canvas!.domElement());
-      this._domElement.innerHTML = WEBGL_NOT_SUPPORTED;
+      this._domElement.innerHTML =
+          this._canvas!.initFailure() === 'context-lost' ?
+              WEBGL_CONTEXT_LOST : WEBGL_NOT_SUPPORTED;
       this._domElement.style.width = this._options.width + 'px';
       this._domElement.style.height = this._options.height + 'px';
       return false;
