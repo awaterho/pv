@@ -815,6 +815,11 @@ class Viewer {
   }
 
   requestRedraw(): void {
+    // WebGL init failed (unsupported or context-lost, see _initViewer), so
+    // there is no draw loop to schedule -- _boundDraw was never assigned.
+    if (!this._initialized) {
+      return;
+    }
     if (this._redrawRequested) {
       return;
     }
