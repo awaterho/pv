@@ -147,3 +147,27 @@ export function spotlightSpheres(target: SpotlightTarget, max: number): Float32A
   merged.forEach((s, i) => out.set([s.x, s.y, s.z, s.r], i * 4));
   return out;
 }
+
+// one bounding sphere per run of groupSize consecutive spheres of a
+// spotlightSpheres() result (packed the same way: x, y, z, radius each).
+// Spheres are already ordered by residue/chain, so consecutive ones are
+// spatial neighbours and the bounds stay tight. See shaders.ts's SPOTLIGHT,
+// which tests a group's bound before its spheres to skip the ones too far
+// to matter.
+export function spotlightGroupBounds(spheres: Float32Array, groupSize: number): Float32Array {
+  const count = spheres.length / 4;
+  const groupCount = Math.ceil(count / groupSize);
+  const out = new Float32Array(groupCount * 4);
+  for (let g = 0; g < groupCount; ++g) {
+    const start = g * groupSize;
+    const end = Math.min(start + groupSize, count);
+    const group: Sphere[] = [];
+    for (let i = start; i < end; ++i) {
+      group.push({ x: spheres[i * 4]!, y: spheres[i * 4 + 1]!, z: spheres[i * 4 + 2]!,
+                   r: spheres[i * 4 + 3]!, group: null });
+    }
+    const bound = enclosing(group);
+    out.set([bound.x, bound.y, bound.z, bound.r], g * 4);
+  }
+  return out;
+}

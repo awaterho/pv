@@ -61,7 +61,7 @@ The style-specific options, with their defaults:
 
 ## Detail
 
-Curved geometry is made of a number of segments that the viewer's `quality` option sets: `'high'`, `'medium'` or `'low'`. The default, `'auto'`, means high detail, and low detail for structures with more than 50,000 residues to draw. A style call can set its own detail with `arcDetail`, `sphereDetail` and `splineDetail`, and `viewer.quality('medium')` changes it for everything drawn afterwards.
+Curved geometry is made of a number of segments that the viewer's `quality` option sets: `'high'`, `'medium'` or `'low'`. The default, `'auto'`, means high detail, medium detail above 3,000 residues to draw and low above 50,000. A style call can set its own detail with `arcDetail`, `sphereDetail` and `splineDetail`, and `viewer.quality('medium')` changes it for everything drawn afterwards.
 
 ## Nucleic acids
 

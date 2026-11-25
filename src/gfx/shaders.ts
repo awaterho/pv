@@ -61,6 +61,14 @@ export interface ShaderSources {
 // the 256 WebGL2 guarantees a vertex shader, and a distance per vertex.
 export const MAX_SPOTLIGHT_SPHERES = 128;
 
+// spotlightSpheres() output is grouped into runs of this many consecutive
+// (and so, spatially neighbouring) spheres, each with one bounding sphere --
+// see spotlightGroupBounds() in spotlight.ts. SPOTLIGHT below tests the
+// bound before the spheres inside it, to skip groups that can't be within
+// radius + falloff of a vertex without testing every sphere.
+export const MAX_SPOTLIGHT_SPHERE_GROUPS = 16;
+export const SPOTLIGHT_GROUP_SIZE = MAX_SPOTLIGHT_SPHERES / MAX_SPOTLIGHT_SPHERE_GROUPS;
+
 const shaders: ShaderSources = {
 // must be the very first line of an ES 3.00 shader, so it can't live in
 // PRELUDE_FS itself.
@@ -101,8 +109,14 @@ float selectForCopy(float flag) {\n\
 // object being drawn isn't in it.
 SPOTLIGHT : '\n\
 #define MAX_SPOTLIGHT_SPHERES ' + MAX_SPOTLIGHT_SPHERES + '\n\
+#define MAX_SPOTLIGHT_SPHERE_GROUPS ' + MAX_SPOTLIGHT_SPHERE_GROUPS + '\n\
+#define SPOTLIGHT_GROUP_SIZE ' + SPOTLIGHT_GROUP_SIZE + '\n\
 uniform int spotlightCount;\n\
+uniform int spotlightGroupCount;\n\
 uniform highp vec4 spotlightSpheres[MAX_SPOTLIGHT_SPHERES];\n\
+// one bounding sphere per SPOTLIGHT_GROUP_SIZE consecutive spotlightSpheres,\n\
+// see spotlightGroupBounds() in spotlight.ts\n\
+uniform highp vec4 spotlightGroups[MAX_SPOTLIGHT_SPHERE_GROUPS];\n\
 // radius, falloff, opacity\n\
 uniform highp vec3 spotlightParams;\n\
 uniform highp mat4 modelMat;\n\
@@ -114,12 +128,37 @@ float spotlightAlpha(highp vec3 pos) {\n\
   }\n\
   highp vec3 p = (modelMat * vec4(pos, 1.0)).xyz;\n\
   highp float dist = 1e10;\n\
-  for (int i = 0; i < MAX_SPOTLIGHT_SPHERES; ++i) {\n\
-    if (i >= spotlightCount) {\n\
+  highp float edge = spotlightParams.x + spotlightParams.y;\n\
+  for (int g = 0; g < MAX_SPOTLIGHT_SPHERE_GROUPS; ++g) {\n\
+    if (g >= spotlightGroupCount) {\n\
       break;\n\
     }\n\
-    highp vec4 s = spotlightSpheres[i];\n\
-    dist = min(dist, length(p - s.xyz) - s.w);\n\
+    highp vec4 bound = spotlightGroups[g];\n\
+    // every sphere of the group lies within bound, so this is a lower bound\n\
+    // on the true distance to any of them: past edge, smoothstep() below\n\
+    // saturates regardless of the exact value, so skipping the group here\n\
+    // changes nothing about the result\n\
+    if (length(p - bound.xyz) - bound.w > edge) {\n\
+      continue;\n\
+    }\n\
+    bool inRadius = false;\n\
+    for (int j = 0; j < SPOTLIGHT_GROUP_SIZE; ++j) {\n\
+      int i = g * SPOTLIGHT_GROUP_SIZE + j;\n\
+      if (i >= spotlightCount) {\n\
+        break;\n\
+      }\n\
+      highp vec4 s = spotlightSpheres[i];\n\
+      dist = min(dist, length(p - s.xyz) - s.w);\n\
+      // already as unfaded as it gets: further spheres can only keep dist\n\
+      // at or below spotlightParams.x, never raise it back out\n\
+      if (dist <= spotlightParams.x) {\n\
+        inRadius = true;\n\
+        break;\n\
+      }\n\
+    }\n\
+    if (inRadius) {\n\
+      break;\n\
+    }\n\
   }\n\
   return mix(1.0, spotlightParams.z,\n\
              smoothstep(spotlightParams.x, spotlightParams.x + spotlightParams.y, dist));\n\

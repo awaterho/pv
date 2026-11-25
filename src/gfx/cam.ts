@@ -18,6 +18,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 import { vec3, vec4, mat3, mat4 } from 'gl-matrix';
+import { MAX_SPOTLIGHT_SPHERES, MAX_SPOTLIGHT_SPHERE_GROUPS } from './shaders';
+import { spotlightGroupBounds } from '../spotlight';
+
+const SPOTLIGHT_GROUP_SIZE = MAX_SPOTLIGHT_SPHERES / MAX_SPOTLIGHT_SPHERE_GROUPS;
 
 // canvas.ts (not yet converted) stashes the viewport size directly on the
 // GL context object.
@@ -49,7 +53,9 @@ export interface ShaderProgram extends WebGLProgram {
   hoverSymId?: WebGLUniformLocation | null;
   // the vertex shaders with SPOTLIGHT (shaders.ts) only
   spotlightCount?: WebGLUniformLocation | null;
+  spotlightGroupCount?: WebGLUniformLocation | null;
   spotlightSpheres?: WebGLUniformLocation | null;
+  spotlightGroups?: WebGLUniformLocation | null;
   spotlightParams?: WebGLUniformLocation | null;
   modelMat?: WebGLUniformLocation | null;
   stateId: number;
@@ -117,6 +123,9 @@ class Cam {
   private _hoverColor: vec4;
   private _hoverSymId = -1;
   private _spotlightSpheres: Float32Array | null = null;
+  // one bounding sphere per SPOTLIGHT_GROUP_SIZE consecutive _spotlightSpheres,
+  // kept alongside it -- see spotlightGroupBounds()
+  private _spotlightGroups: Float32Array | null = null;
   private _spotlightParams = new Float32Array(3);
   private _spotlit = false;
   private static readonly _identity = mat4.create();
@@ -499,6 +508,8 @@ class Cam {
   setSpotlight(spheres: Float32Array | null, radius = 0, falloff = 0,
                opacity = 1): void {
     this._spotlightSpheres = spheres !== null && spheres.length > 0 ? spheres : null;
+    this._spotlightGroups = this._spotlightSpheres !== null
+      ? spotlightGroupBounds(this._spotlightSpheres, SPOTLIGHT_GROUP_SIZE) : null;
     this._spotlightParams.set([radius, falloff, opacity]);
     this._incrementStateId();
   }
@@ -529,6 +540,8 @@ class Cam {
     if (shader.spotlightCount) {
       gl.uniform1i(shader.spotlightCount, this.spotlightActive()
                    ? this._spotlightSpheres!.length / 4 : 0);
+      gl.uniform1i(shader.spotlightGroupCount!, this.spotlightActive()
+                   ? this._spotlightGroups!.length / 4 : 0);
       gl.uniformMatrix4fv(shader.modelMat!, false,
                           additionalTransform ?? Cam._identity);
     }
@@ -566,6 +579,7 @@ class Cam {
     gl.uniform1i(shader.opaqueOnly, this._opaqueOnly ? 1 : 0);
     if (shader.spotlightSpheres && this._spotlightSpheres !== null) {
       gl.uniform4fv(shader.spotlightSpheres, this._spotlightSpheres);
+      gl.uniform4fv(shader.spotlightGroups!, this._spotlightGroups!);
       gl.uniform3fv(shader.spotlightParams!, this._spotlightParams);
     }
   }

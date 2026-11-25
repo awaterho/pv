@@ -30,7 +30,7 @@ fetch('https://data.rcsb.org/rest/v1/core/entry/' + id)
 
 ## Detail
 
-With the default `quality: 'auto'`, structures with more than 50,000 residues to draw, counting the copies of a [biological assembly](./assemblies), get less detailed geometry. Set `quality: 'high'` to keep full detail, or `'low'` to have it for everything.
+With the default `quality: 'auto'`, structures with more than 3,000 residues to draw, counting the copies of a [biological assembly](./assemblies), get medium detail, and more than 50,000 get low. Set `quality: 'high'` to keep full detail, or `'medium'`/`'low'` to have one of those for everything.
 
 ## Assemblies
 

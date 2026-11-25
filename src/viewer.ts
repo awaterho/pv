@@ -82,6 +82,12 @@ const QUALITY_DETAIL: Record<string, { arcDetail: number; sphereDetail: number; 
 // triangles as a cartoon at high detail.
 const AUTO_LOW_QUALITY_RESIDUES = 50000;
 
+// ...and more than this (but not more than AUTO_LOW_QUALITY_RESIDUES) get
+// medium detail: common oligomers (a few thousand residues once symmetry
+// copies are counted) already drag on rotate/hover at full detail, well
+// before they approach the capsid-sized case above.
+const AUTO_MEDIUM_QUALITY_RESIDUES = 3000;
+
 interface CountedStructure {
   residueCount(): number;
   chains(): { name(): string; residues(): unknown[] }[];
@@ -617,8 +623,9 @@ class Viewer {
   }
 
   // 'high', 'medium' or 'low' geometry detail for everything drawn from
-  // then on, or 'auto' (the default): high, except low for structures that draw more than
-  // AUTO_LOW_QUALITY_RESIDUES residues, see _handleStandardMolOptions().
+  // then on, or 'auto' (the default): high, medium above
+  // AUTO_MEDIUM_QUALITY_RESIDUES residues drawn and low above
+  // AUTO_LOW_QUALITY_RESIDUES, see _handleStandardMolOptions().
   quality(qual?: string): string {
     if (qual === undefined) {
       return this._options.quality;
@@ -1325,16 +1332,20 @@ class Viewer {
         resolved.showRelated = 'asym';
       }
     }
-    // with quality 'auto', a huge structure gets low detail unless the call
-    // asks for its own: every frame and every hover pick draws all of its
-    // triangles, about five times as many at high detail
-    if (this._options.quality === 'auto' &&
-        drawnResidueCount(structure as never, resolved.showRelated as string) >
-          AUTO_LOW_QUALITY_RESIDUES) {
-      const low = QUALITY_DETAIL['low']!;
-      resolved.arcDetail = resolved.arcDetail ?? low.arcDetail;
-      resolved.sphereDetail = resolved.sphereDetail ?? low.sphereDetail;
-      resolved.splineDetail = resolved.splineDetail ?? low.splineDetail;
+    // with quality 'auto', a large structure gets medium or low detail
+    // unless the call asks for its own: every frame and every hover pick
+    // draws all of its triangles, about five times as many at high detail
+    // as at low.
+    if (this._options.quality === 'auto') {
+      const drawn = drawnResidueCount(structure as never, resolved.showRelated as string);
+      const tier = drawn > AUTO_LOW_QUALITY_RESIDUES ? 'low'
+        : drawn > AUTO_MEDIUM_QUALITY_RESIDUES ? 'medium' : null;
+      if (tier !== null) {
+        const detail = QUALITY_DETAIL[tier]!;
+        resolved.arcDetail = resolved.arcDetail ?? detail.arcDetail;
+        resolved.sphereDetail = resolved.sphereDetail ?? detail.sphereDetail;
+        resolved.splineDetail = resolved.splineDetail ?? detail.splineDetail;
+      }
     }
     return resolved;
   }

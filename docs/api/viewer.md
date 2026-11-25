@@ -12,7 +12,7 @@ Creates a viewer in `element`: a canvas of the given size, with mouse, touch and
 |---|---|---|
 | `width`, `height` | 500 | Size in CSS pixels, or `'auto'` for the size of `element` |
 | `antialias` | `true` | Draw at twice the size and scale down, for smooth edges. Only when the viewer is created. |
-| `quality` | `'auto'` | Detail of curved geometry: `'high'`, `'medium'`, `'low'`, or `'auto'` (high, and low above 50,000 residues) |
+| `quality` | `'auto'` | Detail of curved geometry: `'high'`, `'medium'`, `'low'`, or `'auto'` (high, medium above 3,000 residues, low above 50,000) |
 | `background` | `'white'` | Background color, also the color of the fog |
 | `fog` | `true` | Fade things further back into the background |
 | `outline` | `false` | Outline silhouettes |

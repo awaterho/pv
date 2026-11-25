@@ -22,6 +22,8 @@ PV is built as one file in three formats, so that it fits however you load scrip
 
 Each is minified, with a matching `.map` file (e.g. `pv.iife.js.map`) next to it — optional, but keep it alongside the script so browser devtools can show you original source locations instead of minified code when debugging. For the unminified files themselves, run `npm run build:debug` instead; it writes the same three formats to `dist-debug/`.
 
+Or skip building it yourself: `<script src="https://awaterho.github.io/pv/demo/dist/pv.iife.js">` pulls the latest build straight from the [demo page](https://awaterho.github.io/pv/demo/), no clone or build step needed. It tracks whatever is currently published, though, so pin a version by cloning and building instead if your page needs to be sure what it's running.
+
 A complete page:
 
 ```html

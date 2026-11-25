@@ -276,7 +276,9 @@ class Canvas {
     shaderProgram.opaqueOnly = getUniformLoc(shaderProgram, 'opaqueOnly')!;
     shaderProgram.matte = getUniformLoc(shaderProgram, 'matte');
     shaderProgram.spotlightCount = getUniformLoc(shaderProgram, 'spotlightCount');
+    shaderProgram.spotlightGroupCount = getUniformLoc(shaderProgram, 'spotlightGroupCount');
     shaderProgram.spotlightSpheres = getUniformLoc(shaderProgram, 'spotlightSpheres');
+    shaderProgram.spotlightGroups = getUniformLoc(shaderProgram, 'spotlightGroups');
     shaderProgram.spotlightParams = getUniformLoc(shaderProgram, 'spotlightParams');
     shaderProgram.modelMat = getUniformLoc(shaderProgram, 'modelMat');
 
